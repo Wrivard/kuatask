@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/shell/sidebar";
+import { StoreBoot } from "@/components/shell/store-boot";
 
 /**
  * The app shell. Store hydration, hotkeys and the command palette mount here
@@ -30,6 +31,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-dvh">
+      <StoreBoot />
       <Sidebar workspaceName={workspace.name} />
       <div className="min-w-0 flex-1">{children}</div>
     </div>

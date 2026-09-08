@@ -1,0 +1,199 @@
+"use client";
+
+import * as React from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { ChevronRight } from "lucide-react";
+import { TaskComposer } from "@/components/task/task-composer";
+import { TaskModal } from "@/components/task/task-modal";
+import { TaskRow } from "@/components/task/task-row";
+import { ListSection } from "./list-section";
+import { COMPLETION, exit } from "@/lib/motion";
+import { bucketOf, daysFromToday, isOverdue, today, type Bucket } from "@/lib/time";
+import { useStore, type Task } from "@/lib/store";
+import { copy } from "@/lib/copy";
+import { cn } from "@/lib/utils";
+
+const SECTIONS: { bucket: Bucket; title: string }[] = [
+  { bucket: "today", title: copy.nav.today },
+  { bucket: "tomorrow", title: copy.nav.tomorrow },
+  { bucket: "week", title: copy.nav.week },
+  { bucket: "month", title: copy.nav.month },
+  { bucket: "later", title: copy.nav.later },
+  { bucket: "undated", title: copy.nav.undated },
+];
+
+/**
+ * The default route. Every section is a useMemo over the one task array in the
+ * store — switching views costs zero requests and shows zero loading states.
+ */
+export function ListView() {
+  const ready = useStore((s) => s.ready);
+  const tasks = useStore((s) => s.tasks);
+  const [openId, setOpenId] = React.useState<string | null>(null);
+  const [doneOpen, setDoneOpen] = React.useState(false);
+
+  const holding = useCompletionHold(tasks);
+
+  const { sections, completedToday } = React.useMemo(() => {
+    const byBucket = new Map<Bucket, Task[]>();
+    const done: Task[] = [];
+
+    for (const task of tasks) {
+      // a just-completed row keeps its place for the hold — see § 8.1
+      const stillInPlace = task.status === "todo" || holding.has(task.id);
+
+      if (stillInPlace) {
+        const bucket = bucketOf(task.due_on);
+        const list = byBucket.get(bucket) ?? [];
+        list.push(task);
+        byBucket.set(bucket, list);
+        continue;
+      }
+
+      // only today's completions are in the UI; yesterday's are still in the DB
+      if (task.completed_at?.slice(0, 10) === today()) done.push(task);
+    }
+
+    // overdue rises to the top of Aujourd'hui, then time, then creation order
+    const todayList = byBucket.get("today");
+    if (todayList) {
+      todayList.sort((a, b) => {
+        const ao = isOverdue(a.due_on, a.status) ? 0 : 1;
+        const bo = isOverdue(b.due_on, b.status) ? 0 : 1;
+        if (ao !== bo) return ao - bo;
+        if (ao === 0) return daysFromToday(a.due_on!) - daysFromToday(b.due_on!);
+        return (a.due_time ?? "99").localeCompare(b.due_time ?? "99");
+      });
+    }
+
+    return {
+      sections: SECTIONS.map((s) => ({ ...s, tasks: byBucket.get(s.bucket) ?? [] })),
+      completedToday: done,
+    };
+  }, [tasks, holding]);
+
+  const hasAnyTask = tasks.length > 0;
+  const visibleCount = sections.reduce((n, s) => n + s.tasks.length, 0);
+
+  // the one loading state in the whole app
+  if (!ready) return <Skeleton />;
+
+  return (
+    <div className="max-w-[760px] px-6 py-6">
+      <TaskComposer />
+
+      {sections.map((s) => (
+        <ListSection
+          key={s.bucket}
+          title={s.title}
+          tasks={s.tasks}
+          onOpen={setOpenId}
+        />
+      ))}
+
+      {visibleCount === 0 && (
+        <p className="text-[13px] text-fg-muted">
+          {hasAnyTask ? copy.empty.today : copy.empty.firstRun}
+        </p>
+      )}
+
+      {completedToday.length > 0 && (
+        <section className="mt-2">
+          <button
+            type="button"
+            onClick={() => setDoneOpen((v) => !v)}
+            className="flex w-full items-baseline gap-1.5 py-1 text-left"
+          >
+            <ChevronRight
+              className={cn(
+                "size-3.5 shrink-0 self-center text-fg-faint transition-transform",
+                doneOpen && "rotate-90",
+              )}
+              strokeWidth={1.5}
+            />
+            <span className="text-[13px] font-medium text-fg-muted">
+              {copy.nav.doneToday}
+            </span>
+            <span className="ml-auto font-mono text-[12px] tabular-nums text-fg-faint">
+              {completedToday.length}
+            </span>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {doneOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={exit}
+                style={{ overflow: "hidden" }}
+              >
+                {completedToday.map((task) => (
+                  <TaskRow key={task.id} task={task} onOpen={setOpenId} />
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </section>
+      )}
+
+      <TaskModal taskId={openId} onClose={() => setOpenId(null)} />
+    </div>
+  );
+}
+
+/**
+ * Holds a row in place for 900ms after it goes done, then releases it to
+ * collapse into the footer.
+ *
+ * This watches status transitions in the store rather than taking a callback
+ * from the checkbox, so a task the other person completes gets the same beat on
+ * your screen — which is what § 8.7 asks for.
+ */
+function useCompletionHold(tasks: Task[]): Set<string> {
+  const [holding, setHolding] = React.useState<Set<string>>(new Set());
+  const previous = React.useRef<Map<string, string>>(new Map());
+
+  React.useEffect(() => {
+    const before = previous.current;
+    const next = new Map<string, string>();
+    const justCompleted: string[] = [];
+
+    for (const task of tasks) {
+      next.set(task.id, task.status);
+      if (task.status === "done" && before.get(task.id) === "todo") {
+        justCompleted.push(task.id);
+      }
+    }
+
+    previous.current = next;
+    if (justCompleted.length === 0) return;
+
+    setHolding((prev) => new Set([...prev, ...justCompleted]));
+
+    const timer = setTimeout(() => {
+      setHolding((prev) => {
+        const updated = new Set(prev);
+        justCompleted.forEach((id) => updated.delete(id));
+        return updated;
+      });
+    }, COMPLETION.holdBeforeCollapse);
+
+    return () => clearTimeout(timer);
+  }, [tasks]);
+
+  return holding;
+}
+
+function Skeleton() {
+  return (
+    <div className="max-w-[760px] px-6 py-6">
+      <div className="h-10 w-full rounded-sm border border-border bg-surface" />
+      <div className="mt-6 flex flex-col gap-3">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-5 w-full max-w-[420px] rounded-sm bg-surface" />
+        ))}
+      </div>
+    </div>
+  );
+}
