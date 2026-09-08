@@ -3,11 +3,13 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { setErrorHandler, useStore } from "@/lib/store";
+import { useRealtimeTasks } from "@/lib/realtime";
 import { copy } from "@/lib/copy";
 
 /**
- * Hydrates the store once on shell mount and connects the store's error channel
- * to sonner. The store stays free of UI imports so it remains testable.
+ * Hydrates the store once on shell mount, connects the store's error channel to
+ * sonner, and opens the realtime subscription. The store stays free of UI
+ * imports so it remains testable.
  */
 export function StoreBoot() {
   React.useEffect(() => {
@@ -16,6 +18,9 @@ export function StoreBoot() {
     );
     void useStore.getState().hydrate();
   }, []);
+
+  // no-ops until hydrate lands a workspaceId, then subscribes
+  useRealtimeTasks();
 
   return null;
 }

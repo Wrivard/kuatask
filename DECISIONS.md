@@ -218,3 +218,85 @@ shell", which is what it is.
 - Anonymous REST reads return `[]` on all five tables, `pending_invites`
   included — that is the one that would leak the two seeded addresses
 - `/` and `/no-access` redirect to `/login` without a session
+
+---
+
+## Phase 2 — core loop
+
+### Three corrections to the reference code
+
+The reference files are load-bearing and were copied rather than rewritten, but
+three things did not survive contact with the app.
+
+**`pending` is ref-counted, not a `Set`.** The modal saves on every change, so a
+row routinely has two or three overlapping writes. With a `Set`, the first
+response to land cleared the flag while the others were still open, and the next
+realtime echo overwrote newer local state — the exact flicker local precedence
+exists to prevent. Now a `Map<string, number>`.
+
+**`toggleTask` sets `completed_by` optimistically.** It is server-owned and the
+trigger overwrites it milliseconds later, but "Terminé aujourd'hui", the streak
+and the partner dot all read it, and none of them may wait for a round trip.
+
+**`parse-fr` numeric dates now roll to next year.** `"faire le suivi 15/03"`
+resolved to 2026-03-15 — six months in the past on the day it was tested — while
+`"15 mars"` correctly rolled to 2027. A task that reads as overdue the instant it
+is captured is worse than one with no date. The two branches now agree.
+
+`deleteTask`'s undo also had an unchecked insert. The insert policy requires
+`created_by = auth.uid()`, so undoing a delete of the other person's task fails
+silently and leaves a row on screen the server does not have. It now rolls back
+and surfaces the error.
+
+### Composer chip dismissal restores date words
+
+Dismissing a date or time chip re-appends the matched text to the title, because
+the parser being wrong means the words belonged to the title — "Appeler Marie
+demain matin" must not silently lose "demain". They are appended rather than
+slotted back in place; word order suffers slightly, losing the word does not.
+`#label`, `@handle` and `!` are notation rather than prose, so they stay
+stripped.
+
+### Modal text fields debounce at 400ms
+
+The store pushes an undo entry per mutation. A write per keystroke would bury the
+20-entry stack under a single sentence of typing, so title and notes debounce
+while every other field still writes immediately on change.
+
+### parse-fr has no automated test coverage
+
+`reference/README.md` asks for it and the seven required strings were verified by
+running the parser directly, all seven passing. A committed test needs a test
+runner, which is not in the locked stack — flagging rather than adding one.
+
+---
+
+## Phase 3 — shared
+
+**The assignee filter is `string | null`, not a three-way enum.** `null` is Tout
+and anything else is a user id, so "Moi" and the partner are the same code path
+and adding a third person changes nothing. Persisted to `localStorage`, and a
+saved filter pointing at someone no longer in the workspace is dropped on
+hydrate rather than silently hiding every task.
+
+**The completion hold watches store transitions rather than taking a callback
+from the checkbox.** That is what gives a task the other person completes the
+same 900ms beat on your screen, which § 8.7 asks for. The partner's dot pulses
+when `completed_by` is not you; no tone, because sound is reserved for your own
+actions.
+
+**Removing a member touches `workspace_members` only.** Their tasks stay and show
+no assignee. Deleting someone's tasks when they leave loses work.
+
+**The invite rolls back its own row on send failure.** Without it a failed send
+leaves a pending invite nobody was told about and no way to see the send failed.
+
+**Service role key is used in exactly one file**, `settings/people/actions.ts`,
+which is `'use server'`. Verified absent from `.next/static` after the build.
+
+### Still owner-only — cannot be done through MCP
+
+- The **French invite email template** (`docs/03-auth-invitations.md`) has to be
+  set in the dashboard under Authentication → Email Templates → Invite user.
+  Untested against a real address so far.
+- Email auth settings and redirect URLs, as flagged at the end of Phase 1.

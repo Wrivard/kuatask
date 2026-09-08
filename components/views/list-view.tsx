@@ -28,11 +28,36 @@ const SECTIONS: { bucket: Bucket; title: string }[] = [
  */
 export function ListView() {
   const ready = useStore((s) => s.ready);
-  const tasks = useStore((s) => s.tasks);
+  const allTasks = useStore((s) => s.tasks);
+  const members = useStore((s) => s.members);
+  const me = useStore((s) => s.me);
+  const filter = useStore((s) => s.assigneeFilter);
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [doneOpen, setDoneOpen] = React.useState(false);
 
-  const holding = useCompletionHold(tasks);
+  const holding = useCompletionHold(allTasks);
+
+  const tasks = React.useMemo(
+    () =>
+      filter === null
+        ? allTasks
+        : allTasks.filter((t) => t.assignee_id === filter),
+    [allTasks, filter],
+  );
+
+  /*
+    § 8.7 — when the other person completes a task on your screen, their dot
+    pulses once beside the row. No tone: sound is reserved for your own actions.
+  */
+  const pulseIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    for (const task of tasks) {
+      if (holding.has(task.id) && task.completed_by && task.completed_by !== me?.id) {
+        ids.add(task.id);
+      }
+    }
+    return ids;
+  }, [tasks, holding, me?.id]);
 
   const { sections, completedToday } = React.useMemo(() => {
     const byBucket = new Map<Bucket, Task[]>();
@@ -72,8 +97,18 @@ export function ListView() {
     };
   }, [tasks, holding]);
 
-  const hasAnyTask = tasks.length > 0;
   const visibleCount = sections.reduce((n, s) => n + s.tasks.length, 0);
+
+  const emptyMessage = (() => {
+    if (filter !== null) {
+      const who =
+        filter === me?.id
+          ? copy.filter.mine
+          : (members.find((m) => m.id === filter)?.display_name ?? copy.filter.mine);
+      return copy.empty.filtered(who);
+    }
+    return allTasks.length > 0 ? copy.empty.today : copy.empty.firstRun;
+  })();
 
   // the one loading state in the whole app
   if (!ready) return <Skeleton />;
@@ -85,16 +120,16 @@ export function ListView() {
       {sections.map((s) => (
         <ListSection
           key={s.bucket}
+          id={`section-${s.bucket}`}
           title={s.title}
           tasks={s.tasks}
           onOpen={setOpenId}
+          pulseIds={pulseIds}
         />
       ))}
 
       {visibleCount === 0 && (
-        <p className="text-[13px] text-fg-muted">
-          {hasAnyTask ? copy.empty.today : copy.empty.firstRun}
-        </p>
+        <p className="text-[13px] text-fg-muted">{emptyMessage}</p>
       )}
 
       {completedToday.length > 0 && (

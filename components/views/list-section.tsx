@@ -13,11 +13,13 @@ import type { Task } from "@/lib/store";
  * spring when a completed row leaves, instead of jumping.
  */
 export function ListSection({
+  id,
   title,
   tasks,
   onOpen,
   pulseIds,
 }: {
+  id?: string;
   title: string;
   tasks: Task[];
   onOpen: (id: string) => void;
@@ -26,7 +28,7 @@ export function ListSection({
   if (tasks.length === 0) return null;
 
   return (
-    <motion.section layout className="mb-6">
+    <motion.section id={id} layout className="mb-6 scroll-mt-6">
       <header className="mb-1 flex items-baseline justify-between">
         <h2 className="text-[13px] font-medium text-fg-muted">{title}</h2>
         <span className="font-mono text-[12px] tabular-nums text-fg-faint">

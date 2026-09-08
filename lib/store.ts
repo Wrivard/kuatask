@@ -41,6 +41,13 @@ type Store = {
   pending: Map<string, number>;
   undoStack: Inverse[];
 
+  /**
+   * Assignee lens: null is Tout, otherwise a user id. A lens rather than a
+   * location, so it lives here and in localStorage instead of the URL.
+   */
+  assigneeFilter: string | null;
+  setAssigneeFilter: (id: string | null) => void;
+
   hydrate: () => Promise<void>;
 
   createTask: (input: Partial<Task> & { title: string }) => void;
@@ -53,6 +60,7 @@ type Store = {
 };
 
 const UNDO_LIMIT = 20;
+const FILTER_KEY = 'kua-assignee-filter';
 
 export const useStore = create<Store>((set, get) => {
   const supabase = createClient();
@@ -82,6 +90,17 @@ export const useStore = create<Store>((set, get) => {
     ready: false,
     pending: new Map<string, number>(),
     undoStack: [],
+    assigneeFilter: null,
+
+    setAssigneeFilter(id) {
+      set({ assigneeFilter: id });
+      try {
+        if (id === null) localStorage.removeItem(FILTER_KEY);
+        else localStorage.setItem(FILTER_KEY, id);
+      } catch {
+        // private mode or blocked storage — the filter just will not persist
+      }
+    },
 
     async hydrate() {
       const { data: auth } = await supabase.auth.getUser();
@@ -107,11 +126,23 @@ export const useStore = create<Store>((set, get) => {
         supabase.from('profiles').select('*'),
       ]);
 
+      let savedFilter: string | null = null;
+      try {
+        savedFilter = localStorage.getItem(FILTER_KEY);
+      } catch {
+        // blocked storage — fall back to Tout
+      }
+
+      // a filter pointing at someone who is no longer a member is dropped
+      const filterIsValid =
+        savedFilter !== null && (members ?? []).some((m) => m.id === savedFilter);
+
       set({
         tasks: tasks ?? [],
         members: members ?? [],
         me: members?.find((m) => m.id === auth.user!.id) ?? null,
         workspaceId: wsId,
+        assigneeFilter: filterIsValid ? savedFilter : null,
         ready: true,
       });
     },
