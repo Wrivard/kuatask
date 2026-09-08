@@ -117,9 +117,9 @@ export function TaskComposer({
         placeholder={copy.composer.placeholder}
         aria-label={copy.composer.placeholder}
         className={cn(
-          "h-10 w-full rounded-sm border border-border bg-surface px-3",
+          "h-10 w-full rounded-sm border border-control bg-surface px-3",
           "text-[15px] leading-[1.4] tracking-[-0.011em]",
-          "placeholder:text-fg-faint focus:border-border-strong focus:outline-none",
+          "placeholder:text-fg-faint focus:border-accent focus:outline-none",
         )}
       />
 

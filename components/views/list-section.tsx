@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { TaskRow } from "@/components/task/task-row";
 import { COMPLETION, exit } from "@/lib/motion";
 import type { Task } from "@/lib/store";
@@ -29,6 +29,8 @@ export function ListSection({
   focusedId?: string | null;
   onFocus?: (id: string) => void;
 }) {
+  const reduced = useReducedMotion();
+
   if (tasks.length === 0) return null;
 
   return (
@@ -45,7 +47,7 @@ export function ListSection({
           <motion.div
             key={task.id}
             layout
-            exit={{ height: 0, opacity: 0 }}
+            exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
             transition={{ ...exit, duration: COMPLETION.collapse / 1000 }}
             style={{ overflow: "hidden" }}
           >

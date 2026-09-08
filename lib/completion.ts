@@ -4,6 +4,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { completionTone, uncompleteTone, tick } from "@/lib/sound";
+import { announce } from "@/components/shell/live-region";
 import { copy } from "@/lib/copy";
 
 /**
@@ -26,7 +27,7 @@ let batchTimer: ReturnType<typeof setTimeout> | null = null;
  * Rapid completions collapse into one toast. A stack of toasts during a fast
  * clear-out is noise that fights the thing it is celebrating.
  */
-function announce(undo: () => void) {
+function notify(undo: () => void) {
   batch += 1;
   const count = batch;
 
@@ -59,7 +60,8 @@ export function useToggleWithFeedback() {
       completionTone();
       tick();
       state.toggleTask(id);
-      announce(state.undo);
+      notify(state.undo);
+      announce(`${task.title} ${copy.nav.done.toLowerCase()}`);
     } else {
       // reopening should feel neutral, not punitive
       uncompleteTone();

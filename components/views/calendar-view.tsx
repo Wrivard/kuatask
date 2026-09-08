@@ -10,7 +10,7 @@ import {
   formatMonthYear,
   formatTime,
   monthGrid,
-  nowTz,
+  nowDate,
   toDayString,
   isToday,
 } from "@/lib/time";
@@ -37,7 +37,7 @@ export function CalendarView() {
   const filter = useStore((s) => s.assigneeFilter);
   const reschedule = useStore((s) => s.reschedule);
 
-  const [anchor, setAnchor] = React.useState(() => new Date(nowTz()));
+  const [anchor, setAnchor] = React.useState(nowDate);
   const [mode, setMode] = React.useState<"month" | "week">("month");
   const [openDay, setOpenDay] = React.useState<string | null>(null);
   const [openTask, setOpenTask] = React.useState<string | null>(null);
@@ -83,7 +83,7 @@ export function CalendarView() {
 
       if (e.key === "ArrowLeft") setAnchor((a) => addMonths(a, -1));
       else if (e.key === "ArrowRight") setAnchor((a) => addMonths(a, 1));
-      else if (e.key.toLowerCase() === "t") setAnchor(new Date(nowTz()));
+      else if (e.key.toLowerCase() === "t") setAnchor(nowDate());
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

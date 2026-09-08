@@ -12,6 +12,7 @@ import { COMPLETION, exit } from "@/lib/motion";
 import {
   bucketOf,
   computeStreak,
+  dayOfMonth,
   daysFromToday,
   isOverdue,
   nowTz,
@@ -260,7 +261,7 @@ export function ListView() {
         <ClearOut
           completedToday={myToday.done}
           streak={streak}
-          seed={new Date(nowTz()).getDate()}
+          seed={dayOfMonth()}
         />
       ) : (
         visibleCount === 0 && (

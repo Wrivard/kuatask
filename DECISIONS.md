@@ -31,12 +31,19 @@ Format:
 
 ## Phase 6 — tuning values
 
-Record the final numbers from § 8.9 here:
+**All four are still at their starting values, and that is not a decision — it
+is an unfinished step.** § 8.9 says these cannot be specified correctly in
+advance and must be set by feel after a full working day of real use. Nobody has
+used this app yet, so tuning them now would be inventing numbers.
 
-- Row hold before collapse: ___ms (started at 900)
-- Tone gain: ___ (started at 0.09)
-- Scale reset window: ___s (started at 20)
-- Checkmark draw duration: ___ms (started at 180)
+| Value | Current | Symptom if wrong |
+|---|---|---|
+| Row hold before collapse | 900ms (`COMPLETION.holdBeforeCollapse`) | Too short reads as deletion; too long feels stuck |
+| Tone gain | 0.09 (`GAIN` in `lib/sound.ts`) | Too loud is embarrassing in public; too quiet is pointless |
+| Scale reset window | 20s (`RESET_MS` in `lib/sound.ts`) | Too short never builds a run; too long climbs during unrelated work |
+| Checkmark draw duration | 180ms (`COMPLETION.checkDrawDuration`) | Too fast is a pop; too slow is sluggish |
+
+Replace this table with the tuned numbers and a sentence each on why.
 
 ---
 
@@ -366,3 +373,93 @@ Route JS at ~66 KB gzipped for `/` and `/calendar` against a 200 KB budget
 The tone, the haptics, the 900ms hold, the sweep and the drag all build and
 typecheck, but none of them have been seen or heard. § 8.9 tuning stays at its
 starting values until Phase 6, which is explicitly a by-feel pass.
+
+---
+
+## Phase 6 — polish, and what is still open
+
+### Contrast: a genuine conflict between two spec documents
+
+`docs/04-design-system.md` fixes the palette by hex. `docs/10-quality-bar.md`
+sets contrast gates that several of those values fail. The quality bar names
+`--color-fg-faint` as "the one to verify", which reads as the author expecting it
+to be checked and fixed, and calls its section non-negotiable — so it was treated
+as binding and the tokens moved. Measured against all three surfaces of each
+theme (bg, surface, surface-hover):
+
+| Token | Was | Worst ratio | Now | Worst ratio |
+|---|---|---|---|---|
+| dark `fg-faint` | `#5A5A5A` | 2.74 | `#7F7F7F` | 4.52 |
+| dark `fg-muted` | `#8F8F8F` | 5.60 | `#ABABAB` | 7.88 |
+| light `fg-faint` | `#999999` | 2.73 | `#707070` | 4.50 |
+| light `fg-muted` | `#666666` | 5.22 | `#545454` | 6.89 |
+| light `accent` | `#1F9D63` | 3.32 | `#197F50` | 4.55 |
+| light `danger` | `#D93636` | 4.44 | `#D03434` | 4.52 |
+
+`fg-muted` moved along with `fg-faint` on purpose: lifting only the faint level
+would have collapsed it into muted and destroyed the three-step ramp the design
+depends on. The two are now 1.7:1 apart in dark and 1.5:1 in light, which stays
+legible as a hierarchy.
+
+**New token `--color-control`** (`#636363` dark, `#8D8D8D` light, both 3:1) for
+the boundary of an interactive control — the checkbox at rest, the composer, the
+inputs. `--color-border` stays a true hairline for decorative dividers, which
+WCAG 1.4.11 exempts. The distinction matters: an 18px checkbox outlined at 1.46:1
+was genuinely hard to find on screen, while a row divider at 1.26:1 is exactly
+the restraint the Vercel/Supabase direction asks for. Hairlines were left alone.
+
+The progress ring's track also moved to `--color-control`, because the unfilled
+part of the ring is what carries "how much is left" and it was invisible.
+
+### Reduced motion
+
+The global CSS media query only reaches CSS transitions; `motion/react` animates
+in JavaScript and ignores it. Three components were animating through it and now
+read `useReducedMotion` explicitly: the progress ring (arc lands instantly), the
+assignee dot (the partner pulse becomes an opacity blink so the signal survives),
+and the list section (collapse becomes a plain crossfade). The checkbox, row and
+clear-out already honoured it.
+
+### All day-derived dates now go through lib/time.ts
+
+Added `nowDate()` and `dayOfMonth()` so components never construct a `Date`. The
+three remaining `new Date()` calls are in `lib/store.ts` on `created_at`,
+`updated_at` and `completed_at` — `timestamptz` columns are absolute instants, so
+UTC is correct there, and the code says so.
+
+### Mobile
+
+Bottom bar with four items, `env(safe-area-inset-bottom)` padding so it cannot
+sit under the home indicator, 44px minimum targets, 52px touch rows, and content
+padded to clear the fixed bar. No keyboard hints render on touch. The composer
+sits at the top of the content column, so the software keyboard opens below it.
+
+### Security, re-verified on a clean production build
+
+- Service role key absent from the **entire** `.next` output, not just
+  `.next/static` — it is read from `process.env` at runtime and never inlined
+- `NEXT_PUBLIC_*` is exactly the URL, the anon key and the site URL
+- Anonymous REST reads return `[]` on all five tables
+
+### Measured
+
+- App route JS ~66 KB gzipped against a 200 KB budget
+- Typecheck, lint and production build clean; no `any`, no `@ts-ignore`
+- Every route gates correctly without a session
+
+### NOT done — these need hardware or a human
+
+Listed plainly because Phase 6 is where they belong and they are not finished:
+
+- **The four § 8.9 values are untuned.** See the table above.
+- **No real-device pass.** The bottom bar, safe areas, long-press drag and the
+  software keyboard are written to spec and have never run on a phone. The spec
+  says to test long-press drag on a real device, not a simulator.
+- **Cold load on 4G and CLS are unmeasured.** Both need a browser profile against
+  a deployed URL.
+- **Nothing has been seen or heard.** The tone, the 900ms hold, the sweep, the
+  ring, the partner pulse — all typecheck and build, none have been observed.
+- **`docs/12-definition-of-done.md` items 1–8 are unverified.** Every one says
+  "verify by doing it". Item 5 in particular wants the system clock moved into
+  both DST offsets, and item 8 is the actual acceptance test.
+- **Not deployed.** The owner said they would push to Vercel themselves.

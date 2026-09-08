@@ -43,7 +43,7 @@ export function TaskCheckbox({
       aria-checked={checked}
       aria-label={label}
       onClick={handle}
-      className="relative grid size-[18px] shrink-0 place-items-center overflow-hidden rounded-sm border border-border-strong"
+      className="relative grid size-[18px] shrink-0 place-items-center overflow-hidden rounded-sm border border-control"
       animate={reduced ? {} : { scale: checked ? [1, 0.88, 1.04, 1] : 1 }}
       transition={{ duration: 0.26, times: [0, 0.25, 0.6, 1] }}
     >

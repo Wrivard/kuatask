@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { Check } from "lucide-react";
 import { spring } from "@/lib/motion";
 import { useStore } from "@/lib/store";
@@ -21,6 +21,7 @@ const C = 2 * Math.PI * R;
  * weekly version, and no second ring anywhere.
  */
 export function ProgressRing() {
+  const reduced = useReducedMotion();
   const tasks = useStore((s) => s.tasks);
   const me = useStore((s) => s.me);
 
@@ -58,7 +59,7 @@ export function ProgressRing() {
           cy={SIZE / 2}
           r={R}
           fill="none"
-          stroke="var(--color-border-strong)"
+          stroke="var(--color-control)"
           strokeWidth={STROKE}
         />
         <motion.circle
@@ -72,7 +73,7 @@ export function ProgressRing() {
           strokeDasharray={C}
           initial={false}
           animate={{ strokeDashoffset: offset }}
-          transition={spring}
+          transition={reduced ? { duration: 0 } : spring}
         />
         {complete && (
           <motion.circle
@@ -82,7 +83,7 @@ export function ProgressRing() {
             fill="var(--color-accent)"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={spring}
+            transition={reduced ? { duration: 0 } : spring}
           />
         )}
       </svg>

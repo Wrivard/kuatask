@@ -37,6 +37,19 @@ export function today(): DayString {
   return format(nowTz(), 'yyyy-MM-dd');
 }
 
+/**
+ * Montreal wall-clock as a plain Date, for the calendar's month anchor.
+ * Components must not construct dates themselves — see docs/10-quality-bar.md.
+ */
+export function nowDate(): Date {
+  return new Date(nowTz());
+}
+
+/** Montreal day of the month, used to rotate the clear-out copy per day. */
+export function dayOfMonth(): number {
+  return parseInt(today().slice(-2), 10);
+}
+
 export function tomorrow(): DayString {
   return format(addDays(nowTz(), 1), 'yyyy-MM-dd');
 }

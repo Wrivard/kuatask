@@ -190,6 +190,8 @@ export const useStore = create<Store>((set, get) => {
         completed_at: null,
         completed_by: null,
         position: Date.now() / 1000,
+        // instants, not day buckets — timestamptz columns are absolute, so UTC
+        // is correct here. Every *calendar day* value goes through lib/time.ts.
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       } as Task;

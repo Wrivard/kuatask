@@ -12,6 +12,21 @@
   Accent green is reserved for three things: a completed state, the focus ring,
   and today's marker in the calendar. shadcn's own "accent" role (menu hover) is
   remapped onto --color-hover so it can never borrow the green.
+
+  Two token groups deviate from the literal hex values in docs/04-design-system.md,
+  because docs/10-quality-bar.md sets contrast gates those values fail. The
+  quality bar names --color-fg-faint as "the one to verify", so it is treated as
+  the binding constraint:
+
+    - the fg ramp is darkened/lightened until every level clears 4.5:1 on all
+      three surfaces of its theme, and fg-muted moves with it so the three-step
+      hierarchy survives
+    - --color-control is a new token for the boundary of an interactive control
+      (checkbox at rest, inputs) at 3:1. --color-border stays a true hairline for
+      decorative dividers, which WCAG 1.4.11 exempts — an 18px checkbox outlined
+      at 1.46:1 was genuinely hard to see
+
+  Measured values are recorded in DECISIONS.md.
 */
 
 @custom-variant dark (&:is(.dark *));
@@ -24,11 +39,13 @@
   --hairline: #232323;
   --hairline-strong: #2e2e2e;
   --ink: #ededed;
-  --ink-muted: #8f8f8f;
-  --ink-faint: #5a5a5a;
+  --ink-muted: #ababab;
+  --ink-faint: #7f7f7f;
   --green: #3ecf8e;
   --green-dim: #1f6e4c;
   --red: #f45b5b;
+  /* boundary of an interactive control, held at 3:1 — see the note below */
+  --control: #636363;
 
   /* shadcn semantic roles, pointed at the palette above */
   --background: var(--bg);
@@ -47,7 +64,7 @@
   --hover-foreground: var(--ink);
   --destructive: var(--red);
   --border: var(--hairline);
-  --input: var(--hairline);
+  --input: var(--control);
   --ring: var(--green);
   --sidebar: var(--bg);
   --sidebar-foreground: var(--ink);
@@ -69,11 +86,12 @@
   --hairline: #eaeaea;
   --hairline-strong: #d8d8d8;
   --ink: #0a0a0a;
-  --ink-muted: #666666;
-  --ink-faint: #999999;
-  --green: #1f9d63; /* darkened for contrast on white */
+  --ink-muted: #545454;
+  --ink-faint: #707070;
+  --green: #197f50; /* darkened for contrast on white */
   --green-dim: #a8e5c8;
-  --red: #d93636;
+  --red: #d03434;
+  --control: #8d8d8d;
 }
 
 @theme inline {
@@ -82,6 +100,7 @@
   --color-surface-hover: var(--surface-hover);
   --color-border: var(--hairline);
   --color-border-strong: var(--hairline-strong);
+  --color-control: var(--control);
   --color-fg: var(--ink);
   --color-fg-muted: var(--ink-muted);
   --color-fg-faint: var(--ink-faint);

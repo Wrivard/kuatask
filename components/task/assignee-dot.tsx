@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { spring } from "@/lib/motion";
 import type { Profile } from "@/lib/store";
 
@@ -29,15 +29,20 @@ export function AssigneeDot({
   /** Pulses once when the other person completes a task on your screen. */
   pulse?: boolean;
 }) {
+  const reduced = useReducedMotion();
+
   if (!member) return <span className="size-1.5 shrink-0" aria-hidden />;
+
+  // a scale pulse becomes an opacity blink, so the signal survives either way
+  const pulseAnimation = reduced ? { opacity: [1, 0.3, 1] } : { scale: [1, 2.1, 1] };
 
   return (
     <motion.span
       className="size-1.5 shrink-0 rounded-full"
       style={{ backgroundColor: accentColor(member.accent) }}
       title={member.display_name}
-      animate={pulse ? { scale: [1, 2.1, 1] } : { scale: 1 }}
-      transition={pulse ? { duration: 0.45, times: [0, 0.4, 1] } : spring}
+      animate={pulse ? pulseAnimation : { scale: 1, opacity: 1 }}
+      transition={pulse ? { duration: 0.45, times: [0, 0.4, 1] } : reduced ? { duration: 0 } : spring}
     />
   );
 }
