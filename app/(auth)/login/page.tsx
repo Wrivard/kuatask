@@ -1,0 +1,120 @@
+"use client";
+
+import * as React from "react";
+import { createClient } from "@/lib/supabase/client";
+import { copy } from "@/lib/copy";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+const RESEND_SECONDS = 30;
+
+/**
+ * Magic link only. Seen roughly once a month, so it stays plain: one field,
+ * one button, no logo lockup, no marketing copy, no illustration.
+ */
+export default function LoginPage() {
+  const [email, setEmail] = React.useState("");
+  const [sentTo, setSentTo] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const [sending, setSending] = React.useState(false);
+  const [cooldown, setCooldown] = React.useState(0);
+
+  React.useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [cooldown]);
+
+  // /auth/callback bounces expired or reused links back here
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error") === "expired") {
+      setError(copy.error.linkExpired);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
+
+  async function send(address: string) {
+    setSending(true);
+    setError(null);
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOtp({
+      email: address,
+      options: {
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+      },
+    });
+
+    setSending(false);
+
+    if (error) {
+      setError(copy.error.loginFailed);
+      return;
+    }
+
+    setSentTo(address);
+    setCooldown(RESEND_SECONDS);
+  }
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const address = email.trim();
+    if (!address) return;
+    void send(address);
+  }
+
+  return (
+    <main className="flex min-h-dvh items-center justify-center px-6">
+      <div className="w-full max-w-[320px]">
+        <h1 className="text-[22px] font-semibold tracking-[-0.02em]">
+          {copy.auth.title}
+        </h1>
+
+        {sentTo === null ? (
+          <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-3">
+            <Input
+              type="email"
+              name="email"
+              autoComplete="email"
+              autoFocus
+              required
+              placeholder={copy.auth.emailPlaceholder}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="h-10 rounded-sm text-[15px]"
+            />
+            <Button
+              type="submit"
+              disabled={sending || email.trim() === ""}
+              className="h-10 rounded-sm text-[14px] font-medium"
+            >
+              {sending ? copy.auth.sending : copy.auth.send}
+            </Button>
+          </form>
+        ) : (
+          <div className="mt-6 flex flex-col gap-3">
+            <p className="text-[13px] leading-relaxed text-fg-muted">
+              {copy.auth.sent(sentTo)}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={cooldown > 0 || sending}
+              onClick={() => void send(sentTo)}
+              className="h-10 rounded-sm text-[14px] font-medium"
+            >
+              {cooldown > 0 ? copy.auth.resendIn(cooldown) : copy.auth.resend}
+            </Button>
+          </div>
+        )}
+
+        {error && (
+          <p role="alert" className="mt-3 text-[13px] text-danger">
+            {error}
+          </p>
+        )}
+      </div>
+    </main>
+  );
+}
