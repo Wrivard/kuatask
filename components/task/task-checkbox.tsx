@@ -33,10 +33,7 @@ export function TaskCheckbox({
 
   function handle(e: React.MouseEvent) {
     e.stopPropagation(); // the rest of the row opens the modal
-    if (!checked && typeof navigator !== "undefined" && navigator.vibrate) {
-      navigator.vibrate(8);
-    }
-    onToggle();
+    onToggle(); // tone and haptics live in useToggleWithFeedback
   }
 
   return (

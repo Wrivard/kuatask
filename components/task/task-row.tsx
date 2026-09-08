@@ -7,6 +7,7 @@ import { AssigneeDot } from "./assignee-dot";
 import { COMPLETION } from "@/lib/motion";
 import { daysFromToday, formatDueLabel, formatTime, isOverdue } from "@/lib/time";
 import { useStore, type Task } from "@/lib/store";
+import { useToggleWithFeedback } from "@/lib/completion";
 import { cn } from "@/lib/utils";
 
 /**
@@ -21,13 +22,18 @@ export function TaskRow({
   task,
   onOpen,
   pulseAssignee = false,
+  focused = false,
+  onFocus,
 }: {
   task: Task;
   onOpen: (id: string) => void;
   pulseAssignee?: boolean;
+  /** Row focus is separate from DOM focus and from selection. */
+  focused?: boolean;
+  onFocus?: (id: string) => void;
 }) {
   const reduced = useReducedMotion();
-  const toggleTask = useStore((s) => s.toggleTask);
+  const toggle = useToggleWithFeedback();
   const members = useStore((s) => s.members);
 
   const done = task.status === "done";
@@ -51,19 +57,20 @@ export function TaskRow({
       role="button"
       tabIndex={0}
       onClick={() => onOpen(task.id)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") onOpen(task.id);
-      }}
+      onMouseEnter={() => onFocus?.(task.id)}
+      data-focused={focused || undefined}
       className={cn(
         "flex h-11 items-center gap-3 rounded-md border-b border-border px-3 text-left transition-colors md:h-11",
         "hover:bg-surface-hover",
         "max-md:h-13",
+        // focus is a 1px accent ring, and never lands flush against the header
+        focused && "scroll-mt-20 ring-1 ring-accent ring-inset",
         done && "opacity-45",
       )}
     >
       <TaskCheckbox
         checked={done}
-        onToggle={() => toggleTask(task.id)}
+        onToggle={() => toggle(task.id)}
         label={task.title}
       />
 

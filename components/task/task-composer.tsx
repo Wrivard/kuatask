@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { parseFr } from "@/lib/parse-fr";
 import { formatDueLabel, formatTime } from "@/lib/time";
 import { useStore } from "@/lib/store";
+import { useFocusComposer } from "@/lib/events";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,9 @@ export function TaskComposer({
   const members = useStore((s) => s.members);
 
   const parsed = React.useMemo(() => parseFr(value), [value]);
+
+  // C, / and the palette all focus the composer through this
+  useFocusComposer(() => inputRef.current?.focus());
 
   // a dismissed chip means "you got that wrong" — honour it until the text changes
   const active = React.useMemo(() => {

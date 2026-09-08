@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { CalendarDays, Users } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { bucketOf, type Bucket } from "@/lib/time";
+import { bucketOf, computeStreak, type Bucket } from "@/lib/time";
 import { accentColor } from "@/components/task/assignee-dot";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
@@ -42,6 +42,19 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
   }, [tasks, filter]);
 
   const partner = members.find((m) => m.id !== me?.id);
+
+  /*
+    Consecutive Montreal days with at least one completion. Present, never
+    nagging: no notification, no warning that it is about to break, no fire
+    emoji, no milestones. A streak that pressures you is one you resent.
+  */
+  const streak = React.useMemo(
+    () =>
+      computeStreak(
+        tasks.map((t) => t.completed_at).filter((v): v is string => v !== null),
+      ),
+    [tasks],
+  );
 
   return (
     <aside className="hidden w-[220px] shrink-0 flex-col border-r border-border md:flex">
@@ -112,6 +125,14 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
         <Users className="size-[18px]" strokeWidth={1.5} />
         {copy.people.title}
       </Link>
+
+      {streak > 0 && (
+        <div className="mt-auto px-4 py-4">
+          <span className="font-mono text-[12px] tabular-nums text-fg-faint">
+            {copy.streak(streak)}
+          </span>
+        </div>
+      )}
     </aside>
   );
 }

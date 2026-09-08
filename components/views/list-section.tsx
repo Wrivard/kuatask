@@ -18,12 +18,16 @@ export function ListSection({
   tasks,
   onOpen,
   pulseIds,
+  focusedId,
+  onFocus,
 }: {
   id?: string;
   title: string;
   tasks: Task[];
   onOpen: (id: string) => void;
   pulseIds?: Set<string>;
+  focusedId?: string | null;
+  onFocus?: (id: string) => void;
 }) {
   if (tasks.length === 0) return null;
 
@@ -49,6 +53,8 @@ export function ListSection({
               task={task}
               onOpen={onOpen}
               pulseAssignee={pulseIds?.has(task.id) ?? false}
+              focused={focusedId === task.id}
+              onFocus={onFocus}
             />
           </motion.div>
         ))}

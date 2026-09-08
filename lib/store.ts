@@ -16,6 +16,7 @@
 import { create } from 'zustand';
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/database.types';
+import { setSoundEnabled as applySoundEnabled } from '@/lib/sound';
 
 export type Task = Database['public']['Tables']['tasks']['Row'];
 export type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -47,6 +48,9 @@ type Store = {
    */
   assigneeFilter: string | null;
   setAssigneeFilter: (id: string | null) => void;
+
+  /** Mirrors profiles.sound_enabled so the preference follows the user. */
+  setSoundEnabled: (value: boolean) => void;
 
   hydrate: () => Promise<void>;
 
@@ -93,6 +97,22 @@ export const useStore = create<Store>((set, get) => {
     undoStack: [],
     assigneeFilter: null,
 
+    setSoundEnabled(value) {
+      const me = get().me;
+      if (!me) return;
+
+      applySoundEnabled(value);
+      set({ me: { ...me, sound_enabled: value } });
+
+      void (async () => {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ sound_enabled: value })
+          .eq('id', me.id);
+        if (error) toastError(error.message);
+      })();
+    },
+
     setAssigneeFilter(id) {
       set({ assigneeFilter: id });
       try {
@@ -138,10 +158,13 @@ export const useStore = create<Store>((set, get) => {
       const filterIsValid =
         savedFilter !== null && (members ?? []).some((m) => m.id === savedFilter);
 
+      const me = members?.find((m) => m.id === auth.user!.id) ?? null;
+      if (me) applySoundEnabled(me.sound_enabled);
+
       set({
         tasks: tasks ?? [],
         members: members ?? [],
-        me: members?.find((m) => m.id === auth.user!.id) ?? null,
+        me,
         workspaceId: wsId,
         assigneeFilter: filterIsValid ? savedFilter : null,
         ready: true,

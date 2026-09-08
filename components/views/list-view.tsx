@@ -7,9 +7,24 @@ import { TaskComposer } from "@/components/task/task-composer";
 import { TaskModal } from "@/components/task/task-modal";
 import { TaskRow } from "@/components/task/task-row";
 import { ListSection } from "./list-section";
+import { ClearOut } from "./clear-out";
 import { COMPLETION, exit } from "@/lib/motion";
-import { bucketOf, daysFromToday, isOverdue, today, type Bucket } from "@/lib/time";
+import {
+  bucketOf,
+  computeStreak,
+  daysFromToday,
+  isOverdue,
+  nowTz,
+  toDayString,
+  today,
+  tomorrow,
+  type Bucket,
+} from "@/lib/time";
 import { useStore, type Task } from "@/lib/store";
+import { useToggleWithFeedback, useDeleteWithFeedback } from "@/lib/completion";
+import { useHotkeys } from "@/lib/hotkeys";
+import { useOpenTask } from "@/lib/events";
+import { nextDay } from "date-fns";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -99,6 +114,117 @@ export function ListView() {
 
   const visibleCount = sections.reduce((n, s) => n + s.tasks.length, 0);
 
+  /*
+    Row focus is one flat sequence across all six sections — J and K cross
+    section boundaries because the list reads as one list, not six.
+  */
+  const order = React.useMemo(
+    () => sections.flatMap((s) => s.tasks.map((t) => t.id)),
+    [sections],
+  );
+
+  const [focusedId, setFocusedId] = React.useState<string | null>(null);
+  const toggle = useToggleWithFeedback();
+  const remove = useDeleteWithFeedback();
+  const updateTask = useStore((s) => s.updateTask);
+
+  // a focused row that leaves the list takes the focus with it
+  React.useEffect(() => {
+    if (focusedId && !order.includes(focusedId)) setFocusedId(null);
+  }, [order, focusedId]);
+
+  React.useEffect(() => {
+    if (!focusedId) return;
+    document
+      .querySelector(`[data-focused]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [focusedId]);
+
+  const step = React.useCallback(
+    (delta: number) => {
+      setFocusedId((current) => {
+        if (order.length === 0) return null;
+        if (!current) return delta > 0 ? order[0] : order[order.length - 1];
+        const index = order.indexOf(current);
+        const next = Math.min(Math.max(index + delta, 0), order.length - 1);
+        return order[next];
+      });
+    },
+    [order],
+  );
+
+  const onFocused = React.useCallback(
+    (fn: (id: string) => void) => () => {
+      if (focusedId) fn(focusedId);
+    },
+    [focusedId],
+  );
+
+  useHotkeys({
+    j: () => step(1),
+    arrowdown: () => step(1),
+    k: () => step(-1),
+    arrowup: () => step(-1),
+    x: onFocused(toggle),
+    enter: onFocused(toggle),
+    e: onFocused(setOpenId),
+    backspace: onFocused(remove),
+    "!": onFocused((id) => {
+      const task = allTasks.find((t) => t.id === id);
+      if (task) updateTask(id, { important: !task.important });
+    }),
+    /*
+      A and D cycle rather than opening a picker. The spec names them
+      "reassign" and "set due date" without saying how; for two people, cycling
+      is the fast keyboard path and it reuses the modal's own quick options.
+    */
+    a: onFocused((id) => {
+      const task = allTasks.find((t) => t.id === id);
+      if (!task) return;
+      const ring = [null, ...members.map((m) => m.id)];
+      const next = ring[(ring.indexOf(task.assignee_id) + 1) % ring.length];
+      updateTask(id, { assignee_id: next });
+    }),
+    d: onFocused((id) => {
+      const task = allTasks.find((t) => t.id === id);
+      if (!task) return;
+      const ring = [today(), tomorrow(), toDayString(nextDay(nowTz(), 1)), null];
+      const next = ring[(ring.indexOf(task.due_on) + 1) % ring.length];
+      updateTask(id, next === null ? { due_on: null, due_time: null } : { due_on: next });
+    }),
+    escape: () => setFocusedId(null),
+  });
+
+  useOpenTask(setOpenId);
+
+  const streak = React.useMemo(
+    () =>
+      computeStreak(
+        allTasks.map((t) => t.completed_at).filter((v): v is string => v !== null),
+      ),
+    [allTasks],
+  );
+
+  /*
+    § 8.5 — fires when the last task assigned to you and due today goes done.
+    Mounting ClearOut is the trigger, so the sweep plays exactly once, on the
+    transition, and never on a reload of an already-clear day.
+  */
+  const myToday = React.useMemo(() => {
+    if (!me) return { open: 0, done: 0 };
+    const day = today();
+    let open = 0;
+    let doneCount = 0;
+    for (const task of allTasks) {
+      if (task.assignee_id !== me.id) continue;
+      if (task.status === "todo" && task.due_on !== null && task.due_on <= day) open += 1;
+      if (task.status === "done" && task.completed_at?.slice(0, 10) === day) doneCount += 1;
+    }
+    return { open, done: doneCount };
+  }, [allTasks, me]);
+
+  const cleared = myToday.open === 0 && myToday.done > 0 && holding.size === 0;
+
   const emptyMessage = (() => {
     if (filter !== null) {
       const who =
@@ -125,11 +251,21 @@ export function ListView() {
           tasks={s.tasks}
           onOpen={setOpenId}
           pulseIds={pulseIds}
+          focusedId={focusedId}
+          onFocus={setFocusedId}
         />
       ))}
 
-      {visibleCount === 0 && (
-        <p className="text-[13px] text-fg-muted">{emptyMessage}</p>
+      {cleared ? (
+        <ClearOut
+          completedToday={myToday.done}
+          streak={streak}
+          seed={new Date(nowTz()).getDate()}
+        />
+      ) : (
+        visibleCount === 0 && (
+          <p className="text-[13px] text-fg-muted">{emptyMessage}</p>
+        )
       )}
 
       {completedToday.length > 0 && (

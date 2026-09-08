@@ -300,3 +300,69 @@ which is `'use server'`. Verified absent from `.next/static` after the build.
   set in the dashboard under Authentication → Email Templates → Invite user.
   Untested against a real address so far.
 - Email auth settings and redirect URLs, as flagged at the end of Phase 1.
+
+---
+
+## Phase 4 — calendar
+
+**Pointer events rather than HTML5 drag-and-drop.** One code path covers mouse
+and touch, and touch gets no native dragging at all. Cells carry `data-day` and
+the drop target is whatever `elementFromPoint` finds under the pointer. Touch
+drags need a 350ms long-press first so the grid still scrolls.
+
+**`reschedule` is a wrapper over `updateTask`,** not a second mutation path, so
+undo, rollback and local precedence behave identically to every other write. A
+drop onto the day a task already occupies is not treated as a mutation and does
+not push an undo entry.
+
+**Week mode snaps to the Monday of the anchor's week** rather than showing seven
+days starting from the anchor, which would have drifted as you paged by month.
+
+---
+
+## Phase 5 — satisfaction
+
+**The completion tone fires in the click handler, not in an effect.** § 8.1 puts
+it at 0ms. An effect watching the store would land it a frame late and would
+also fire for the other person's completions, which § 8.7 explicitly rules out.
+`lib/completion.ts` holds tone, haptics and the toast so the checkbox and the
+`X` shortcut behave identically.
+
+**Rapid completions collapse into one toast** keyed by a fixed sonner id, and
+undo replays the whole batch rather than only the last one. The batch resets
+after the 5s toast window.
+
+**The clear-out triggers by mounting.** `ClearOut` renders only while your
+today-assigned open count is zero and something was completed today, so the
+sweep plays once on the transition and never again on a reload of an already
+clear day. The hold set is checked too, so the sweep waits for the 900ms beat
+instead of racing it.
+
+**`A` and `D` cycle instead of opening a picker.** The keyboard map names them
+"reassign" and "set due date" without saying how. For two people, cycling
+`Personne → moi → partenaire` and `Aujourd'hui → Demain → Lundi → pas de date`
+is the fast path, and `D` reuses the modal's own quick options so the two agree.
+
+**Row focus is one flat sequence across all six sections.** `J`/`K` cross
+section boundaries because the list reads as one list, not six. Focus is set on
+hover as well, so a mouse user can hover a row and press `X`. A focused row that
+leaves the list takes the focus with it rather than stranding it.
+
+**The palette talks to the views over two custom DOM events**, not the store.
+It needs to focus the composer and open a task, both of which belong to the
+view. Putting them in the store would have moved view state into the data layer;
+a context would have threaded a provider through every route for two messages.
+
+**Theme toggling writes the same `kua-theme` key the inline boot script reads,**
+so the palette and the no-flash script cannot disagree.
+
+### Measured
+
+Route JS at ~66 KB gzipped for `/` and `/calendar` against a 200 KB budget
+(309 KB raw × the 0.215 compression ratio measured across the built chunks).
+
+### Not verifiable without a browser session
+
+The tone, the haptics, the 900ms hold, the sweep and the drag all build and
+typecheck, but none of them have been seen or heard. § 8.9 tuning stays at its
+starting values until Phase 6, which is explicitly a by-feel pass.
