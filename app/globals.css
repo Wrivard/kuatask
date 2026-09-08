@@ -1,0 +1,175 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+  Küa Tasks design system — docs/04-design-system.md
+
+  Dark is the default and lives on :root. Light is a finished theme, not a
+  filter, and lives on .light. The <html> element always carries exactly one of
+  .dark / .light, set by the inline script in app/layout.tsx before first paint.
+
+  Accent green is reserved for three things: a completed state, the focus ring,
+  and today's marker in the calendar. shadcn's own "accent" role (menu hover) is
+  remapped onto --color-hover so it can never borrow the green.
+*/
+
+@custom-variant dark (&:is(.dark *));
+
+:root,
+.dark {
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface-hover: #161616;
+  --hairline: #232323;
+  --hairline-strong: #2e2e2e;
+  --ink: #ededed;
+  --ink-muted: #8f8f8f;
+  --ink-faint: #5a5a5a;
+  --green: #3ecf8e;
+  --green-dim: #1f6e4c;
+  --red: #f45b5b;
+
+  /* shadcn semantic roles, pointed at the palette above */
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--bg);
+  --secondary: var(--surface-hover);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-hover);
+  --muted-foreground: var(--ink-muted);
+  --hover: var(--surface-hover);
+  --hover-foreground: var(--ink);
+  --destructive: var(--red);
+  --border: var(--hairline);
+  --input: var(--hairline);
+  --ring: var(--green);
+  --sidebar: var(--bg);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--green);
+  --sidebar-primary-foreground: var(--bg);
+  --sidebar-accent: var(--surface-hover);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--hairline);
+  --sidebar-ring: var(--green);
+
+  /* 10px modal, 8px task row, 6px input and button — one radius per role */
+  --radius: 10px;
+}
+
+.light {
+  --bg: #ffffff;
+  --surface: #fafafa;
+  --surface-hover: #f4f4f4;
+  --hairline: #eaeaea;
+  --hairline-strong: #d8d8d8;
+  --ink: #0a0a0a;
+  --ink-muted: #666666;
+  --ink-faint: #999999;
+  --green: #1f9d63; /* darkened for contrast on white */
+  --green-dim: #a8e5c8;
+  --red: #d93636;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--hairline);
+  --color-border-strong: var(--hairline-strong);
+  --color-fg: var(--ink);
+  --color-fg-muted: var(--ink-muted);
+  --color-fg-faint: var(--ink-faint);
+  --color-accent: var(--green);
+  --color-accent-dim: var(--green-dim);
+  --color-danger: var(--red);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-hover: var(--hover);
+  --color-hover-foreground: var(--hover-foreground);
+  --color-destructive: var(--destructive);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-geist-sans);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply font-sans;
+    /* keep the page from flashing white behind the app while fonts settle */
+    background-color: var(--bg);
+    color-scheme: dark;
+  }
+
+  html.light {
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-bg text-fg antialiased;
+  }
+
+  /*
+    Separation is hairline borders, never shadows. Keyboard navigation is a
+    primary input method here, so every focusable element keeps a visible ring.
+  */
+  :focus-visible {
+    outline: 1px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+/*
+  prefers-reduced-motion replaces every transform and scale with an opacity
+  crossfade. Every state change stays legible. Sound is deliberately NOT
+  disabled here — see docs/08-satisfaction.md § 8.2.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
