@@ -54,6 +54,7 @@ type Store = {
   updateTask: (id: string, patch: Partial<Task>) => void;
   toggleTask: (id: string) => void;
   deleteTask: (id: string) => void;
+  reschedule: (id: string, dueOn: string | null) => void;
 
   undo: () => void;
   applyRemote: (type: 'INSERT' | 'UPDATE' | 'DELETE', row: Task) => void;
@@ -228,6 +229,17 @@ export const useStore = create<Store>((set, get) => {
         completed_at: done ? new Date().toISOString() : null,
         completed_by: done ? (get().me?.id ?? null) : null,
       } as Partial<Task>);
+    },
+
+    /*
+      Calendar drag-to-reschedule. A thin wrapper over updateTask rather than a
+      second mutation path, so undo, rollback and local precedence all behave
+      identically to every other write.
+    */
+    reschedule(id, dueOn) {
+      // dropping a task onto a day it already sits on is not a mutation
+      if (get().tasks.find((t) => t.id === id)?.due_on === dueOn) return;
+      get().updateTask(id, { due_on: dueOn });
     },
 
     deleteTask(id) {
