@@ -761,3 +761,50 @@ mount and stays subscribed, so it never sits in that window.
 Also confirmed in passing: the UPDATE payload carries the trigger's
 `completed_at`, which is what lets the partner's row animate with the right
 completion time rather than waiting for a refetch.
+
+---
+
+## Filling the gaps the spec left open
+
+Four strings had sat in `copy.ts` since Phase 2 with nothing using them. Each
+one marked a feature that was specified and never built.
+
+**`settings.displayName` / `accent` / `sound` / `theme` → `/settings`.** There
+was no way to change a display name except editing the row by hand, which is why
+the owner's is still "wrivard", derived from his email by the signup trigger.
+Name, colour and sound write to `profiles` so they follow the user to their
+phone; the theme stays per-device in the same localStorage key the boot script
+reads, so a dark laptop and a light phone stay independent. A colour already
+taken by the other person is disabled — telling the two of you apart is the
+identity dot's entire job. Switching sound on plays one tone at the real volume,
+because the setting is about whether a room can hear it.
+
+**`composer.searchPlaceholder` → `/` search mode.** `docs/07-keyboard.md`
+specifies "focuses the composer in search mode" and search existed only in the
+palette. One field with two modes rather than two fields: the composer already
+owns the top of the list and the keyboard focus. Matching is accent-insensitive
+across title, label and notes, because nobody types "étiquette" with the accent
+while searching. Escape is the only way out and it clears as it goes; Enter is
+swallowed, since otherwise a search would create a task named after the query.
+
+**`toast.assigned` / `toast.rescheduled` → drag feedback.** Dragging a card to
+another person or another day changed the task silently. A drag is the easiest
+gesture in the app to perform by accident, and these were the last two mutations
+with no way back.
+
+### Deliberately not built: an offline write queue
+
+`error.offline` — "les modifications reprendront au retour du réseau" — is the
+one remaining unused string, and it promises a retry queue. Today a write that
+fails while offline rolls back and toasts, so a task you tick reverts itself.
+
+Implementing the queue means changing rollback semantics inside the optimistic
+store, which is the single most load-bearing file in the app, and there is no
+way to exercise it from here — no browser, and nobody has used the app once.
+Putting untested retry logic into the core loop before the core loop has ever
+been used by a human is the wrong trade. Left alone, with the string unused
+rather than showing a promise the app does not keep.
+
+If it is wanted later, the shape is: on failure, branch on `navigator.onLine`;
+if offline, keep the optimistic state and queue the operation instead of rolling
+back, then drain the queue in order on the `online` event.
