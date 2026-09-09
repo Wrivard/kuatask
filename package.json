@@ -7,7 +7,8 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify:db": "node scripts/verify-db.mjs"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",
