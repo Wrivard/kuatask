@@ -56,7 +56,7 @@ app/            routes; (app) is the authenticated shell
 components/     task/, views/, shell/, ui/ (owned shadcn primitives)
 lib/            store, time, sound, parsing, drag, copy — the load-bearing parts
 supabase/       migrations, applied in order
-scripts/        verify-logic.mjs, verify-db.mjs
+scripts/        verify-logic.mjs, verify-store.mjs, verify-db.mjs
 docs/           the original specification, still the source of truth
 reference/      the spec's reference implementations, copied into lib/
 DECISIONS.md    why anything non-obvious is the way it is
@@ -81,6 +81,11 @@ autocomplete, board grouping and fractional ordering. The invariant worth
 knowing about is the round trip — dropping a card on a date column has to land
 it in that same column, and if `firstDayOfBucket` and `bucketOf` ever disagree
 the card visibly jumps the moment you let go.
+
+`npm run verify:store` runs the real optimistic store against a stubbed network:
+optimism, rollback on failure, local precedence over realtime echoes, and undo.
+It is the file everything else depends on and the only one the other two suites
+cannot reach.
 
 `npm run verify:db` exercises what the app depends on but cannot assert about
 itself: RLS, the signup and completion triggers, the last-admin guard, and

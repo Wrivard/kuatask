@@ -36,6 +36,11 @@ jobs:
       - name: Logic invariants
         run: npm run verify:logic
 
+      # Runs the real store against a stubbed network. It is the file everything
+      # else depends on and the only one the other suites cannot reach.
+      - name: Store behaviour
+        run: npm run verify:store
+
       # Deliberately run with no environment variables. A missing config value
       # must break a request, never a build: two deployments failed once because
       # a guard threw during prerender, and this is the check that would have
