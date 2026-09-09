@@ -728,3 +728,36 @@ Fix, in Authentication → URL Configuration:
 
 There is no API for this in the Supabase MCP server and the Management API needs
 a personal access token, so it cannot be done from here.
+
+---
+
+## Realtime, actually tested
+
+Phase 3's central claim — "a task completed in one browser animates in the
+other" — had never been exercised. Testing it with the real client library, a
+real member session and the same channel shape as `lib/realtime.ts` found one
+genuine bug and one false alarm.
+
+**DELETE never reached the other person.** The app subscribes with
+`filter: workspace_id=eq.<id>`. Under the default replica identity a DELETE's
+old record carries only the primary key, so there is no `workspace_id` for that
+filter to match and Supabase drops the event. Proven by subscribing twice at
+once — DELETE arrived on an unfiltered control channel and not on the filtered
+one the app uses. INSERT and UPDATE were never affected, because their new
+record carries every column.
+
+Symptom: one of them deletes a task and it stays on the other's screen until a
+reload. Fixed by `alter table public.tasks replica identity full`
+(migration 0003). The cost is a fuller WAL record on update and delete; at two
+people and hundreds of rows that is nothing. Re-verified afterwards: INSERT,
+UPDATE and DELETE all arrive on the app's own filtered channel.
+
+**The INSERT failure in the first run was a test artifact, not a bug.** Writing
+immediately after the channel reported `SUBSCRIBED` raced the replication
+starting up. With a short settle first, INSERT arrives every time. Worth
+recording so nobody "fixes" a bug that is not there — the app subscribes once on
+mount and stays subscribed, so it never sits in that window.
+
+Also confirmed in passing: the UPDATE payload carries the trigger's
+`completed_at`, which is what lets the partner's row animate with the right
+completion time rather than waiting for a refetch.

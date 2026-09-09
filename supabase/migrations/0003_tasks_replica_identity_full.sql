@@ -1,0 +1,13 @@
+-- Realtime DELETE events were never reaching the other person's screen.
+--
+-- The app subscribes with filter workspace_id=eq.<id>. With the default replica
+-- identity, a DELETE's old record carries only the primary key, so there is no
+-- workspace_id for that filter to match and Supabase drops the event. INSERT and
+-- UPDATE were unaffected because their new record carries every column.
+--
+-- Verified before and after: with the default identity, DELETE arrived on an
+-- unfiltered channel but not on the filtered one the app actually uses.
+--
+-- The cost is a larger WAL record for updates and deletes, since the old row is
+-- written in full. For two people and hundreds of rows that is nothing.
+alter table public.tasks replica identity full;
