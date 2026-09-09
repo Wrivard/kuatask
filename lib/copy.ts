@@ -139,14 +139,18 @@ export const copy = {
   },
 
   settings: {
+    profile: "Ton profil",
     theme: "Thème",
+    themeHint: "Le thème est propre à cet appareil.",
     themeLight: "Clair",
     themeDark: "Sombre",
     sound: "Son",
     soundOn: "Son activé",
     soundOff: "Son désactivé",
     accent: "Ta couleur",
+    accentTaken: "Déjà prise par ton associé",
     displayName: "Nom affiché",
+    displayNameHint: "C'est ce nom qui apparaît sur les tâches et dans @mentions.",
   },
 
   palette: {

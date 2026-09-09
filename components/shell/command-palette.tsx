@@ -154,7 +154,10 @@ export function CommandPalette({
           <CommandItem value="calendrier" onSelect={() => open_(() => router.push("/calendar"))}>
             {copy.nav.calendar}
           </CommandItem>
-          <CommandItem value="personnes reglages" onSelect={() => open_(() => router.push("/settings/people"))}>
+          <CommandItem value="reglages profil" onSelect={() => open_(() => router.push("/settings"))}>
+            {copy.nav.settings}
+          </CommandItem>
+          <CommandItem value="personnes membres invitations" onSelect={() => open_(() => router.push("/settings/people"))}>
             {copy.people.title}
           </CommandItem>
         </CommandGroup>

@@ -52,6 +52,12 @@ type Store = {
   /** Mirrors profiles.sound_enabled so the preference follows the user. */
   setSoundEnabled: (value: boolean) => void;
 
+  /**
+   * Per-user settings live in profiles, not localStorage, so they follow the
+   * user across devices. Optimistic like everything else.
+   */
+  updateProfile: (patch: Partial<Profile>) => void;
+
   hydrate: () => Promise<void>;
 
   createTask: (input: Partial<Task> & { title: string }) => void;
@@ -110,6 +116,28 @@ export const useStore = create<Store>((set, get) => {
           .update({ sound_enabled: value })
           .eq('id', me.id);
         if (error) toastError(error.message);
+      })();
+    },
+
+    updateProfile(patch) {
+      const me = get().me;
+      if (!me) return;
+
+      const before = me;
+      set({
+        me: { ...me, ...patch },
+        members: get().members.map((m) => (m.id === me.id ? { ...m, ...patch } : m)),
+      });
+
+      void (async () => {
+        const { error } = await supabase.from('profiles').update(patch).eq('id', me.id);
+        if (error) {
+          set({
+            me: before,
+            members: get().members.map((m) => (m.id === before.id ? before : m)),
+          });
+          toastError(error.message);
+        }
       })();
     },
 

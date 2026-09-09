@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/shell/header";
+import { SettingsTabs } from "@/components/shell/settings-tabs";
 import { PeopleClient } from "./people-client";
 import { copy } from "@/lib/copy";
 
@@ -44,7 +45,8 @@ export default async function PeoplePage() {
 
   return (
     <>
-      <Header title={copy.people.title} />
+      <Header title={copy.nav.settings} />
+      <SettingsTabs />
       <PeopleClient
         members={rows}
         invites={invites ?? []}

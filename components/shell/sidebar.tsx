@@ -111,11 +111,11 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
       <div className="mx-4 my-3 border-t border-border" />
 
       <Link
-        href="/settings/people"
+        href="/settings"
         className="mx-2 flex items-center gap-2 rounded-sm px-2 py-1.5 text-[13px] text-fg-muted hover:bg-surface-hover hover:text-fg"
       >
         <Users className="size-[18px]" strokeWidth={1.5} />
-        {copy.people.title}
+        {copy.nav.settings}
       </Link>
 
       {streak > 0 && (

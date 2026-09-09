@@ -18,7 +18,7 @@ const ITEMS: { href: string; icon: LucideIcon; label: string }[] = [
   { href: "/", icon: List, label: copy.nav.list },
   { href: "/board", icon: Columns3, label: copy.nav.board },
   { href: "/calendar", icon: CalendarDays, label: copy.nav.calendar },
-  { href: "/settings/people", icon: Users, label: copy.nav.settings },
+  { href: "/settings", icon: Users, label: copy.nav.settings },
 ];
 
 export function BottomBar() {
