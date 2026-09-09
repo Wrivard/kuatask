@@ -110,6 +110,14 @@ export const copy = {
     signOut: "Se déconnecter",
   },
 
+  setup: {
+    title: "Configuration manquante",
+    body: "Le serveur ne trouve pas les clés Supabase. Ajoute ces quatre variables dans Vercel — Settings, Environment Variables, en cochant Production :",
+    rebuild:
+      "Ensuite relance un build complet, pas juste un redeploy : les deux variables NEXT_PUBLIC sont compilées dans le bundle, donc elles doivent exister avant le build.",
+    check: "Vérifier l'état de la configuration",
+  },
+
   noAccess: {
     title: "Aucun accès",
     body: "Ton compte n'est rattaché à aucun espace. Demande une invitation à un admin.",

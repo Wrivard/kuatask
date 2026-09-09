@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/shell/sidebar";
 import { StoreBoot } from "@/components/shell/store-boot";
 import { AppChrome } from "@/components/shell/app-chrome";
 import { BottomBar } from "@/components/shell/bottom-bar";
 import { LiveRegion } from "@/components/shell/live-region";
+import { SetupRequired } from "@/components/shell/setup-required";
 
 // per-user by definition: never prerender
 export const dynamic = "force-dynamic";
@@ -18,6 +19,9 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // a misconfigured deploy should explain itself rather than emit a digest
+  if (!isSupabaseConfigured()) return <SetupRequired />;
+
   const supabase = await createClient();
 
   const {

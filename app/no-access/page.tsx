@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { copy } from "@/lib/copy";
 import { SignOutButton } from "./sign-out-button";
+import { SetupRequired } from "@/components/shell/setup-required";
 
 // per-user by definition: never prerender
 export const dynamic = "force-dynamic";
@@ -11,6 +12,8 @@ export const dynamic = "force-dynamic";
  * One line of copy and a way out — no nav, no shell, nothing else.
  */
 export default async function NoAccessPage() {
+  if (!isSupabaseConfigured()) return <SetupRequired />;
+
   const supabase = await createClient();
   const {
     data: { user },
