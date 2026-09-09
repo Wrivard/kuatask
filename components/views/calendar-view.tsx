@@ -98,7 +98,7 @@ export function CalendarView() {
           type="button"
           onClick={() => setAnchor((a) => addMonths(a, -1))}
           className="rounded-sm px-2 py-1 text-[13px] text-fg-muted hover:text-fg"
-          aria-label="Mois précédent"
+          aria-label={copy.nav.prevMonth}
         >
           ←
         </button>
@@ -109,7 +109,7 @@ export function CalendarView() {
           type="button"
           onClick={() => setAnchor((a) => addMonths(a, 1))}
           className="rounded-sm px-2 py-1 text-[13px] text-fg-muted hover:text-fg"
-          aria-label="Mois suivant"
+          aria-label={copy.nav.nextMonth}
         >
           →
         </button>

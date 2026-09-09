@@ -217,6 +217,13 @@ export function TaskComposer({
         )}
       />
 
+      {/* the hint appears only while typing, so an idle list stays quiet */}
+      {!searching && suggestions.length === 0 && value.trim() !== "" && (
+        <p className="mt-1 text-right text-[12px] text-fg-faint">
+          {copy.composer.hint}
+        </p>
+      )}
+
       {!searching && suggestions.length > 0 && (
         <ul className="mt-1 overflow-hidden rounded-sm border border-border bg-surface">
           {suggestions.map((suggestion, i) => (

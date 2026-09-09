@@ -155,11 +155,9 @@ export function TaskModal({
                 </button>
               ))}
             </div>
-            {task.due_on && (
-              <p className="mt-1.5 text-[12px] text-fg-faint">
-                {formatDueLabel(task.due_on)}
-              </p>
-            )}
+            <p className="mt-1.5 text-[12px] text-fg-faint">
+              {task.due_on ? formatDueLabel(task.due_on) : copy.task.noDate}
+            </p>
           </Field>
 
           {/* time only becomes meaningful once a date exists */}

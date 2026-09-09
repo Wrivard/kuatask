@@ -10,6 +10,7 @@ import { COMPLETION } from "@/lib/motion";
 import { daysFromToday, formatDueLabel, formatTime, isOverdue } from "@/lib/time";
 import { useStore, type Task } from "@/lib/store";
 import { useToggleWithFeedback } from "@/lib/completion";
+import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
 /**
@@ -100,18 +101,20 @@ function TaskRowImpl({
       {task.important && (
         <span
           className="size-1.5 shrink-0 rounded-full bg-danger"
-          title="Important"
-          aria-label="Important"
+          title={copy.task.important}
+          aria-label={copy.task.important}
         />
       )}
 
       {dateText && (
         <span
+          title={overdue ? copy.task.overdue : undefined}
           className={cn(
             "shrink-0 text-[12px] tabular-nums",
             overdue ? "text-danger" : "text-fg-faint",
           )}
         >
+          {overdue && <span className="sr-only">{copy.task.overdue} — </span>}
           {dateText}
         </span>
       )}

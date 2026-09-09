@@ -21,6 +21,8 @@ export const copy = {
     later: "Plus tard",
     undated: "Sans date",
     calendar: "Calendrier",
+    prevMonth: "Mois précédent",
+    nextMonth: "Mois suivant",
     board: "Tableau",
     list: "Liste",
     settings: "Réglages",

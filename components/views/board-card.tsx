@@ -10,6 +10,7 @@ import { COMPLETION, spring } from "@/lib/motion";
 import { daysFromToday, formatDueLabel, formatTime, isOverdue } from "@/lib/time";
 import { useStore, type Task } from "@/lib/store";
 import { useToggleWithFeedback } from "@/lib/completion";
+import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
 /**
@@ -97,7 +98,7 @@ function BoardCardImpl({
           {task.status === "doing" && <StatusChip />}
           {task.label && <LabelChip label={task.label} />}
           {task.important && (
-            <span className="size-1.5 shrink-0 rounded-full bg-danger" aria-label="Important" />
+            <span className="size-1.5 shrink-0 rounded-full bg-danger" aria-label={copy.task.important} />
           )}
           {dateText && (
             <span

@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { Check } from "lucide-react";
 import { spring } from "@/lib/motion";
 import { useStore } from "@/lib/store";
+import { copy } from "@/lib/copy";
 import { isTodayInstant, today } from "@/lib/time";
 
 const SIZE = 22;
@@ -90,7 +91,7 @@ export function ProgressRing() {
       </svg>
 
       {complete ? (
-        <Check className="size-4 text-accent" strokeWidth={2} aria-label="Terminé" />
+        <Check className="size-4 text-accent" strokeWidth={2} aria-label={copy.nav.done} />
       ) : (
         <span className="font-mono text-[12px] tabular-nums text-fg-muted">
           {total - done}
