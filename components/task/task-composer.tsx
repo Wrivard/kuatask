@@ -6,6 +6,12 @@ import { parseFr } from "@/lib/parse-fr";
 import { formatDueLabel, formatTime } from "@/lib/time";
 import { useStore } from "@/lib/store";
 import { useFocusComposer } from "@/lib/events";
+import {
+  applySuggestion,
+  suggestionsFor,
+  tokenAtCursor,
+  type Suggestion,
+} from "@/lib/suggest";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +38,30 @@ export function TaskComposer({
   const members = useStore((s) => s.members);
 
   const parsed = React.useMemo(() => parseFr(value), [value]);
+
+  // --- #label and @person autocomplete -------------------------------------
+  const [cursor, setCursor] = React.useState(0);
+  const [activeSuggestion, setActiveSuggestion] = React.useState(0);
+  const tasks = useStore((s) => s.tasks);
+
+  const token = React.useMemo(() => tokenAtCursor(value, cursor), [value, cursor]);
+  const suggestions = React.useMemo(
+    () => (token ? suggestionsFor(token, tasks, members) : []),
+    [token, tasks, members],
+  );
+
+  React.useEffect(() => setActiveSuggestion(0), [token?.kind, token?.query]);
+
+  function choose(choice: Suggestion) {
+    if (!token) return;
+    const next = applySuggestion(value, cursor, token, choice);
+    setValue(next.value);
+    setDismissed(new Set());
+    requestAnimationFrame(() => {
+      inputRef.current?.setSelectionRange(next.cursor, next.cursor);
+      setCursor(next.cursor);
+    });
+  }
 
   // C, / and the palette all focus the composer through this
   useFocusComposer(() => inputRef.current?.focus());
@@ -86,6 +116,7 @@ export function TaskComposer({
 
     // clear on the same frame — never await the write
     setValue("");
+    setCursor(0);
     setDismissed(new Set());
     inputRef.current?.focus();
   }
@@ -106,14 +137,45 @@ export function TaskComposer({
         value={value}
         onChange={(e) => {
           setValue(e.target.value);
+          setCursor(e.target.selectionStart ?? e.target.value.length);
           setDismissed(new Set());
         }}
         onKeyDown={(e) => {
+          /*
+            Suggestions borrow Enter only while they are open. Everywhere else
+            Enter still creates the task — capture speed is the point, and a
+            picker that swallows Enter would cost more than it saves.
+          */
+          if (suggestions.length > 0) {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setActiveSuggestion((i) => (i + 1) % suggestions.length);
+              return;
+            }
+            if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setActiveSuggestion((i) => (i - 1 + suggestions.length) % suggestions.length);
+              return;
+            }
+            if (e.key === "Tab" || e.key === "Enter") {
+              e.preventDefault();
+              choose(suggestions[activeSuggestion]);
+              return;
+            }
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setCursor(-1); // closes the list without touching the text
+              return;
+            }
+          }
+
           if (e.key === "Enter") {
             e.preventDefault();
             submit();
           }
         }}
+        onKeyUp={(e) => setCursor(e.currentTarget.selectionStart ?? 0)}
+        onClick={(e) => setCursor(e.currentTarget.selectionStart ?? 0)}
         placeholder={copy.composer.placeholder}
         aria-label={copy.composer.placeholder}
         className={cn(
@@ -122,6 +184,30 @@ export function TaskComposer({
           "placeholder:text-fg-faint focus:border-accent focus:outline-none",
         )}
       />
+
+      {suggestions.length > 0 && (
+        <ul className="mt-1 overflow-hidden rounded-sm border border-border bg-surface">
+          {suggestions.map((suggestion, i) => (
+            <li key={suggestion.value}>
+              <button
+                type="button"
+                // mousedown, not click: the input must not lose focus first
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  choose(suggestion);
+                }}
+                onMouseEnter={() => setActiveSuggestion(i)}
+                className={cn(
+                  "flex w-full items-center px-3 py-1.5 text-left text-[13px]",
+                  i === activeSuggestion ? "bg-surface-hover text-fg" : "text-fg-muted",
+                )}
+              >
+                {suggestion.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {chips.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
