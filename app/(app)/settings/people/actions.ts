@@ -144,8 +144,25 @@ export async function removeMember(userId: string): Promise<ActionResult> {
     .eq("workspace_id", ctx.workspaceId)
     .eq("user_id", userId);
 
-  if (error) return { ok: false, error: copy.error.saveFailed };
+  if (error) {
+    /*
+      The check above races: two admins can both be looking at a two-admin
+      workspace and both press remove. The database trigger is what actually
+      guarantees a workspace keeps an admin, so when it fires the person should
+      be told what happened rather than shown a generic save failure.
+    */
+    return {
+      ok: false,
+      error: isLastAdminError(error) ? copy.error.lastAdmin : copy.error.saveFailed,
+    };
+  }
 
   revalidatePath("/settings/people");
   return { ok: true };
+}
+
+/** The guard in migration 0004 raises with this wording. */
+function isLastAdminError(error: { message?: string }): boolean {
+  const message = error.message ?? "";
+  return message.includes("last admin");
 }

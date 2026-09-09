@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useStore, type Task } from "@/lib/store";
 import { useSetStatusWithFeedback } from "@/lib/completion";
+import { useAutoGrow } from "@/lib/auto-grow";
 import { copy } from "@/lib/copy";
 import { today, tomorrow, toDayString, nowTz, formatDueLabel } from "@/lib/time";
 import { nextDay } from "date-fns";
@@ -46,6 +47,10 @@ export function TaskModal({
 
   const [title, setTitle] = React.useState("");
   const [notes, setNotes] = React.useState("");
+
+  // both fields size themselves to their content — docs/06-views.md
+  const titleRef = useAutoGrow<HTMLTextAreaElement>(title);
+  const notesRef = useAutoGrow<HTMLTextAreaElement>(notes);
 
   // reset the local text buffers when a different task opens
   React.useEffect(() => {
@@ -104,20 +109,22 @@ export function TaskModal({
 
         <div className="flex flex-col gap-4 p-5">
           <Textarea
+            ref={titleRef}
             autoFocus
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={copy.task.titlePlaceholder}
             rows={1}
-            className="min-h-0 resize-none border-0 bg-transparent p-0 text-[15px] leading-[1.4] tracking-[-0.011em] shadow-none focus-visible:ring-0"
+            className="min-h-0 resize-none overflow-hidden border-0 bg-transparent p-0 text-[15px] leading-[1.4] tracking-[-0.011em] shadow-none focus-visible:ring-0"
           />
 
           <Textarea
+            ref={notesRef}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder={copy.task.notesPlaceholder}
-            rows={2}
-            className="min-h-0 resize-none border-0 bg-transparent p-0 text-[13px] text-fg-muted shadow-none focus-visible:ring-0"
+            rows={1}
+            className="min-h-0 resize-none overflow-hidden border-0 bg-transparent p-0 text-[13px] text-fg-muted shadow-none focus-visible:ring-0"
           />
 
           <Field label={copy.task.status}>
