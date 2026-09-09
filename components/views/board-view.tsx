@@ -23,7 +23,7 @@ import {
 } from "@/lib/completion";
 import { useOpenTask } from "@/lib/events";
 import { useCompletionHold } from "@/lib/hold";
-import { firstDayOfBucket, type Bucket } from "@/lib/time";
+import { firstDayOfBucket, isTodayInstant, type Bucket } from "@/lib/time";
 import { exit } from "@/lib/motion";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
@@ -78,8 +78,19 @@ export function BoardView() {
     would only ever blank out columns. Every other grouping honours it.
   */
   const tasks = React.useMemo(() => {
-    if (groupBy === "person" || filter === null) return allTasks;
-    return allTasks.filter((t) => t.assignee_id === filter);
+    /*
+      Only today's completions appear, the same rule the list footer follows.
+      Without it the Terminé column — and every person's column — accumulates
+      every task ever finished, so the board gets heavier the longer the app is
+      used and the one place you look to see what is left fills with what is not.
+      The rows are still in the database; they are just no longer today's work.
+    */
+    const current = allTasks.filter(
+      (t) => t.status !== "done" || isTodayInstant(t.completed_at),
+    );
+
+    if (groupBy === "person" || filter === null) return current;
+    return current.filter((t) => t.assignee_id === filter);
   }, [allTasks, filter, groupBy]);
 
   // § 8.1 — a completed card holds its column for the beat before it moves
