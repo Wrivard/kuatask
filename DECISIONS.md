@@ -630,3 +630,64 @@ Three separate faults stacked, each hiding the next.
 
 The lesson worth keeping: a missing configuration value should break a request,
 never a build, and never every route at once.
+
+---
+
+## The third status — approved and shipped
+
+`task_status` gained `doing`, so the Statut board is À faire · En cours ·
+Terminé. Migration `0002_doing_status.sql`.
+
+**The trigger was the dangerous part.** It was written for a two-value enum and
+fired only on the exact pairs `todo->done` and `done->todo`. A third value broke
+it in both directions: `doing->done` would have left `completed_at` null, so a
+completed task would never appear in Terminé aujourd'hui, never count toward the
+ring and never break a streak; `done->doing` would have left a stale completion
+stamp on an open task. Both now key off `'done'` itself.
+
+**Every count that meant "not finished" was written as `status === 'todo'`** and
+would have silently dropped in-progress work: the sidebar buckets, the progress
+ring, the clear-out's open count, the palette's task list, and the list's own
+bucketing. All now test against `'done'`. `toggleTask` keys off `'done'` too, so
+a task that is `doing` completes rather than falling back to `todo`.
+
+**Only crossing the done boundary makes a sound.** `useSetStatusWithFeedback`
+plays the completion tone into `done`, the lower tone out of it, and nothing at
+all between À faire and En cours. Sliding along the workflow is bookkeeping, not
+an achievement, and a tone there would cheapen the one that matters.
+
+**Enum order is not workflow order.** `doing` was appended, so it sorts last.
+Every consumer orders columns explicitly rather than trusting the enum.
+
+Reachable three ways — dragging on the board, the modal's status field, and `S`
+on the focused row — and shown in the list and calendar as an accent-outlined
+chip. A task in progress is still unchecked; only `done` changes the checkbox.
+
+Verified against the live database with a throwaway invited user: all eight
+transitions behave, an unknown status is rejected by the enum, and the project
+was restored to its seeded state afterwards.
+
+---
+
+## Composer autocomplete
+
+`docs/06-views.md` specifies that `#label` completes from existing labels and
+`@person` from members. Neither existed. Both now do, in `lib/suggest.ts`.
+
+Labels rank by frequency, which is the point: thirty client tags otherwise
+become thirty-five spellings of the same five clients.
+
+**Suggestions borrow Enter only while the list is open.** Capture speed is the
+composer's whole reason to exist, so a picker that permanently swallowed Enter
+would cost more than it saves. Escape closes the list without touching the text,
+and the mouse path fires on `mousedown` so the input never loses focus first.
+
+Only the token under the cursor counts, and only while it is still being typed —
+a finished tag followed by a space is left alone, and a `#` inside a word is not
+a sigil. Completing mid-line reuses the existing space instead of leaving a gap.
+
+## Board cards were pointer-only
+
+They had a click handler, no role, no tab stop and no Enter. Now operable from
+the keyboard. Dragging keeps its keyboard equivalents in the list — `S` for
+status, `A` for people, `D` for dates — so no mutation is mouse-only.
