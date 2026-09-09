@@ -546,3 +546,87 @@ logs a named error and passes the request through untouched. Degrading is safe
 here: the security boundary is RLS, and this doc already describes the
 middleware check as a UX convenience rather than the guard. A misconfigured
 deploy should be diagnosable, not a wall.
+
+---
+
+## Views, drag, and the production blocker
+
+### Three views, not five
+
+`Liste · Tableau · Calendrier`. The request was for kanban, list, calendar,
+"etc." while staying minimalist, with three different drag behaviours. Five
+screens would have delivered the features and lost the minimalism.
+
+**The board is one component with a grouping switch**, because each grouping
+answers a different question with the same gesture, and the column you drop into
+is always the field you are editing:
+
+| Grouping | Drop writes | What it is |
+|---|---|---|
+| Personne | `assignee_id` | the "one column each" view, with drag-to-reassign |
+| Statut | `status` | the kanban |
+| Échéance | `due_on` | the list's buckets laid sideways |
+
+That covers "drag in the list to change assignee" without a fourth screen: the
+board grouped by Personne *is* the two-lists-side-by-side view. Grouping by
+person ignores the Tout/Moi lens on purpose — the columns already separate the
+two of you, so the filter could only blank one out.
+
+**A dragged completion routes through `useToggleWithFeedback`**, the same path
+the checkbox uses, so it plays the tone and the full 8.1 sequence. A completion
+must feel identical however it is triggered.
+
+### One drag implementation, two thresholds
+
+The calendar's inline pointer logic moved to `lib/drag.ts` and both views use it.
+Targets declare themselves with `data-drop-target`, so the drop is whatever sits
+under the pointer.
+
+Two thresholds exist because a card has three jobs and one pointer:
+
+- **mouse drags begin only after 4px of movement**, so a click stays a click and
+  a card can still be opened by clicking it. The previous calendar code started
+  a drag on pointerdown, which made click and drag fight each other.
+- **touch drags still need a 350ms long press**, so lists keep scrolling.
+- `Escape` cancels a drag in flight and drops nothing.
+
+### Open question — a real kanban needs a third status
+
+`status` is `todo | done`, so the Statut board is two columns. Adding `doing`
+would give À faire · En cours · Terminé. Not done unasked: it changes the
+database, and Postgres enum values are painful to remove once added. One
+migration and roughly ten lines of UI whenever the owner says yes.
+
+### Performance
+
+`TaskRow` and `BoardCard` are `React.memo`. Every store write replaces the tasks
+array, so without it each keystroke in the modal and each realtime event
+re-rendered every row. Task identity changes only when that task changes and the
+callbacks are stable setters, so the memo actually holds.
+
+---
+
+## The production outage, in order
+
+Three separate faults stacked, each hiding the next.
+
+1. **`MIDDLEWARE_INVOCATION_FAILED` on every route.** `createServerClient` threw
+   on undefined env vars and the matcher covers every path, so one missing
+   variable blacked out even `/login`. Fixed by checking config first and passing
+   through with a named error. RLS is the security boundary; this check is
+   documented as a UX convenience, so degrading beats a wall.
+
+2. **The build then started failing, silently.** The config guard added with
+   `/api/health` threw *before* `await cookies()`, so Next never saw a dynamic
+   API, tried to prerender `/no-access`, and failed the whole build. Two
+   deployments failed while the app kept serving an older bundle — which is why
+   fixes appeared not to take. Reproduced locally by building with `.env.local`
+   removed. `cookies()` is now awaited first; that ordering is load-bearing.
+
+3. **The env vars were never set.** `/api/health` on the live deployment reports
+   `null` for all four. Nothing else can be verified in production until they
+   exist, and because `NEXT_PUBLIC_*` values are compiled in, they must be
+   present *before* a build, not merely before a redeploy.
+
+The lesson worth keeping: a missing configuration value should break a request,
+never a build, and never every route at once.
