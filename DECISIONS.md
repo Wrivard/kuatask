@@ -872,3 +872,53 @@ which is what it meant all along.
 
 Every change was re-verified against the live database rather than assumed: 13
 RLS behaviours, the three triggers, and the anon empty-set guarantee.
+
+---
+
+## Making the verification repeatable
+
+Everything in this build was verified by hand, which means it stays verified
+only as long as someone remembers. Two suites and a CI job fix that.
+
+**`npm run verify:logic`** — 62 assertions, no network. Dates, parsing,
+grouping, ordering: the code that decides where every task appears, and where a
+mistake is silent rather than loud. Nothing crashes; a task simply shows up in
+the wrong column and you stop trusting the list.
+
+The invariant most worth having is the round trip between `firstDayOfBucket` and
+`bucketOf`. Dropping a card on a date column has to land it in that column, and
+if those two ever disagree the card visibly jumps the instant you let go. It is
+checked for all six buckets. The suite also covers both bugs that already got
+through a green build: Montreal instants across both DST offsets, and numeric
+dates agreeing with named ones and never landing in the past.
+
+The modules import through the `@/` alias, which node cannot resolve, so the
+suite copies `lib/` into a scratch directory inside the project and rewrites
+those imports. Type-only imports are stripped by node, so the store never needs
+a stub.
+
+**`npm run verify:db`** — 24 assertions against a real project: RLS, the signup
+and completion triggers, the last-admin guard, realtime delivery of all three
+event types. It verifies its own cleanup rather than assuming it, because an
+earlier ad-hoc version reported success while leaving two rows behind.
+
+### CI runs three of the four
+
+Typecheck, lint, logic invariants, and a build **with no environment variables**.
+That last one is not laziness about secrets — it is precisely the check that
+would have caught the outage. A config guard that threw before awaiting
+`cookies()` made Next try to prerender `/no-access`, two deployments failed, and
+production kept serving a stale bundle while the fixes looked like they were not
+taking. A missing configuration value must break a request, never a build.
+
+`verify:db` is excluded on purpose: it writes to a real Supabase project,
+creating and deleting users, so it belongs in a hand-run step against a project
+someone has chosen.
+
+**CI failed on its first run and was right to.** I had been linting with
+`next lint --dir app --dir components --dir lib` while the package script is a
+bare `eslint`, so `reference/` was never in my local scope and always in CI's.
+`tsconfig` had excluded it since Phase 1 for the same reason — it is the
+specification's own code, copied into `lib/` and adapted — and the ESLint config
+now agrees. The lesson is the general one: the command CI runs is the command
+that has to be green, not the one that happens to be convenient locally.
