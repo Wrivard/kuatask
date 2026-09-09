@@ -808,3 +808,67 @@ rather than showing a promise the app does not keep.
 If it is wanted later, the shape is: on failure, branch on `navigator.onLine`;
 if offline, keep the optimistic state and queue the operation instead of rolling
 back, then drain the queue in order on the `online` event.
+
+---
+
+## Database hardening and tuning
+
+Supabase's own advisors, run properly for the first time since Phase 1.
+Security findings went from 11 to 5; both WARN-level performance findings are
+gone. Everything left is deliberate and listed below.
+
+### The last-admin rule was only in application code
+
+`docs/02-data-model.md` says the security property comes from the database, not
+from route guards — and the last-admin check lived only in the invite server
+action. `members_admin_write` let any admin delete any `workspace_members` row,
+so an admin could remove the final admin, including themselves, with one direct
+PostgREST call and leave a workspace nobody could ever administer again. There
+is no UI for that, which is precisely why the guard could not live in the UI.
+
+Two triggers (0004), because demoting the last admin leaves the workspace in the
+same unadministrable state as deleting them. A cascade from dropping the
+workspace itself is excluded, or deleting a workspace would be impossible.
+
+### The revoke that did nothing
+
+0005 revoked EXECUTE on the four trigger functions from `anon` and
+`authenticated` and achieved nothing: Postgres grants EXECUTE to `PUBLIC` by
+default and both roles inherit it. 0006 revokes from `PUBLIC`, which is the
+grant that mattered. Both migrations are kept rather than squashed, because the
+history should show what was actually true.
+
+A trigger checks permission when it is created, not when it fires, so the
+triggers still run — verified by exercising signup, the completion stamp and the
+last-admin guard after applying it.
+
+`touch_updated_at` also finally got its `search_path` pinned. It was the only
+function in the schema without one, flagged in Phase 0 and left alone because
+the spec said to apply `0001` as-is.
+
+### auth.uid() per row
+
+`profiles_read`, `profiles_self_update` and `tasks_insert` re-evaluated
+`auth.uid()` for every row. Wrapping it as `(select auth.uid())` lets the planner
+hoist it into an InitPlan so it runs once per statement. Identical semantics.
+
+`members_admin_write` was `FOR ALL`, so it also applied to SELECT and every read
+of `workspace_members` evaluated two permissive policies. Admins are members, so
+`members_read` already covered their reads. Split into insert/update/delete,
+which is what it meant all along.
+
+### Deliberately left alone
+
+- **Five unindexed foreign keys and one unused index.** Exactly what the data
+  model doc calls "close to decorative at this scale". Five more indexes would
+  cost write time to speed up reads nobody makes.
+- **`is_member` / `is_admin` callable by anon and authenticated.** RLS policy
+  expressions run with the privileges of the querying role, so revoking EXECUTE
+  would turn every policy into a permission error — including the anon reads
+  that must return an empty set rather than fail. They report only on
+  `auth.uid()`, so a caller learns nothing about anyone but themselves.
+- **Leaked password protection disabled.** The app has no passwords; auth is
+  magic link only.
+
+Every change was re-verified against the live database rather than assumed: 13
+RLS behaviours, the three triggers, and the anon empty-set guarantee.
