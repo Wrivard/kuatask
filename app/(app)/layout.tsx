@@ -11,8 +11,12 @@ import { SetupRequired } from "@/components/shell/setup-required";
 export const dynamic = "force-dynamic";
 
 /**
- * The app shell. Store hydration, hotkeys and the command palette mount here
- * in later phases — right now it is the frame and nothing else.
+ * The app shell: the store's initial data, the keyboard layer, and the frame.
+ *
+ * The workspace query has to happen here anyway to decide between the app and
+ * /no-access, so the tasks and profiles come back in the same round trip and are
+ * handed to the store before first paint. That removes the cold-load sequence of
+ * JS, hydrate, auth, query — and with it the skeleton.
  */
 export default async function AppLayout({
   children,
@@ -30,18 +34,42 @@ export default async function AppLayout({
 
   if (!user) redirect("/login");
 
-  // RLS means this returns the workspace only if the caller is a member
-  const { data: workspace } = await supabase
-    .from("workspaces")
-    .select("name")
+  // RLS means membership decides all three of these, not the query
+  const { data: membership } = await supabase
+    .from("workspace_members")
+    .select("workspace_id")
+    .eq("user_id", user.id)
     .limit(1)
     .maybeSingle();
+
+  if (!membership) redirect("/no-access");
+
+  const [{ data: workspace }, { data: tasks }, { data: members }] = await Promise.all([
+    supabase
+      .from("workspaces")
+      .select("name")
+      .eq("id", membership.workspace_id)
+      .maybeSingle(),
+    supabase
+      .from("tasks")
+      .select("*")
+      .eq("workspace_id", membership.workspace_id)
+      .order("position"),
+    supabase.from("profiles").select("*"),
+  ]);
 
   if (!workspace) redirect("/no-access");
 
   return (
     <div className="flex min-h-dvh">
-      <StoreBoot />
+      <StoreBoot
+        initial={{
+          tasks: tasks ?? [],
+          members: members ?? [],
+          me: members?.find((m) => m.id === user.id) ?? null,
+          workspaceId: membership.workspace_id,
+        }}
+      />
       <AppChrome />
       <LiveRegion />
       <Sidebar workspaceName={workspace.name} />

@@ -58,7 +58,21 @@ type Store = {
    */
   updateProfile: (patch: Partial<Profile>) => void;
 
-  hydrate: () => Promise<void>;
+  /**
+   * Install data the server already fetched.
+   *
+   * Replaces the old client-side hydrate(). The shell is a server component that
+   * must reach Supabase anyway to check membership, so it brings the tasks back
+   * in the same trip. That removes three client round trips on a cold load —
+   * session, membership, tasks — which is the whole cost on a phone.
+   */
+  seed: (payload: {
+    tasks: Task[];
+    members: Profile[];
+    me: Profile | null;
+    workspaceId: string;
+  }) => void;
+
 
   /**
    * Re-read the workspace after the connection was interrupted.
@@ -161,29 +175,10 @@ export const useStore = create<Store>((set, get) => {
       }
     },
 
-    async hydrate() {
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) return;
+    seed({ tasks, members, me, workspaceId }) {
+      if (get().ready) return; // a second view mounting must not reset state
 
-      const { data: membership } = await supabase
-        .from('workspace_members')
-        .select('workspace_id')
-        .eq('user_id', auth.user.id)
-        .limit(1)
-        .single();
-
-      if (!membership) {
-        set({ ready: true });   // no workspace — middleware routes to /no-access
-        return;
-      }
-
-      const wsId = membership.workspace_id;
-
-      // one query for the whole dataset. no pagination, no per-view fetching.
-      const [{ data: tasks }, { data: members }] = await Promise.all([
-        supabase.from('tasks').select('*').eq('workspace_id', wsId).order('position'),
-        supabase.from('profiles').select('*'),
-      ]);
+      if (me) applySoundEnabled(me.sound_enabled);
 
       let savedFilter: string | null = null;
       try {
@@ -191,19 +186,14 @@ export const useStore = create<Store>((set, get) => {
       } catch {
         // blocked storage — fall back to Tout
       }
-
-      // a filter pointing at someone who is no longer a member is dropped
       const filterIsValid =
-        savedFilter !== null && (members ?? []).some((m) => m.id === savedFilter);
-
-      const me = members?.find((m) => m.id === auth.user!.id) ?? null;
-      if (me) applySoundEnabled(me.sound_enabled);
+        savedFilter !== null && members.some((m) => m.id === savedFilter);
 
       set({
-        tasks: tasks ?? [],
-        members: members ?? [],
+        tasks,
+        members,
         me,
-        workspaceId: wsId,
+        workspaceId,
         assigneeFilter: filterIsValid ? savedFilter : null,
         ready: true,
       });
