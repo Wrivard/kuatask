@@ -182,5 +182,15 @@ export const copy = {
     lastAdmin: "Il faut au moins un admin dans l'espace.",
     loginFailed: "Le lien n'a pas pu être envoyé. Vérifie l'adresse.",
     linkExpired: "Ce lien a expiré. Demandes-en un nouveau.",
+    crashed: "Cette vue a planté.",
+    crashedBody:
+      "Tes tâches sont intactes — c'est l'affichage qui a lâché, pas les données. Réessaie, ou recharge la page.",
+    retry: "Réessayer",
+  },
+
+  notFound: {
+    title: "Page introuvable",
+    body: "Ce lien ne mène nulle part.",
+    back: "Retour à la liste",
   },
 };
