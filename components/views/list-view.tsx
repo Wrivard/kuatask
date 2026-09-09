@@ -15,6 +15,7 @@ import {
   dayOfMonth,
   daysFromToday,
   isOverdue,
+  isTodayInstant,
   nowTz,
   toDayString,
   today,
@@ -92,7 +93,7 @@ export function ListView() {
       }
 
       // only today's completions are in the UI; yesterday's are still in the DB
-      if (task.completed_at?.slice(0, 10) === today()) done.push(task);
+      if (isTodayInstant(task.completed_at)) done.push(task);
     }
 
     // overdue rises to the top of Aujourd'hui, then time, then creation order
@@ -219,7 +220,7 @@ export function ListView() {
     for (const task of allTasks) {
       if (task.assignee_id !== me.id) continue;
       if (task.status === "todo" && task.due_on !== null && task.due_on <= day) open += 1;
-      if (task.status === "done" && task.completed_at?.slice(0, 10) === day) doneCount += 1;
+      if (task.status === "done" && isTodayInstant(task.completed_at)) doneCount += 1;
     }
     return { open, done: doneCount };
   }, [allTasks, me]);

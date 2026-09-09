@@ -63,6 +63,25 @@ export function toDayString(d: Date): DayString {
   return format(d, 'yyyy-MM-dd');
 }
 
+/**
+ * The Montreal calendar day an instant fell on.
+ *
+ * `completed_at` is a `timestamptz` — an absolute instant, serialized as UTC.
+ * Its first ten characters are the UTC date, which is ALREADY TOMORROW from
+ * 20:00 Montreal in summer and 19:00 in winter. Slicing that string is the
+ * single most common way this app breaks, and these two use it in the evening:
+ * a task cleared at 21:00 would drop out of "Terminé aujourd'hui", stop counting
+ * toward the ring, and silently prevent the clear-out from ever firing.
+ */
+export function instantToDay(ts: string): DayString {
+  return format(TZDate.tz(TZ, new Date(ts)), 'yyyy-MM-dd');
+}
+
+/** Did this instant fall on today's Montreal day? */
+export function isTodayInstant(ts: string | null): boolean {
+  return ts !== null && instantToDay(ts) === today();
+}
+
 /** Signed day distance from today. Negative = overdue. */
 export function daysFromToday(day: DayString): number {
   return differenceInCalendarDays(toDate(day), toDate(today()));
@@ -158,9 +177,7 @@ export function formatMonthYear(d: Date): string {
 export function computeStreak(completedAt: string[]): number {
   if (completedAt.length === 0) return 0;
 
-  const days = new Set(
-    completedAt.map((ts) => format(TZDate.tz(TZ, new Date(ts)), 'yyyy-MM-dd')),
-  );
+  const days = new Set(completedAt.map(instantToDay));
 
   let streak = 0;
   let cursor = toDate(today());

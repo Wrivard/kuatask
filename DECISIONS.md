@@ -463,3 +463,42 @@ Listed plainly because Phase 6 is where they belong and they are not finished:
   "verify by doing it". Item 5 in particular wants the system clock moved into
   both DST offsets, and item 8 is the actual acceptance test.
 - **Not deployed.** The owner said they would push to Vercel themselves.
+
+---
+
+## Post-Phase-6 — a real timezone bug, caught by verification
+
+Running the data layer against the live project as a genuinely authenticated
+throwaway user (20 assertions, all passing, project restored to the seeded state
+afterwards) surfaced the exact bug class `CLAUDE.md` warns is the most common way
+this app breaks.
+
+The completion trigger returned `completed_at = 2026-09-09T00:13:14Z`. That
+instant is **20:13 on 8 September in Montreal**. Three call sites were deriving
+the day with `completed_at.slice(0, 10)`, which reads the **UTC** date:
+
+- `list-view.tsx` — the `Terminé aujourd'hui` footer
+- `list-view.tsx` — the clear-out's completed count
+- `progress-ring.tsx` — today's done count
+
+**Symptom:** from 20:00 Montreal in summer (19:00 in winter), every task you
+completed would drop out of `Terminé aujourd'hui`, stop counting toward the
+progress ring, and — worst — set the clear-out's `done` count to zero, so the
+one orchestrated moment in the app could never fire. The brief says these two
+check the list in the evening on a phone, so this broke exactly when they use it.
+
+Fixed with `instantToDay()` and `isTodayInstant()` in `lib/time.ts`, which
+convert through `TZDate` the way `computeStreak` already did. `computeStreak` was
+refactored onto the same helper so there is one conversion, not two.
+
+Verified against seven instants spanning both DST offsets: the old string slice
+was wrong in five of them, every one an evening completion. The new helper is
+correct in all seven.
+
+Two lessons worth keeping:
+
+1. `due_on` comparisons are safe because both sides are bare Montreal days.
+   `completed_at` comparisons are not, because it is an instant. The distinction
+   is invisible at the call site — hence the named helpers.
+2. This was unreachable by typecheck, lint or build. It needed a real row from
+   the real trigger.

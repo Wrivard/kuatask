@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { Check } from "lucide-react";
 import { spring } from "@/lib/motion";
 import { useStore } from "@/lib/store";
-import { today } from "@/lib/time";
+import { isTodayInstant, today } from "@/lib/time";
 
 const SIZE = 22;
 const STROKE = 2;
@@ -35,7 +35,7 @@ export function ProgressRing() {
       if (task.assignee_id !== me.id) continue;
 
       const isDoneToday =
-        task.status === "done" && task.completed_at?.slice(0, 10) === day;
+        task.status === "done" && isTodayInstant(task.completed_at);
       const isOpenForToday = task.status === "todo" && task.due_on !== null && task.due_on <= day;
 
       if (isDoneToday || isOpenForToday) {
