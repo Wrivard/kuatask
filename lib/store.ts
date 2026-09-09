@@ -239,7 +239,9 @@ export const useStore = create<Store>((set, get) => {
     toggleTask(id) {
       const t = get().tasks.find((x) => x.id === id);
       if (!t) return;
-      const next = t.status === 'todo' ? 'done' : 'todo';
+      // keyed off done rather than todo, so a task that is 'doing' completes
+      // instead of silently becoming 'todo'
+      const next = t.status === 'done' ? 'todo' : 'done';
       const done = next === 'done';
 
       /*

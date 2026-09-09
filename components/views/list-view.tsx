@@ -82,7 +82,7 @@ export function ListView() {
 
     for (const task of tasks) {
       // a just-completed row keeps its place for the hold — see § 8.1
-      const stillInPlace = task.status === "todo" || holding.has(task.id);
+      const stillInPlace = task.status !== "done" || holding.has(task.id);
 
       if (stillInPlace) {
         const bucket = bucketOf(task.due_on);
@@ -219,7 +219,7 @@ export function ListView() {
     let doneCount = 0;
     for (const task of allTasks) {
       if (task.assignee_id !== me.id) continue;
-      if (task.status === "todo" && task.due_on !== null && task.due_on <= day) open += 1;
+      if (task.status !== "done" && task.due_on !== null && task.due_on <= day) open += 1;
       if (task.status === "done" && isTodayInstant(task.completed_at)) doneCount += 1;
     }
     return { open, done: doneCount };
@@ -334,7 +334,7 @@ function useCompletionHold(tasks: Task[]): Set<string> {
 
     for (const task of tasks) {
       next.set(task.id, task.status);
-      if (task.status === "done" && before.get(task.id) === "todo") {
+      if (task.status === "done" && before.get(task.id) !== "done") {
         justCompleted.push(task.id);
       }
     }

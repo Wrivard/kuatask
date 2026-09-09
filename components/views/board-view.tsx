@@ -14,8 +14,8 @@ import {
   type GroupBy,
 } from "@/lib/grouping";
 import { accentColor } from "@/components/task/assignee-dot";
-import { useStore } from "@/lib/store";
-import { useToggleWithFeedback } from "@/lib/completion";
+import { useStore, type Task } from "@/lib/store";
+import { useSetStatusWithFeedback } from "@/lib/completion";
 import { useOpenTask } from "@/lib/events";
 import { firstDayOfBucket, type Bucket } from "@/lib/time";
 import { exit } from "@/lib/motion";
@@ -40,7 +40,7 @@ export function BoardView() {
   const filter = useStore((s) => s.assigneeFilter);
   const updateTask = useStore((s) => s.updateTask);
   const reschedule = useStore((s) => s.reschedule);
-  const toggle = useToggleWithFeedback();
+  const setStatus = useSetStatusWithFeedback();
 
   const [groupBy, setGroupBy] = React.useState<GroupBy>("person");
   const [openId, setOpenId] = React.useState<string | null>(null);
@@ -95,14 +95,14 @@ export function BoardView() {
 
       if (groupBy === "status") {
         // routed through the feedback path so a dragged completion sounds and
-        // animates exactly like a clicked one
-        toggle(taskId);
+        // animates exactly like a clicked one, in every direction
+        setStatus(taskId, columnKey as Task["status"]);
         return;
       }
 
       reschedule(taskId, firstDayOfBucket(columnKey as Bucket));
     },
-    [groupBy, updateTask, reschedule, toggle],
+    [groupBy, updateTask, reschedule, setStatus],
   );
 
   const { dragId, target, grab } = useDragToTarget(drop);

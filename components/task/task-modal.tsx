@@ -6,7 +6,8 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { useStore } from "@/lib/store";
+import { useStore, type Task } from "@/lib/store";
+import { useSetStatusWithFeedback } from "@/lib/completion";
 import { copy } from "@/lib/copy";
 import { today, tomorrow, toDayString, nowTz, formatDueLabel } from "@/lib/time";
 import { nextDay } from "date-fns";
@@ -23,6 +24,13 @@ import { cn } from "@/lib/utils";
  */
 const TEXT_DEBOUNCE = 400;
 
+/** Workflow order, which is not the enum's declaration order. */
+const STATUSES: { value: Task["status"]; label: string }[] = [
+  { value: "todo", label: copy.board.todo },
+  { value: "doing", label: copy.board.doing },
+  { value: "done", label: copy.board.done },
+];
+
 export function TaskModal({
   taskId,
   onClose,
@@ -34,6 +42,7 @@ export function TaskModal({
   const members = useStore((s) => s.members);
   const updateTask = useStore((s) => s.updateTask);
   const deleteTask = useStore((s) => s.deleteTask);
+  const setStatus = useSetStatusWithFeedback();
 
   const [title, setTitle] = React.useState("");
   const [notes, setNotes] = React.useState("");
@@ -110,6 +119,20 @@ export function TaskModal({
             rows={2}
             className="min-h-0 resize-none border-0 bg-transparent p-0 text-[13px] text-fg-muted shadow-none focus-visible:ring-0"
           />
+
+          <Field label={copy.task.status}>
+            <div className="flex flex-wrap gap-1.5">
+              {STATUSES.map((option) => (
+                <Chip
+                  key={option.value}
+                  active={task.status === option.value}
+                  onClick={() => setStatus(task.id, option.value)}
+                >
+                  {option.label}
+                </Chip>
+              ))}
+            </div>
+          </Field>
 
           <Field label={copy.task.dueDate}>
             <div className="flex flex-wrap gap-1.5">

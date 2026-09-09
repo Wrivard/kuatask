@@ -61,7 +61,7 @@ export function CommandPalette({
   );
 
   const todo = React.useMemo(
-    () => tasks.filter((t) => t.status === "todo").slice(0, 200),
+    () => tasks.filter((t) => t.status !== "done").slice(0, 200),
     [tasks],
   );
 

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { toast } from "sonner";
-import { useStore } from "@/lib/store";
+import { useStore, type Task } from "@/lib/store";
 import { completionTone, uncompleteTone, tick } from "@/lib/sound";
 import { announce } from "@/components/shell/live-region";
 import { copy } from "@/lib/copy";
@@ -16,6 +16,8 @@ import { copy } from "@/lib/copy";
  * would land it a frame late and would also sound for the other person's
  * completions, which § 8.7 explicitly rules out.
  */
+
+type TaskStatus = Task["status"];
 
 const TOAST_ID = "kua-completion";
 const TOAST_MS = 5000;
@@ -50,24 +52,52 @@ function notify(undo: () => void) {
   }, TOAST_MS);
 }
 
-export function useToggleWithFeedback() {
-  return React.useCallback((id: string) => {
+/**
+ * Move a task to an explicit status, with the sound that transition deserves.
+ *
+ * Only crossing the done boundary makes noise. Sliding between À faire and
+ * En cours is bookkeeping, not an achievement, and a tone there would cheapen
+ * the one that matters.
+ */
+export function useSetStatusWithFeedback() {
+  return React.useCallback((id: string, next: TaskStatus) => {
     const state = useStore.getState();
     const task = state.tasks.find((t) => t.id === id);
-    if (!task) return;
+    if (!task || task.status === next) return;
 
-    if (task.status === "todo") {
+    if (next === "done") {
       completionTone();
       tick();
-      state.toggleTask(id);
+      state.updateTask(id, {
+        status: next,
+        completed_at: new Date().toISOString(),
+        completed_by: state.me?.id ?? null,
+      });
       notify(state.undo);
       announce(`${task.title} ${copy.nav.done.toLowerCase()}`);
-    } else {
+      return;
+    }
+
+    if (task.status === "done") {
       // reopening should feel neutral, not punitive
       uncompleteTone();
-      state.toggleTask(id);
     }
+
+    state.updateTask(id, { status: next, completed_at: null, completed_by: null });
   }, []);
+}
+
+export function useToggleWithFeedback() {
+  const setStatus = useSetStatusWithFeedback();
+  return React.useCallback(
+    (id: string) => {
+      const task = useStore.getState().tasks.find((t) => t.id === id);
+      if (!task) return;
+      // a task that is "doing" completes rather than falling back to "todo"
+      setStatus(id, task.status === "done" ? "todo" : "done");
+    },
+    [setStatus],
+  );
 }
 
 export function useDeleteWithFeedback() {

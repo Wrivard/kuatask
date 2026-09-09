@@ -72,12 +72,17 @@ export function buildColumns(
   }
 
   if (groupBy === "status") {
-    const todo: Column = { key: "todo", title: copy.board.todo, tasks: [] };
-    const done: Column = { key: "done", title: copy.board.done, tasks: [] };
+    // workflow order, which is not the enum's declaration order
+    const columns: Column[] = [
+      { key: "todo", title: copy.board.todo, tasks: [] },
+      { key: "doing", title: copy.board.doing, tasks: [] },
+      { key: "done", title: copy.board.done, tasks: [] },
+    ];
+    const index = new Map(columns.map((c) => [c.key, c]));
     for (const task of tasks) {
-      (task.status === "done" ? done : todo).tasks.push(task);
+      index.get(task.status)!.tasks.push(task);
     }
-    return [todo, done];
+    return columns;
   }
 
   const columns: Column[] = DUE_ORDER.map((b) => ({

@@ -4,6 +4,7 @@ import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { TaskCheckbox } from "./task-checkbox";
 import { LabelChip } from "./label-chip";
+import { StatusChip } from "./status-chip";
 import { AssigneeDot } from "./assignee-dot";
 import { COMPLETION } from "@/lib/motion";
 import { daysFromToday, formatDueLabel, formatTime, isOverdue } from "@/lib/time";
@@ -91,6 +92,8 @@ function TaskRowImpl({
           transition={{ duration: COMPLETION.strikethrough / 1000, ease: "easeOut" }}
         />
       </span>
+
+      {task.status === "doing" && <StatusChip />}
 
       {task.label && <LabelChip label={task.label} />}
 

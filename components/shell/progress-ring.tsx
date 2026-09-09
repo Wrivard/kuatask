@@ -36,7 +36,8 @@ export function ProgressRing() {
 
       const isDoneToday =
         task.status === "done" && isTodayInstant(task.completed_at);
-      const isOpenForToday = task.status === "todo" && task.due_on !== null && task.due_on <= day;
+      const isOpenForToday =
+        task.status !== "done" && task.due_on !== null && task.due_on <= day;
 
       if (isDoneToday || isOpenForToday) {
         t += 1;

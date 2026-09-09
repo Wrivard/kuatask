@@ -4,6 +4,7 @@ import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { TaskCheckbox } from "@/components/task/task-checkbox";
 import { LabelChip } from "@/components/task/label-chip";
+import { StatusChip } from "@/components/task/status-chip";
 import { AssigneeDot } from "@/components/task/assignee-dot";
 import { COMPLETION, spring } from "@/lib/motion";
 import { daysFromToday, formatDueLabel, formatTime, isOverdue } from "@/lib/time";
@@ -81,8 +82,9 @@ function BoardCardImpl({
         </span>
       </div>
 
-      {(task.label || dateText || task.important || assignee) && (
+      {(task.label || dateText || task.important || assignee || task.status === "doing") && (
         <div className="flex items-center gap-1.5 pl-[26px]">
+          {task.status === "doing" && <StatusChip />}
           {task.label && <LabelChip label={task.label} />}
           {task.important && (
             <span className="size-1.5 shrink-0 rounded-full bg-danger" aria-label="Important" />

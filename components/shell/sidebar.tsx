@@ -33,7 +33,7 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
   const counts = React.useMemo(() => {
     const map = new Map<Bucket, number>();
     for (const task of tasks) {
-      if (task.status !== "todo") continue;
+      if (task.status === "done") continue;
       if (filter !== null && task.assignee_id !== filter) continue;
       const b = bucketOf(task.due_on);
       map.set(b, (map.get(b) ?? 0) + 1);
