@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "verify:db": "node scripts/verify-db.mjs"
+    "verify:db": "node scripts/verify-db.mjs",
+    "verify:logic": "node --experimental-strip-types scripts/verify-logic.mjs",
+    "verify": "npm run verify:logic && npm run verify:db"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",

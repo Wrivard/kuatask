@@ -72,14 +72,21 @@ Both have been broken in the past and both broke quietly.
 npm run typecheck
 npm run lint
 npm run build
-node scripts/verify-db.mjs
+npm run verify          # both suites below
 ```
 
-The last one exercises what the app depends on but cannot assert about itself:
-RLS, the signup and completion triggers, the last-admin guard, and realtime
-delivery of all three event types. It creates throwaway users, deletes them, and
-then verifies the cleanup rather than assuming it. Point it at a project you are
-willing to write to.
+`npm run verify:logic` runs 60 assertions with no network: date buckets,
+Montreal instants across both DST offsets, streaks, the French parser, composer
+autocomplete, board grouping and fractional ordering. The invariant worth
+knowing about is the round trip — dropping a card on a date column has to land
+it in that same column, and if `firstDayOfBucket` and `bucketOf` ever disagree
+the card visibly jumps the moment you let go.
+
+`npm run verify:db` exercises what the app depends on but cannot assert about
+itself: RLS, the signup and completion triggers, the last-admin guard, and
+realtime delivery of all three event types. It creates throwaway users, deletes
+them, and then verifies the cleanup rather than assuming it. Point it at a
+project you are willing to write to.
 
 Two of the bugs it now covers — realtime never delivering deletions, and
 completions disappearing after 8pm Montreal — survived typecheck, lint and a
