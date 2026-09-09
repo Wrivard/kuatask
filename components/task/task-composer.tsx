@@ -217,9 +217,13 @@ export function TaskComposer({
         )}
       />
 
-      {/* the hint appears only while typing, so an idle list stays quiet */}
+      {/*
+        Only while typing, so an idle list stays quiet — and only where a
+        keyboard exists. docs/07-keyboard.md: no keyboard hints on touch, decided
+        by a pointer media query rather than by sniffing the user agent.
+      */}
       {!searching && suggestions.length === 0 && value.trim() !== "" && (
-        <p className="mt-1 text-right text-[12px] text-fg-faint">
+        <p className="mt-1 hidden text-right text-[12px] text-fg-faint [@media(pointer:fine)]:block">
           {copy.composer.hint}
         </p>
       )}
