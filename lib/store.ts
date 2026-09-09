@@ -100,8 +100,24 @@ const FILTER_KEY = 'kua-assignee-filter';
 export const useStore = create<Store>((set, get) => {
   const supabase = createClient();
 
-  const pushUndo = (fn: Inverse) =>
+  /*
+    An inverse is applied through the ordinary mutations, so that a rollback is
+    optimistic and reconciles exactly like a forward write. The catch is that
+    those mutations push undo entries of their own, which turns the stack into a
+    two-state toggle: ⌘Z would reopen the last task, ⌘Z again would re-complete
+    it, and history before that became unreachable. It also broke the collapsed
+    toast — undoing "3 tâches terminées" reopened one task, re-completed it, and
+    reopened it again, leaving the other two done.
+
+    So pushes are suppressed while an inverse is running. The cost is no redo,
+    which the spec never asks for.
+  */
+  let replaying = false;
+
+  const pushUndo = (fn: Inverse) => {
+    if (replaying) return;
     set((s) => ({ undoStack: [...s.undoStack, fn].slice(-UNDO_LIMIT) }));
+  };
 
   const markPending = (id: string, on: boolean) =>
     set((s) => {
@@ -369,8 +385,16 @@ export const useStore = create<Store>((set, get) => {
       const stack = get().undoStack;
       const fn = stack[stack.length - 1];
       if (!fn) return;
+
       set({ undoStack: stack.slice(0, -1) });
-      fn();
+
+      replaying = true;
+      try {
+        fn();
+      } finally {
+        // the flag must clear even if the inverse throws, or undo dies silently
+        replaying = false;
+      }
     },
 
     applyRemote(type, row) {
