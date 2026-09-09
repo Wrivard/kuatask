@@ -46,6 +46,7 @@ export function AppChrome() {
 
   useSequence("g", {
     c: () => router.push("/calendar"),
+    b: () => router.push("/board"),
     l: () => router.push("/"),
   });
 

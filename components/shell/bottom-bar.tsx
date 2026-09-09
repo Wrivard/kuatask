@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { List, CalendarDays, Plus, Users, type LucideIcon } from "lucide-react";
+import { List, Columns3, CalendarDays, Plus, Users, type LucideIcon } from "lucide-react";
 import { focusComposer } from "@/lib/events";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,8 @@ import { cn } from "@/lib/utils";
  * hints are rendered here — none of the shortcut map applies on touch.
  */
 const ITEMS: { href: string; icon: LucideIcon; label: string }[] = [
-  { href: "/", icon: List, label: copy.nav.today },
+  { href: "/", icon: List, label: copy.nav.list },
+  { href: "/board", icon: Columns3, label: copy.nav.board },
   { href: "/calendar", icon: CalendarDays, label: copy.nav.calendar },
   { href: "/settings/people", icon: Users, label: copy.nav.settings },
 ];

@@ -15,13 +15,11 @@ import {
   isToday,
 } from "@/lib/time";
 import { useStore, type Task } from "@/lib/store";
+import { useDragToTarget } from "@/lib/drag";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
 const WEEKDAYS = ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"];
-
-/** Long-press before a touch drag starts, so scrolling still works. */
-const LONG_PRESS_MS = 350;
 
 /**
  * Hand-built with date-fns. No calendar library — a library brings a payload and
@@ -41,9 +39,6 @@ export function CalendarView() {
   const [mode, setMode] = React.useState<"month" | "week">("month");
   const [openDay, setOpenDay] = React.useState<string | null>(null);
   const [openTask, setOpenTask] = React.useState<string | null>(null);
-
-  const [dragId, setDragId] = React.useState<string | null>(null);
-  const [dropDay, setDropDay] = React.useState<string | null>(null);
 
   const visible = React.useMemo(
     () => (filter === null ? tasks : tasks.filter((t) => t.assignee_id === filter)),
@@ -89,55 +84,8 @@ export function CalendarView() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  /*
-    Pointer-based drag rather than HTML5 drag-and-drop: the same code path then
-    covers mouse and touch, and touch never gets native dragging at all. The
-    cells carry data-day, so the drop target is whatever sits under the pointer.
-  */
-  const grab = React.useCallback(
-    (taskId: string, e: React.PointerEvent) => {
-      if (e.button !== 0 && e.pointerType === "mouse") return;
-      e.stopPropagation();
-
-      const isTouch = e.pointerType !== "mouse";
-      let started = !isTouch;
-      let longPress: ReturnType<typeof setTimeout> | null = null;
-
-      const begin = () => {
-        started = true;
-        setDragId(taskId);
-      };
-
-      if (isTouch) longPress = setTimeout(begin, LONG_PRESS_MS);
-      else begin();
-
-      const move = (ev: PointerEvent) => {
-        if (!started) return;
-        ev.preventDefault();
-        const under = document
-          .elementFromPoint(ev.clientX, ev.clientY)
-          ?.closest("[data-day]");
-        setDropDay(under?.getAttribute("data-day") ?? null);
-      };
-
-      const finish = () => {
-        if (longPress) clearTimeout(longPress);
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", finish);
-        window.removeEventListener("pointercancel", finish);
-
-        setDropDay((target) => {
-          if (started && target) reschedule(taskId, target);
-          return null;
-        });
-        setDragId(null);
-      };
-
-      window.addEventListener("pointermove", move, { passive: false });
-      window.addEventListener("pointerup", finish);
-      window.addEventListener("pointercancel", finish);
-    },
-    [reschedule],
+  const { dragId, target: dropDay, grab } = useDragToTarget((taskId, day) =>
+    reschedule(taskId, day),
   );
 
   if (!ready) return <div className="px-6 py-6" />;
@@ -213,7 +161,7 @@ export function CalendarView() {
           {days.map((day) => (
             <div
               key={day}
-              data-day={day}
+              data-drop-target={day}
               onClick={() => setOpenDay(day)}
               className={cn(
                 "flex min-h-0 cursor-pointer flex-col gap-1 overflow-y-auto border-b border-r border-border p-1.5",

@@ -145,8 +145,11 @@ export function CommandPalette({
         </CommandGroup>
 
         <CommandGroup heading={copy.palette.groupGo}>
-          <CommandItem value="aujourdhui liste" onSelect={() => open_(() => router.push("/"))}>
-            {copy.nav.today}
+          <CommandItem value="liste aujourdhui" onSelect={() => open_(() => router.push("/"))}>
+            {copy.nav.list}
+          </CommandItem>
+          <CommandItem value="tableau board kanban" onSelect={() => open_(() => router.push("/board"))}>
+            {copy.nav.board}
           </CommandItem>
           <CommandItem value="calendrier" onSelect={() => open_(() => router.push("/calendar"))}>
             {copy.nav.calendar}

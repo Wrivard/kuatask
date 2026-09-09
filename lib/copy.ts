@@ -21,6 +21,8 @@ export const copy = {
     later: "Plus tard",
     undated: "Sans date",
     calendar: "Calendrier",
+    board: "Tableau",
+    list: "Liste",
     settings: "Réglages",
     done: "Terminé",
     doneToday: "Terminé aujourd'hui",
@@ -29,6 +31,17 @@ export const copy = {
   filter: {
     all: "Tout",
     mine: "Moi",
+  },
+
+  board: {
+    groupBy: "Grouper par",
+    byPerson: "Personne",
+    byStatus: "Statut",
+    byDue: "Échéance",
+    todo: "À faire",
+    done: "Terminé",
+    unassigned: "Personne",
+    empty: "Rien ici.",
   },
 
   composer: {

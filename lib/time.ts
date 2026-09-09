@@ -121,6 +121,34 @@ export function bucketOf(dueOn: DayString | null): Bucket {
   return 'later';
 }
 
+/**
+ * The earliest day that lands in a bucket, for dropping a card onto a date
+ * column. Dropping on "Cette semaine" should mean "soon, this week" rather than
+ * an arbitrary day, so each bucket resolves to its first available day and is
+ * clamped so it cannot spill into the next bucket.
+ */
+export function firstDayOfBucket(bucket: Bucket): DayString | null {
+  if (bucket === 'undated') return null;
+  if (bucket === 'today') return today();
+  if (bucket === 'tomorrow') return tomorrow();
+
+  const base = toDate(today());
+  const weekEnd = endOfWeek(base, { weekStartsOn: 1 });
+  const monthEnd = endOfMonth(base);
+
+  if (bucket === 'week') {
+    const start = addDays(base, 2);
+    return toDayString(isBefore(weekEnd, start) ? weekEnd : start);
+  }
+
+  if (bucket === 'month') {
+    const start = addDays(weekEnd, 1);
+    return toDayString(isBefore(monthEnd, start) ? monthEnd : start);
+  }
+
+  return toDayString(addDays(monthEnd, 1));
+}
+
 // ---------------------------------------------------------------------------
 // calendar grid
 // ---------------------------------------------------------------------------

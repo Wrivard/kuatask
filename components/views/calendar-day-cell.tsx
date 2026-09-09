@@ -35,7 +35,7 @@ export function CalendarDayCell({
 
   return (
     <div
-      data-day={day}
+      data-drop-target={day}
       onClick={() => onOpenDay(day)}
       className={cn(
         "flex min-h-0 cursor-pointer flex-col gap-0.5 border-b border-r border-border p-1.5",

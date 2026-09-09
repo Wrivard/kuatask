@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { CalendarDays, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { bucketOf, computeStreak, type Bucket } from "@/lib/time";
 import { accentColor } from "@/components/task/assignee-dot";
@@ -78,14 +78,6 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
           </a>
         ))}
       </nav>
-
-      <Link
-        href="/calendar"
-        className="mx-2 mt-1 flex items-center gap-2 rounded-sm px-2 py-1.5 text-[13px] text-fg-muted hover:bg-surface-hover hover:text-fg"
-      >
-        <CalendarDays className="size-[18px]" strokeWidth={1.5} />
-        {copy.nav.calendar}
-      </Link>
 
       <div className="mx-4 my-3 border-t border-border" />
 
