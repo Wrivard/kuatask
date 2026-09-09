@@ -60,6 +60,16 @@ type Store = {
 
   hydrate: () => Promise<void>;
 
+  /**
+   * Re-read the workspace after the connection was interrupted.
+   *
+   * postgres_changes has no replay: anything that happened while the socket was
+   * down is simply gone. A tab left open all day — which is how this app is
+   * meant to be used — would otherwise go quietly stale, and stale is worse
+   * than obviously broken because you keep trusting it.
+   */
+  resync: () => Promise<void>;
+
   createTask: (input: Partial<Task> & { title: string }) => void;
   updateTask: (id: string, patch: Partial<Task>) => void;
   toggleTask: (id: string) => void;
@@ -196,6 +206,42 @@ export const useStore = create<Store>((set, get) => {
         workspaceId: wsId,
         assigneeFilter: filterIsValid ? savedFilter : null,
         ready: true,
+      });
+    },
+
+    async resync() {
+      const wsId = get().workspaceId;
+      if (!wsId) return;
+
+      const [{ data: rows }, { data: members }] = await Promise.all([
+        supabase.from('tasks').select('*').eq('workspace_id', wsId).order('position'),
+        supabase.from('profiles').select('*'),
+      ]);
+      if (!rows) return;
+
+      set((s) => {
+        /*
+          Same local precedence as applyRemote: a row with a write in flight
+          keeps its optimistic value, because the server copy we just read is
+          older than what the user is looking at.
+        */
+        const local = new Map(s.tasks.map((t) => [t.id, t]));
+        const merged = rows.map((row) =>
+          s.pending.has(row.id) ? (local.get(row.id) ?? row) : row,
+        );
+
+        // optimistic rows the server has not accepted yet must survive the swap
+        const serverIds = new Set(rows.map((r) => r.id));
+        const unsent = s.tasks.filter(
+          (t) => !serverIds.has(t.id) && s.pending.has(t.id),
+        );
+
+        const me = members?.find((m) => m.id === s.me?.id) ?? s.me;
+        return {
+          tasks: [...merged, ...unsent],
+          members: members ?? s.members,
+          me,
+        };
       });
     },
 
