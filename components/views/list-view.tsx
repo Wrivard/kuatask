@@ -30,6 +30,7 @@ import {
 } from "@/lib/completion";
 import { useHotkeys } from "@/lib/hotkeys";
 import { useCompletionHold } from "@/lib/hold";
+import { useScrollMemory } from "@/lib/scroll-memory";
 import { useOpenTask, useStartSearch, focusComposer } from "@/lib/events";
 import { nextDay } from "date-fns";
 import { copy } from "@/lib/copy";
@@ -63,6 +64,9 @@ export function ListView() {
     setSearching(true);
     focusComposer();
   });
+
+  // searching rewrites the list, so restoring an old offset would be wrong
+  useScrollMemory("list", !searching);
 
   const holding = useCompletionHold(allTasks);
 
