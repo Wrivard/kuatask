@@ -8,7 +8,7 @@ import { TaskModal } from "@/components/task/task-modal";
 import { TaskRow } from "@/components/task/task-row";
 import { ListSection } from "./list-section";
 import { ClearOut } from "./clear-out";
-import { COMPLETION, exit } from "@/lib/motion";
+import { exit } from "@/lib/motion";
 import {
   bucketOf,
   computeStreak,
@@ -29,6 +29,7 @@ import {
   useSetStatusWithFeedback,
 } from "@/lib/completion";
 import { useHotkeys } from "@/lib/hotkeys";
+import { useCompletionHold } from "@/lib/hold";
 import { useOpenTask, useStartSearch, focusComposer } from "@/lib/events";
 import { nextDay } from "date-fns";
 import { copy } from "@/lib/copy";
@@ -348,49 +349,6 @@ export function ListView() {
       <TaskModal taskId={openId} onClose={() => setOpenId(null)} />
     </div>
   );
-}
-
-/**
- * Holds a row in place for 900ms after it goes done, then releases it to
- * collapse into the footer.
- *
- * This watches status transitions in the store rather than taking a callback
- * from the checkbox, so a task the other person completes gets the same beat on
- * your screen — which is what § 8.7 asks for.
- */
-function useCompletionHold(tasks: Task[]): Set<string> {
-  const [holding, setHolding] = React.useState<Set<string>>(new Set());
-  const previous = React.useRef<Map<string, string>>(new Map());
-
-  React.useEffect(() => {
-    const before = previous.current;
-    const next = new Map<string, string>();
-    const justCompleted: string[] = [];
-
-    for (const task of tasks) {
-      next.set(task.id, task.status);
-      if (task.status === "done" && before.get(task.id) !== "done") {
-        justCompleted.push(task.id);
-      }
-    }
-
-    previous.current = next;
-    if (justCompleted.length === 0) return;
-
-    setHolding((prev) => new Set([...prev, ...justCompleted]));
-
-    const timer = setTimeout(() => {
-      setHolding((prev) => {
-        const updated = new Set(prev);
-        justCompleted.forEach((id) => updated.delete(id));
-        return updated;
-      });
-    }, COMPLETION.holdBeforeCollapse);
-
-    return () => clearTimeout(timer);
-  }, [tasks]);
-
-  return holding;
 }
 
 function Skeleton() {

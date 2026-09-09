@@ -49,6 +49,13 @@ export function buildColumns(
   members: Profile[],
   me: Profile | null,
   accentOf: (accent: string | undefined) => string,
+  /**
+   * Tasks completed within the last beat, mapped to the status they held
+   * before. § 8.1 says a completed row stays put before it leaves, so on the
+   * status board a card must linger in the column it came from rather than
+   * jumping to Terminé the instant the checkbox is hit.
+   */
+  holding: Map<string, Task["status"]> = new Map(),
 ): Column[] {
   // you first — a board you read every day should open on your own work
   const ordered = me
@@ -80,7 +87,7 @@ export function buildColumns(
     ];
     const index = new Map(columns.map((c) => [c.key, c]));
     for (const task of tasks) {
-      index.get(task.status)!.tasks.push(task);
+      index.get(holding.get(task.id) ?? task.status)!.tasks.push(task);
     }
     return columns.map(sortByPosition);
   }

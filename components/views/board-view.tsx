@@ -22,6 +22,7 @@ import {
   useRescheduleWithFeedback,
 } from "@/lib/completion";
 import { useOpenTask } from "@/lib/events";
+import { useCompletionHold } from "@/lib/hold";
 import { firstDayOfBucket, type Bucket } from "@/lib/time";
 import { exit } from "@/lib/motion";
 import { copy } from "@/lib/copy";
@@ -81,9 +82,12 @@ export function BoardView() {
     return allTasks.filter((t) => t.assignee_id === filter);
   }, [allTasks, filter, groupBy]);
 
+  // § 8.1 — a completed card holds its column for the beat before it moves
+  const holding = useCompletionHold(allTasks);
+
   const columns = React.useMemo(
-    () => buildColumns(groupBy, tasks, members, me, accentColor),
-    [groupBy, tasks, members, me],
+    () => buildColumns(groupBy, tasks, members, me, accentColor, holding),
+    [groupBy, tasks, members, me, holding],
   );
 
   const columnsRef = React.useRef(columns);
