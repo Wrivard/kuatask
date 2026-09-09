@@ -56,7 +56,7 @@ app/            routes; (app) is the authenticated shell
 components/     task/, views/, shell/, ui/ (owned shadcn primitives)
 lib/            store, time, sound, parsing, drag, copy — the load-bearing parts
 supabase/       migrations, applied in order
-scripts/        verify-db.mjs
+scripts/        verify-logic.mjs, verify-db.mjs
 docs/           the original specification, still the source of truth
 reference/      the spec's reference implementations, copied into lib/
 DECISIONS.md    why anything non-obvious is the way it is
@@ -75,7 +75,7 @@ npm run build
 npm run verify          # both suites below
 ```
 
-`npm run verify:logic` runs 60 assertions with no network: date buckets,
+`npm run verify:logic` runs 62 assertions with no network: date buckets,
 Montreal instants across both DST offsets, streaks, the French parser, composer
 autocomplete, board grouping and fractional ordering. The invariant worth
 knowing about is the round trip — dropping a card on a date column has to land
