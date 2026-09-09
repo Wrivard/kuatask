@@ -9,6 +9,7 @@ import { useDragToTarget } from "@/lib/drag";
 import {
   buildColumns,
   columnOf,
+  positionForDrop,
   GROUP_OPTIONS,
   NO_ASSIGNEE,
   type GroupBy,
@@ -80,15 +81,38 @@ export function BoardView() {
     [groupBy, tasks, members, me],
   );
 
+  const columnsRef = React.useRef(columns);
+  columnsRef.current = columns;
+
   const drop = React.useCallback(
-    (taskId: string, columnKey: string) => {
+    (taskId: string, columnKey: string, index: number | null) => {
       const task = useStore.getState().tasks.find((t) => t.id === taskId);
       if (!task) return;
-      if (columnOf(groupBy, task) === columnKey) return; // dropped where it already was
+
+      const sameColumn = columnOf(groupBy, task) === columnKey;
+      const column = columnsRef.current.find((c) => c.key === columnKey);
+
+      /*
+        Reordering inside a column is its own move: nothing about the task
+        changes except where it sits. Writing only `position` keeps it a single
+        optimistic update, and skipping the no-op case means picking a card up
+        and putting it back does not push an undo entry.
+      */
+      if (sameColumn) {
+        if (index === null || !column) return;
+        const next = positionForDrop(column, index, taskId);
+        if (next !== task.position) updateTask(taskId, { position: next });
+        return;
+      }
+
+      // a cross-column drop also lands where it was dropped, not at the end
+      const position =
+        index !== null && column ? positionForDrop(column, index, taskId) : task.position;
 
       if (groupBy === "person") {
         updateTask(taskId, {
           assignee_id: columnKey === NO_ASSIGNEE ? null : columnKey,
+          position,
         });
         return;
       }
@@ -96,16 +120,18 @@ export function BoardView() {
       if (groupBy === "status") {
         // routed through the feedback path so a dragged completion sounds and
         // animates exactly like a clicked one, in every direction
+        updateTask(taskId, { position });
         setStatus(taskId, columnKey as Task["status"]);
         return;
       }
 
+      updateTask(taskId, { position });
       reschedule(taskId, firstDayOfBucket(columnKey as Bucket));
     },
     [groupBy, updateTask, reschedule, setStatus],
   );
 
-  const { dragId, target, grab } = useDragToTarget(drop);
+  const { dragId, target, index: dropIndex, grab } = useDragToTarget(drop);
 
   if (!ready) return <div className="px-6 py-6" />;
 
@@ -154,15 +180,21 @@ export function BoardView() {
                   </span>
                 </header>
 
-                <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-2 pb-2">
+                <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-2">
                   <AnimatePresence initial={false}>
-                    {column.tasks.map((task) => (
+                    {column.tasks.map((task, i) => (
                       <motion.div
                         key={task.id}
                         layout
                         exit={{ opacity: 0 }}
                         transition={exit}
+                        data-drop-index={i}
+                        className="pb-1.5"
                       >
+                        {/* where the card would land, drawn only while dragging */}
+                        {isTarget && dropIndex === i && (
+                          <div className="mb-1.5 h-px bg-accent" aria-hidden />
+                        )}
                         <BoardCard
                           task={task}
                           dragging={dragId === task.id}
@@ -172,6 +204,10 @@ export function BoardView() {
                       </motion.div>
                     ))}
                   </AnimatePresence>
+
+                  {isTarget && dropIndex === column.tasks.length && (
+                    <div className="mb-1.5 h-px bg-accent" aria-hidden />
+                  )}
 
                   {column.tasks.length === 0 && (
                     <p className="px-1 py-2 text-[12px] text-fg-faint">

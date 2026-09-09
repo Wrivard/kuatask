@@ -24,14 +24,23 @@ export type DragState = {
   dragId: string | null;
   /** The drop target under the pointer, or null. */
   target: string | null;
+  /**
+   * Where the card would land inside the target, counted in items.
+   *
+   * Reordering within a column is the drag people expect on a board, and
+   * without it dropping a card back where it came from silently does nothing,
+   * which reads as the board being broken.
+   */
+  index: number | null;
   grab: (itemId: string, e: React.PointerEvent) => void;
 };
 
 export function useDragToTarget(
-  onDrop: (itemId: string, target: string) => void,
+  onDrop: (itemId: string, target: string, index: number | null) => void,
 ): DragState {
   const [dragId, setDragId] = React.useState<string | null>(null);
   const [target, setTarget] = React.useState<string | null>(null);
+  const [index, setIndex] = React.useState<number | null>(null);
 
   const onDropRef = React.useRef(onDrop);
   onDropRef.current = onDrop;
@@ -46,6 +55,7 @@ export function useDragToTarget(
     let dragging = false;
     let longPress: ReturnType<typeof setTimeout> | null = null;
     let currentTarget: string | null = null;
+    let currentIndex: number | null = null;
 
     const begin = () => {
       if (dragging) return;
@@ -54,10 +64,23 @@ export function useDragToTarget(
     };
 
     const targetUnder = (x: number, y: number) =>
-      document
-        .elementFromPoint(x, y)
-        ?.closest("[data-drop-target]")
-        ?.getAttribute("data-drop-target") ?? null;
+      document.elementFromPoint(x, y)?.closest("[data-drop-target]") ?? null;
+
+    /*
+      Insertion point is how many card midpoints sit above the pointer. Using
+      midpoints rather than edges means the card you are hovering yields as soon
+      as you pass its centre, which is what makes the gap feel like it opens
+      under the cursor.
+    */
+    const indexWithin = (container: Element, y: number) => {
+      const cards = [...container.querySelectorAll("[data-drop-index]")];
+      let n = 0;
+      for (const card of cards) {
+        const rect = card.getBoundingClientRect();
+        if (y > rect.top + rect.height / 2) n += 1;
+      }
+      return n;
+    };
 
     if (isTouch) longPress = setTimeout(begin, LONG_PRESS_MS);
 
@@ -77,8 +100,11 @@ export function useDragToTarget(
       }
 
       ev.preventDefault();
-      currentTarget = targetUnder(ev.clientX, ev.clientY);
+      const container = targetUnder(ev.clientX, ev.clientY);
+      currentTarget = container?.getAttribute("data-drop-target") ?? null;
+      currentIndex = container ? indexWithin(container, ev.clientY) : null;
       setTarget(currentTarget);
+      setIndex(currentIndex);
     };
 
     const cancel = (ev: KeyboardEvent) => {
@@ -96,6 +122,7 @@ export function useDragToTarget(
       dragging = false;
       setDragId(null);
       setTarget(null);
+      setIndex(null);
     }
 
     function abort() {
@@ -105,8 +132,9 @@ export function useDragToTarget(
 
     function finish() {
       const dropped = dragging ? currentTarget : null;
+      const at = currentIndex;
       cleanup();
-      if (dropped) onDropRef.current(itemId, dropped);
+      if (dropped) onDropRef.current(itemId, dropped, at);
     }
 
     window.addEventListener("pointermove", move, { passive: false });
@@ -115,5 +143,5 @@ export function useDragToTarget(
     window.addEventListener("keydown", cancel);
   }, []);
 
-  return { dragId, target, grab };
+  return { dragId, target, index, grab };
 }

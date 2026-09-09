@@ -68,7 +68,7 @@ export function buildColumns(
     for (const task of tasks) {
       (index.get(task.assignee_id ?? NO_ASSIGNEE) ?? index.get(NO_ASSIGNEE))!.tasks.push(task);
     }
-    return columns;
+    return columns.map(sortByPosition);
   }
 
   if (groupBy === "status") {
@@ -82,7 +82,7 @@ export function buildColumns(
     for (const task of tasks) {
       index.get(task.status)!.tasks.push(task);
     }
-    return columns;
+    return columns.map(sortByPosition);
   }
 
   const columns: Column[] = DUE_ORDER.map((b) => ({
@@ -94,7 +94,35 @@ export function buildColumns(
   for (const task of tasks) {
     index.get(bucketOf(task.due_on))!.tasks.push(task);
   }
-  return columns;
+  return columns.map(sortByPosition);
+}
+
+/** Manual order is the point of a board, so every column respects position. */
+function sortByPosition(column: Column): Column {
+  return { ...column, tasks: [...column.tasks].sort((a, b) => a.position - b.position) };
+}
+
+/**
+ * Fractional index for a card dropped at `index` within `column`.
+ *
+ * Halving the gap between neighbours means a move writes one row rather than
+ * renumbering the column, so a reorder stays a single optimistic update like
+ * every other mutation. `position` is double precision precisely for this.
+ */
+export function positionForDrop(
+  column: Column,
+  index: number,
+  movingId: string,
+): number {
+  // the card being moved should not count as its own neighbour
+  const others = column.tasks.filter((t) => t.id !== movingId);
+  const before = others[index - 1];
+  const after = others[index];
+
+  if (!before && !after) return Date.now() / 1000;
+  if (!before) return after.position - 1;
+  if (!after) return before.position + 1;
+  return (before.position + after.position) / 2;
 }
 
 /** Which column a task currently sits in, so a no-op drop can be skipped. */
