@@ -29,7 +29,7 @@ import {
   useSetStatusWithFeedback,
 } from "@/lib/completion";
 import { useHotkeys } from "@/lib/hotkeys";
-import { useOpenTask } from "@/lib/events";
+import { useOpenTask, useStartSearch, focusComposer } from "@/lib/events";
 import { nextDay } from "date-fns";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
@@ -55,16 +55,28 @@ export function ListView() {
   const filter = useStore((s) => s.assigneeFilter);
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [doneOpen, setDoneOpen] = React.useState(false);
+  const [searching, setSearching] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+
+  useStartSearch(() => {
+    setSearching(true);
+    focusComposer();
+  });
 
   const holding = useCompletionHold(allTasks);
 
-  const tasks = React.useMemo(
-    () =>
-      filter === null
-        ? allTasks
-        : allTasks.filter((t) => t.assignee_id === filter),
-    [allTasks, filter],
-  );
+  const tasks = React.useMemo(() => {
+    const byAssignee =
+      filter === null ? allTasks : allTasks.filter((t) => t.assignee_id === filter);
+
+    const q = searching ? normalize(query.trim()) : "";
+    if (!q) return byAssignee;
+
+    // accent-insensitive: nobody types "étiquette" with the accent while searching
+    return byAssignee.filter((t) =>
+      normalize([t.title, t.label ?? "", t.notes ?? ""].join(" ")).includes(q),
+    );
+  }, [allTasks, filter, searching, query]);
 
   /*
     § 8.7 — when the other person completes a task on your screen, their dot
@@ -240,6 +252,7 @@ export function ListView() {
   const cleared = myToday.open === 0 && myToday.done > 0 && holding.size === 0;
 
   const emptyMessage = (() => {
+    if (searching && query.trim() !== "") return copy.empty.search;
     if (filter !== null) {
       const who =
         filter === me?.id
@@ -255,7 +268,17 @@ export function ListView() {
 
   return (
     <div className="max-w-[760px] px-6 py-6">
-      <TaskComposer />
+      <TaskComposer
+        search={{
+          active: searching,
+          query,
+          onQuery: setQuery,
+          onExit: () => {
+            setSearching(false);
+            setQuery("");
+          },
+        }}
+      />
 
       {sections.map((s) => (
         <ListSection
@@ -381,4 +404,12 @@ function Skeleton() {
       </div>
     </div>
   );
+}
+
+/** Lowercase and strip accents, so "etiquette" finds "étiquette". */
+function normalize(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
 }

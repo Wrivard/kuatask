@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { CommandPalette } from "./command-palette";
 import { ShortcutSheet } from "./shortcut-sheet";
 import { useHotkeys, useSequence } from "@/lib/hotkeys";
-import { focusComposer, openTask } from "@/lib/events";
+import { focusComposer, openTask, startSearch } from "@/lib/events";
 import { useStore } from "@/lib/store";
 
 /** Global keyboard layer plus the two dialogs it opens. */
@@ -36,7 +36,7 @@ export function AppChrome() {
       setSheetOpen(false);
     },
     c: () => focusComposer(),
-    "/": () => focusComposer(),
+    "/": () => startSearch(),
     "?": () => setSheetOpen(true),
     "1": () => goToSection("today"),
     "2": () => goToSection("tomorrow"),

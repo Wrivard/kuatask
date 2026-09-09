@@ -12,6 +12,7 @@ import * as React from "react";
  */
 const FOCUS_COMPOSER = "kua:focus-composer";
 const OPEN_TASK = "kua:open-task";
+const START_SEARCH = "kua:start-search";
 
 export function focusComposer() {
   window.dispatchEvent(new CustomEvent(FOCUS_COMPOSER));
@@ -29,6 +30,22 @@ export function useFocusComposer(handler: () => void) {
     const listener = () => ref.current();
     window.addEventListener(FOCUS_COMPOSER, listener);
     return () => window.removeEventListener(FOCUS_COMPOSER, listener);
+  }, []);
+}
+
+/** `/` turns the composer into a search box rather than opening a second UI. */
+export function startSearch() {
+  window.dispatchEvent(new CustomEvent(START_SEARCH));
+}
+
+export function useStartSearch(handler: () => void) {
+  const ref = React.useRef(handler);
+  ref.current = handler;
+
+  React.useEffect(() => {
+    const listener = () => ref.current();
+    window.addEventListener(START_SEARCH, listener);
+    return () => window.removeEventListener(START_SEARCH, listener);
   }, []);
 }
 

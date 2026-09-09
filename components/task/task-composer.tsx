@@ -26,9 +26,23 @@ import { cn } from "@/lib/utils";
 export function TaskComposer({
   defaultDueOn = null,
   defaultAssigneeId = null,
+  search,
 }: {
   defaultDueOn?: string | null;
   defaultAssigneeId?: string | null;
+  /**
+   * When present the composer is a search box instead of a capture box.
+   *
+   * One field with two modes rather than two fields: the composer already owns
+   * the top of the list and the keyboard focus, and a separate search input
+   * would compete with it for both.
+   */
+  search?: {
+    active: boolean;
+    query: string;
+    onQuery: (value: string) => void;
+    onExit: () => void;
+  };
 }) {
   const [value, setValue] = React.useState("");
   const [dismissed, setDismissed] = React.useState<Set<string>>(new Set());
@@ -63,8 +77,10 @@ export function TaskComposer({
     });
   }
 
-  // C, / and the palette all focus the composer through this
+  // C and the palette focus the composer; / switches it to search first
   useFocusComposer(() => inputRef.current?.focus());
+
+  const searching = search?.active ?? false;
 
   // a dismissed chip means "you got that wrong" — honour it until the text changes
   const active = React.useMemo(() => {
@@ -134,13 +150,28 @@ export function TaskComposer({
       <input
         ref={inputRef}
         type="text"
-        value={value}
+        value={searching ? search!.query : value}
         onChange={(e) => {
+          if (searching) {
+            search!.onQuery(e.target.value);
+            return;
+          }
           setValue(e.target.value);
           setCursor(e.target.selectionStart ?? e.target.value.length);
           setDismissed(new Set());
         }}
         onKeyDown={(e) => {
+          if (searching) {
+            // Escape is the only way out, and it clears as it goes
+            if (e.key === "Escape") {
+              e.preventDefault();
+              search!.onExit();
+            }
+            // Enter would otherwise create a task named after the query
+            if (e.key === "Enter") e.preventDefault();
+            return;
+          }
+
           /*
             Suggestions borrow Enter only while they are open. Everywhere else
             Enter still creates the task — capture speed is the point, and a
@@ -176,16 +207,17 @@ export function TaskComposer({
         }}
         onKeyUp={(e) => setCursor(e.currentTarget.selectionStart ?? 0)}
         onClick={(e) => setCursor(e.currentTarget.selectionStart ?? 0)}
-        placeholder={copy.composer.placeholder}
-        aria-label={copy.composer.placeholder}
+        placeholder={searching ? copy.composer.searchPlaceholder : copy.composer.placeholder}
+        aria-label={searching ? copy.composer.searchPlaceholder : copy.composer.placeholder}
         className={cn(
           "h-10 w-full rounded-sm border border-control bg-surface px-3",
           "text-[15px] leading-[1.4] tracking-[-0.011em]",
           "placeholder:text-fg-faint focus:border-accent focus:outline-none",
+          searching && "border-accent",
         )}
       />
 
-      {suggestions.length > 0 && (
+      {!searching && suggestions.length > 0 && (
         <ul className="mt-1 overflow-hidden rounded-sm border border-border bg-surface">
           {suggestions.map((suggestion, i) => (
             <li key={suggestion.value}>
@@ -209,7 +241,7 @@ export function TaskComposer({
         </ul>
       )}
 
-      {chips.length > 0 && (
+      {!searching && chips.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {chips.map((chip) => (
             <button
