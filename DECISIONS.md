@@ -502,3 +502,47 @@ Two lessons worth keeping:
    is invisible at the call site — hence the named helpers.
 2. This was unreachable by typecheck, lint or build. It needed a real row from
    the real trigger.
+
+---
+
+## Post-deploy — two auth bugs found by actually using it
+
+### The callback only understood one of three link shapes
+
+GoTrue's auth logs showed two successful `Login` events with no session ever
+reaching the app. The cause: `/auth/callback` read only `?code=`, the PKCE shape
+our own `/login` form produces because `createBrowserClient` sends a
+`code_challenge`.
+
+Links that did **not** start with a PKCE challenge — the dashboard's "Send magic
+link", `admin/generate_link`, and password recovery — come back through GoTrue's
+`/verify`, which redirects with the tokens in the **URL fragment**. A fragment is
+never transmitted to the server, so a route handler cannot read it no matter how
+it is written. The handler saw no `code`, fell through, and sent the user to
+`/login?error=expired` — an expired-link message for a link that had just
+succeeded.
+
+Now handled in all three shapes:
+
+| Shape | Where it comes from | Handled by |
+|---|---|---|
+| `?code=` | our `/login` form (PKCE) | `exchangeCodeForSession` |
+| `?token_hash=&type=` | templates using `{{ .TokenHash }}` | `verifyOtp` |
+| `#access_token=…` | dashboard, `generate_link`, recovery | `/auth/confirm`, client-side |
+
+`/auth/confirm` is a client page because that is the only place the fragment
+exists. The fragment survives the redirect from `/auth/callback` because the
+target URL carries none of its own. It is a public path in middleware.
+
+### Missing env vars took down every route, including /login
+
+The Vercel deploy returned `MIDDLEWARE_INVOCATION_FAILED` on `/`, `/login` and
+`/auth/confirm` alike. `createServerClient(undefined!, undefined!)` throws, and
+because the matcher covers every path, one missing environment variable blacked
+out the entire site — including the one screen that needs no session.
+
+Middleware now checks for the URL and anon key first and, if either is missing,
+logs a named error and passes the request through untouched. Degrading is safe
+here: the security boundary is RLS, and this doc already describes the
+middleware check as a UX convenience rather than the guard. A misconfigured
+deploy should be diagnosable, not a wall.
