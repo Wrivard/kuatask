@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { copy } from "@/lib/copy";
-import { SignOutButton } from "./sign-out-button";
+import { SignOutButton } from "@/components/shell/sign-out-button";
 import { SetupRequired } from "@/components/shell/setup-required";
 
 // per-user by definition: never prerender

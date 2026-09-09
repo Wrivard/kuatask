@@ -4,6 +4,7 @@ import * as React from "react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { ACCENTS } from "@/components/task/assignee-dot";
+import { SignOutButton } from "@/components/shell/sign-out-button";
 import { useStore } from "@/lib/store";
 import { completionTone } from "@/lib/sound";
 import { copy } from "@/lib/copy";
@@ -133,6 +134,10 @@ export function ProfileClient() {
         </div>
         <p className="mt-1.5 text-[12px] text-fg-faint">{copy.settings.themeHint}</p>
       </Field>
+
+      <div className="border-t border-border pt-6">
+        <SignOutButton />
+      </div>
     </div>
   );
 }
