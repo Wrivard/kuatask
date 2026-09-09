@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# a newer push makes an in-flight run irrelevant
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # No network, no database, no secrets. Covers the date, parsing, grouping
+      # and ordering logic — the places where a mistake is silent rather than
+      # loud, and where two bugs have already got through a green build.
+      - name: Logic invariants
+        run: npm run verify:logic
+
+      # Deliberately run with no environment variables. A missing config value
+      # must break a request, never a build: two deployments failed once because
+      # a guard threw during prerender, and this is the check that would have
+      # caught it.
+      - name: Build without configuration
+        run: npm run build
+
+# verify:db is not run here. It writes to a real Supabase project — creating and
+# deleting users — so it belongs in a hand-run step against a project someone
+# has chosen, not on every push.
