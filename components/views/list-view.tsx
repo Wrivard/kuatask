@@ -270,6 +270,8 @@ export function ListView() {
   return (
     <div className="max-w-[760px] px-6 py-6">
       <TaskComposer
+        // § 6 — capturing while the lens is on a person assigns it to them
+        defaultAssigneeId={filter}
         search={{
           active: searching,
           query,

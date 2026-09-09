@@ -229,7 +229,8 @@ export function BoardView() {
       </div>
 
       <div className="border-t border-border px-6 py-3">
-        <TaskComposer />
+        {/* grouping by person shows everyone, so the lens is the only hint */}
+        <TaskComposer defaultAssigneeId={groupBy === "person" ? null : filter} />
       </div>
 
       <TaskModal taskId={openId} onClose={() => setOpenId(null)} />
