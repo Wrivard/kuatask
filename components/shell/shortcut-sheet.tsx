@@ -24,6 +24,7 @@ const GROUPS: { scope: string; rows: [string, string][] }[] = [
       ["J / K", "Déplacer le focus"],
       ["X", copy.nav.done],
       ["E", "Ouvrir"],
+      ["S", copy.task.status],
       ["A", copy.task.assignee],
       ["D", copy.task.dueDate],
       ["!", copy.task.important],

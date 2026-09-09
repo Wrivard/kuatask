@@ -23,7 +23,11 @@ import {
   type Bucket,
 } from "@/lib/time";
 import { useStore, type Task } from "@/lib/store";
-import { useToggleWithFeedback, useDeleteWithFeedback } from "@/lib/completion";
+import {
+  useToggleWithFeedback,
+  useDeleteWithFeedback,
+  useSetStatusWithFeedback,
+} from "@/lib/completion";
 import { useHotkeys } from "@/lib/hotkeys";
 import { useOpenTask } from "@/lib/events";
 import { nextDay } from "date-fns";
@@ -128,6 +132,7 @@ export function ListView() {
   const [focusedId, setFocusedId] = React.useState<string | null>(null);
   const toggle = useToggleWithFeedback();
   const remove = useDeleteWithFeedback();
+  const setStatus = useSetStatusWithFeedback();
   const updateTask = useStore((s) => s.updateTask);
 
   // a focused row that leaves the list takes the focus with it
@@ -186,6 +191,13 @@ export function ListView() {
       const ring = [null, ...members.map((m) => m.id)];
       const next = ring[(ring.indexOf(task.assignee_id) + 1) % ring.length];
       updateTask(id, { assignee_id: next });
+    }),
+    // S walks the workflow, the same shape as A over people and D over dates
+    s: onFocused((id) => {
+      const task = allTasks.find((t) => t.id === id);
+      if (!task) return;
+      const ring = ["todo", "doing", "done"] as const;
+      setStatus(id, ring[(ring.indexOf(task.status) + 1) % ring.length]);
     }),
     d: onFocused((id) => {
       const task = allTasks.find((t) => t.id === id);

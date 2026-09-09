@@ -52,6 +52,16 @@ function BoardCardImpl({
       transition={spring}
       onPointerDown={(e) => onGrab(task.id, e)}
       onClick={() => onOpen(task.id)}
+      // a card is an interactive target, so it has to be reachable and operable
+      // without a pointer; dragging has keyboard equivalents in the list (A/D/S)
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onOpen(task.id);
+        }
+      }}
       className={cn(
         "flex touch-none select-none flex-col gap-1.5 rounded-md border border-border bg-surface p-2.5",
         "cursor-pointer hover:bg-surface-hover",
