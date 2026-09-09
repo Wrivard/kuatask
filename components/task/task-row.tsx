@@ -63,9 +63,12 @@ function TaskRowImpl({
       onMouseEnter={() => onFocus?.(task.id)}
       data-focused={focused || undefined}
       className={cn(
-        "flex h-11 items-center gap-3 rounded-md border-b border-border px-3 text-left transition-colors md:h-11",
+        "flex h-11 items-center gap-3 rounded-md border-b border-border px-3 text-left transition-colors",
         "hover:bg-surface-hover",
-        "max-md:h-13",
+        // 44px with a mouse, 52px under a finger. Keyed on the pointer, not the
+        // window: a narrow desktop window is still a mouse, and a large tablet
+        // is still a thumb.
+        "[@media(pointer:coarse)]:h-13",
         // focus is a 1px accent ring, and never lands flush against the header
         focused && "scroll-mt-20 ring-1 ring-accent ring-inset",
         done && "opacity-45",
