@@ -143,16 +143,16 @@ export function BoardView() {
   if (!ready) return <div className="px-6 py-6" />;
 
   return (
-    <div className="flex h-[calc(100dvh-7rem)] flex-col md:h-[calc(100dvh-3.5rem)]">
-      <div className="flex items-center gap-2 px-6 py-3">
-        <span className="text-[12px] text-fg-faint">{copy.board.groupBy}</span>
+    <div className="flex h-[calc(100dvh-7rem)] flex-col lg:h-[calc(100dvh-3.5rem)]">
+      <div className="flex items-center gap-2 overflow-x-auto px-6 py-3">
+        <span className="shrink-0 text-[12px] text-fg-faint">{copy.board.groupBy}</span>
         {GROUP_OPTIONS.map((option) => (
           <button
             key={option.value}
             type="button"
             onClick={() => chooseGroup(option.value)}
             className={cn(
-              "rounded-sm border border-border px-2 py-1 text-[12px]",
+              "shrink-0 rounded-sm border border-border px-2 py-1 text-[12px]",
               groupBy === option.value ? "text-fg" : "text-fg-muted hover:text-fg",
             )}
           >

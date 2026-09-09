@@ -74,7 +74,7 @@ export default async function AppLayout({
       <LiveRegion />
       <Sidebar workspaceName={workspace.name} />
       {/* the pad clears the fixed mobile bar plus the home indicator */}
-      <div className="min-w-0 flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:pb-0">
+      <div className="min-w-0 flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
         {children}
       </div>
       <BottomBar />

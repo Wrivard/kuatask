@@ -29,7 +29,7 @@ export function BottomBar() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-bg md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-bg lg:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <Tab icon={Plus} label={copy.palette.newTask} onClick={focusComposer} />

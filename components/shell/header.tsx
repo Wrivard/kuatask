@@ -11,7 +11,7 @@ export function Header({ title }: { title: string }) {
   return (
     <header className="flex h-14 items-center gap-4 border-b border-border px-6">
       <h1 className="shrink-0 text-[22px] font-semibold tracking-[-0.02em]">{title}</h1>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <ViewSwitch />
       </div>
       <div className="ml-auto">

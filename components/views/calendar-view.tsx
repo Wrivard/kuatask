@@ -92,8 +92,8 @@ export function CalendarView() {
   if (!ready) return <div className="px-6 py-6" />;
 
   return (
-    <div className="flex h-[calc(100dvh-7rem)] flex-col md:h-[calc(100dvh-3.5rem)]">
-      <div className="flex items-center gap-3 px-6 py-3">
+    <div className="flex h-[calc(100dvh-7rem)] flex-col lg:h-[calc(100dvh-3.5rem)]">
+      <div className="flex items-center gap-3 overflow-x-auto px-6 py-3">
         <button
           type="button"
           onClick={() => setAnchor((a) => addMonths(a, -1))}
@@ -102,7 +102,7 @@ export function CalendarView() {
         >
           ←
         </button>
-        <span className="min-w-[140px] text-[13px] text-fg">
+        <span className="min-w-[140px] shrink-0 text-[13px] text-fg">
           {formatMonthYear(anchor)}
         </span>
         <button
@@ -114,7 +114,7 @@ export function CalendarView() {
           →
         </button>
 
-        <div className="ml-auto flex gap-1">
+        <div className="ml-auto flex shrink-0 gap-1">
           {(["month", "week"] as const).map((m) => (
             <button
               key={m}

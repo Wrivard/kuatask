@@ -57,7 +57,7 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
   );
 
   return (
-    <aside className="hidden w-[220px] shrink-0 flex-col border-r border-border md:flex">
+    <aside className="hidden w-[220px] shrink-0 flex-col border-r border-border lg:flex">
       <div className="px-4 py-4">
         <span className="text-[13px] font-medium text-fg">{workspaceName}</span>
       </div>
