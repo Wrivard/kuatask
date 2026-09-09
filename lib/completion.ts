@@ -24,12 +24,34 @@ const TOAST_MS = 5000;
 
 let batch = 0;
 let batchTimer: ReturnType<typeof setTimeout> | null = null;
+/** Undo-stack depth after the previous completion, or -1 if there was none. */
+let batchDepth = -1;
+
+function endBatch() {
+  batch = 0;
+  batchDepth = -1;
+}
 
 /**
  * Rapid completions collapse into one toast. A stack of toasts during a fast
  * clear-out is noise that fights the thing it is celebrating.
+ *
+ * The batch only ever covers *consecutive* completions. Undo pops from the end
+ * of the stack, so replaying it N times assumes the last N entries are the N
+ * completions being announced — and anything done in between breaks that.
+ * Complete a task, drag another to your partner, complete a third, and a naive
+ * count of two would undo the third completion and the reassignment while
+ * leaving the first completion done: three actions, two reversed, none of them
+ * the pair the toast named.
+ *
+ * Each completion pushes exactly one undo entry, so a depth that did not grow by
+ * exactly one means something else intervened, and the batch starts over.
  */
 function notify(undo: () => void) {
+  const depth = useStore.getState().undoStack.length;
+  if (depth !== batchDepth + 1) batch = 0;
+  batchDepth = depth;
+
   batch += 1;
   const count = batch;
 
@@ -41,15 +63,13 @@ function notify(undo: () => void) {
       onClick: () => {
         // undo restores the whole collapsed batch, not just the last one
         for (let i = 0; i < count; i += 1) undo();
-        batch = 0;
+        endBatch();
       },
     },
   });
 
   if (batchTimer) clearTimeout(batchTimer);
-  batchTimer = setTimeout(() => {
-    batch = 0;
-  }, TOAST_MS);
+  batchTimer = setTimeout(endBatch, TOAST_MS);
 }
 
 /**
