@@ -70,6 +70,31 @@ for (const bucket of ["today", "tomorrow", "week", "month", "later", "undated"])
   eq(`${bucket} -> ${day ?? "null"} -> ${time.bucketOf(day)}`, time.bucketOf(day), bucket);
 }
 
+/*
+  The day-dependent helpers take the day as a parameter now, so they can be
+  pinned instead of being read from the clock. That is what lets a view inside a
+  useMemo depend on the day honestly, and what makes a tab left open across
+  midnight re-bucket instead of showing yesterday.
+*/
+section("Pinned day — the helpers no longer read the clock");
+const PINNED = "2026-06-15"; // a Monday
+eq("a task due on the pinned day is today", time.bucketOf("2026-06-15", PINNED), "today");
+eq("the next day is tomorrow", time.bucketOf("2026-06-16", PINNED), "tomorrow");
+eq("later that week", time.bucketOf("2026-06-20", PINNED), "week");
+eq("the following week is this month", time.bucketOf("2026-06-25", PINNED), "month");
+eq("next month is later", time.bucketOf("2026-07-20", PINNED), "later");
+eq("the past folds into today", time.bucketOf("2026-05-01", PINNED), "today");
+check("isToday honours the pinned day", time.isToday("2026-06-15", PINNED) === true);
+check("and rejects another day", time.isToday("2026-06-16", PINNED) === false);
+check("isOnDay matches a Montreal evening instant",
+      time.isOnDay("2026-06-16T02:00:00Z", PINNED) === true);
+check("isOnDay(null) is false", time.isOnDay(null, PINNED) === false);
+eq("streak counts back from the pinned day",
+   time.computeStreak(["2026-06-15T16:00:00Z", "2026-06-14T16:00:00Z"], PINNED), 2);
+check("msUntilNextDay is inside a day and never zero",
+      time.msUntilNextDay() > 0 && time.msUntilNextDay() <= 86_401_000,
+      String(time.msUntilNextDay()));
+
 // ------------------------------------------------------------- instants
 section("Instants — the Montreal day, not the UTC one");
 const cases = [
@@ -171,6 +196,17 @@ const held = grouping.buildColumns("status", board, others, me, accentOf, new Ma
 // by position so the held card lands wherever its position puts it
 eq("a held card stays put for the beat", held[0].tasks.map((t) => t.id).sort(), ["a", "c"]);
 eq("and is not yet in Terminé", held[2].tasks.length, 0);
+
+// the board buckets against the day it is handed, not the clock
+const pinnedBoard = [
+  { id: "p", assignee_id: null, status: "todo", due_on: "2026-06-15", position: 1 },
+  { id: "q", assignee_id: null, status: "todo", due_on: "2026-06-16", position: 2 },
+];
+const pinnedCols = grouping.buildColumns("due", pinnedBoard, others, me, accentOf, new Map(), PINNED);
+eq("board buckets against the day it is given",
+   [pinnedCols.find((c) => c.key === "today").tasks.map((t) => t.id),
+    pinnedCols.find((c) => c.key === "tomorrow").tasks.map((t) => t.id)],
+   [["p"], ["q"]]);
 
 const byDue = grouping.buildColumns("due", board, others, me, accentOf);
 eq("columns sort by position", byDue.find((c) => c.key === "today").tasks.map((t) => t.id), ["c", "a"]);

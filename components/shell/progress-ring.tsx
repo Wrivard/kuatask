@@ -6,7 +6,8 @@ import { Check } from "lucide-react";
 import { spring } from "@/lib/motion";
 import { useStore } from "@/lib/store";
 import { copy } from "@/lib/copy";
-import { isTodayInstant, today } from "@/lib/time";
+import { isOnDay } from "@/lib/time";
+import { useToday } from "@/lib/day";
 
 const SIZE = 22;
 const STROKE = 2;
@@ -23,12 +24,12 @@ const C = 2 * Math.PI * R;
  */
 export function ProgressRing() {
   const reduced = useReducedMotion();
+  const day = useToday();
   const tasks = useStore((s) => s.tasks);
   const me = useStore((s) => s.me);
 
   const { done, total } = React.useMemo(() => {
     if (!me) return { done: 0, total: 0 };
-    const day = today();
 
     let d = 0;
     let t = 0;
@@ -36,7 +37,7 @@ export function ProgressRing() {
       if (task.assignee_id !== me.id) continue;
 
       const isDoneToday =
-        task.status === "done" && isTodayInstant(task.completed_at);
+        task.status === "done" && isOnDay(task.completed_at, day);
       const isOpenForToday =
         task.status !== "done" && task.due_on !== null && task.due_on <= day;
 
@@ -46,7 +47,7 @@ export function ProgressRing() {
       }
     }
     return { done: d, total: t };
-  }, [tasks, me]);
+  }, [tasks, me, day]);
 
   if (total === 0) return null;
 

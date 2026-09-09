@@ -17,6 +17,7 @@ import {
 import { useStore, type Task } from "@/lib/store";
 import { useDragToTarget } from "@/lib/drag";
 import { useRescheduleWithFeedback } from "@/lib/completion";
+import { useToday } from "@/lib/day";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +37,7 @@ export function CalendarView() {
   const filter = useStore((s) => s.assigneeFilter);
   const reschedule = useRescheduleWithFeedback();
 
+  const today = useToday();
   const [anchor, setAnchor] = React.useState(nowDate);
   const [mode, setMode] = React.useState<"month" | "week">("month");
   const [openDay, setOpenDay] = React.useState<string | null>(null);
@@ -172,7 +174,7 @@ export function CalendarView() {
               <span
                 className={cn(
                   "font-mono text-[12px] tabular-nums",
-                  isToday(day) ? "text-accent" : "text-fg-muted",
+                  isToday(day, today) ? "text-accent" : "text-fg-muted",
                 )}
               >
                 {day.slice(-2)}

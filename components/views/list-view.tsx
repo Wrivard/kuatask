@@ -15,7 +15,7 @@ import {
   dayOfMonth,
   daysFromToday,
   isOverdue,
-  isTodayInstant,
+  isOnDay,
   nowTz,
   toDayString,
   today,
@@ -31,6 +31,7 @@ import {
 import { useHotkeys } from "@/lib/hotkeys";
 import { useCompletionHold } from "@/lib/hold";
 import { useScrollMemory } from "@/lib/scroll-memory";
+import { useToday } from "@/lib/day";
 import { useOpenTask, useStartSearch, focusComposer } from "@/lib/events";
 import { nextDay } from "date-fns";
 import { copy } from "@/lib/copy";
@@ -67,6 +68,9 @@ export function ListView() {
 
   // searching rewrites the list, so restoring an old offset would be wrong
   useScrollMemory("list", !searching);
+
+  // re-buckets by itself when Montreal rolls over midnight
+  const day = useToday();
 
   const holding = useCompletionHold(allTasks);
 
@@ -106,7 +110,7 @@ export function ListView() {
       const stillInPlace = task.status !== "done" || holding.has(task.id);
 
       if (stillInPlace) {
-        const bucket = bucketOf(task.due_on);
+        const bucket = bucketOf(task.due_on, day);
         const list = byBucket.get(bucket) ?? [];
         list.push(task);
         byBucket.set(bucket, list);
@@ -114,7 +118,7 @@ export function ListView() {
       }
 
       // only today's completions are in the UI; yesterday's are still in the DB
-      if (isTodayInstant(task.completed_at)) done.push(task);
+      if (isOnDay(task.completed_at, day)) done.push(task);
     }
 
     // overdue rises to the top of Aujourd'hui, then time, then creation order
@@ -133,7 +137,7 @@ export function ListView() {
       sections: SECTIONS.map((s) => ({ ...s, tasks: byBucket.get(s.bucket) ?? [] })),
       completedToday: done,
     };
-  }, [tasks, holding]);
+  }, [tasks, holding, day]);
 
   const visibleCount = sections.reduce((n, s) => n + s.tasks.length, 0);
 
@@ -232,8 +236,9 @@ export function ListView() {
     () =>
       computeStreak(
         allTasks.map((t) => t.completed_at).filter((v): v is string => v !== null),
+        day,
       ),
-    [allTasks],
+    [allTasks, day],
   );
 
   /*
@@ -243,16 +248,15 @@ export function ListView() {
   */
   const myToday = React.useMemo(() => {
     if (!me) return { open: 0, done: 0 };
-    const day = today();
     let open = 0;
     let doneCount = 0;
     for (const task of allTasks) {
       if (task.assignee_id !== me.id) continue;
       if (task.status !== "done" && task.due_on !== null && task.due_on <= day) open += 1;
-      if (task.status === "done" && isTodayInstant(task.completed_at)) doneCount += 1;
+      if (task.status === "done" && isOnDay(task.completed_at, day)) doneCount += 1;
     }
     return { open, done: doneCount };
-  }, [allTasks, me]);
+  }, [allTasks, me, day]);
 
   const cleared = myToday.open === 0 && myToday.done > 0 && holding.size === 0;
 

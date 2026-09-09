@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Users } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { bucketOf, computeStreak, type Bucket } from "@/lib/time";
+import { useToday } from "@/lib/day";
 import { accentColor } from "@/components/task/assignee-dot";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
@@ -30,16 +31,18 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
   const filter = useStore((s) => s.assigneeFilter);
   const setFilter = useStore((s) => s.setAssigneeFilter);
 
+  const day = useToday();
+
   const counts = React.useMemo(() => {
     const map = new Map<Bucket, number>();
     for (const task of tasks) {
       if (task.status === "done") continue;
       if (filter !== null && task.assignee_id !== filter) continue;
-      const b = bucketOf(task.due_on);
+      const b = bucketOf(task.due_on, day);
       map.set(b, (map.get(b) ?? 0) + 1);
     }
     return map;
-  }, [tasks, filter]);
+  }, [tasks, filter, day]);
 
   const partner = members.find((m) => m.id !== me?.id);
 
@@ -52,8 +55,9 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
     () =>
       computeStreak(
         tasks.map((t) => t.completed_at).filter((v): v is string => v !== null),
+        day,
       ),
-    [tasks],
+    [tasks, day],
   );
 
   return (

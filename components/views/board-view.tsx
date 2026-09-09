@@ -23,7 +23,8 @@ import {
 } from "@/lib/completion";
 import { useOpenTask } from "@/lib/events";
 import { useCompletionHold } from "@/lib/hold";
-import { firstDayOfBucket, isTodayInstant, type Bucket } from "@/lib/time";
+import { useToday } from "@/lib/day";
+import { firstDayOfBucket, isOnDay, type Bucket } from "@/lib/time";
 import { exit } from "@/lib/motion";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,7 @@ export function BoardView() {
   const assign = useAssignWithFeedback();
   const rescheduleWithToast = useRescheduleWithFeedback();
 
+  const day = useToday();
   const [groupBy, setGroupBy] = React.useState<GroupBy>("person");
   const [openId, setOpenId] = React.useState<string | null>(null);
 
@@ -86,19 +88,19 @@ export function BoardView() {
       The rows are still in the database; they are just no longer today's work.
     */
     const current = allTasks.filter(
-      (t) => t.status !== "done" || isTodayInstant(t.completed_at),
+      (t) => t.status !== "done" || isOnDay(t.completed_at, day),
     );
 
     if (groupBy === "person" || filter === null) return current;
     return current.filter((t) => t.assignee_id === filter);
-  }, [allTasks, filter, groupBy]);
+  }, [allTasks, filter, groupBy, day]);
 
   // § 8.1 — a completed card holds its column for the beat before it moves
   const holding = useCompletionHold(allTasks);
 
   const columns = React.useMemo(
-    () => buildColumns(groupBy, tasks, members, me, accentColor, holding),
-    [groupBy, tasks, members, me, holding],
+    () => buildColumns(groupBy, tasks, members, me, accentColor, holding, day),
+    [groupBy, tasks, members, me, holding, day],
   );
 
   const columnsRef = React.useRef(columns);

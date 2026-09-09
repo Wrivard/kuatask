@@ -82,6 +82,22 @@ export function isTodayInstant(ts: string | null): boolean {
   return ts !== null && instantToDay(ts) === today();
 }
 
+/**
+ * Milliseconds until the next Montreal midnight.
+ *
+ * A tab left open across midnight keeps rendering yesterday: every bucket is
+ * computed from today() during render, so at 00:00 the list quietly becomes
+ * wrong and stays wrong until someone reloads. These two check the list in the
+ * evening, which is the worst possible time for that.
+ */
+export function msUntilNextDay(): number {
+  const now = nowTz();
+  const midnight = parseISO(`${format(addDays(now, 1), 'yyyy-MM-dd')}T00:00:00`);
+  const wallClockNow = parseISO(format(now, "yyyy-MM-dd'T'HH:mm:ss"));
+  // +1s so the timer fires just after the boundary, never a hair before it
+  return Math.max(1000, midnight.getTime() - wallClockNow.getTime() + 1000);
+}
+
 /** Signed day distance from today. Negative = overdue. */
 export function daysFromToday(day: DayString): number {
   return differenceInCalendarDays(toDate(day), toDate(today()));
@@ -90,6 +106,17 @@ export function daysFromToday(day: DayString): number {
 export function isOverdue(day: DayString | null, status: string): boolean {
   if (!day || status === 'done') return false;
   return daysFromToday(day) < 0;
+}
+
+/**
+ * Did this instant fall on the given Montreal day?
+ *
+ * The day is a parameter rather than read from the clock so the function is
+ * deterministic — a caller inside a useMemo can depend on it honestly, and the
+ * test suite can pin it.
+ */
+export function isOnDay(ts: string | null, day: DayString): boolean {
+  return ts !== null && instantToDay(ts) === day;
 }
 
 // ---------------------------------------------------------------------------
@@ -103,19 +130,19 @@ export type Bucket = 'today' | 'tomorrow' | 'week' | 'month' | 'later' | 'undate
  * two sections. Overdue returns 'today': see docs/06-views.md for why overdue
  * is folded into today rather than given its own section.
  */
-export function bucketOf(dueOn: DayString | null): Bucket {
+export function bucketOf(dueOn: DayString | null, todayDay: DayString = today()): Bucket {
   if (!dueOn) return 'undated';
 
-  const delta = daysFromToday(dueOn);
+  const delta = differenceInCalendarDays(toDate(dueOn), toDate(todayDay));
   if (delta < 0) return 'today';   // overdue folds into today
   if (delta === 0) return 'today';
   if (delta === 1) return 'tomorrow';
 
   const d = toDate(dueOn);
-  const weekEnd = endOfWeek(toDate(today()), { weekStartsOn: 1 });   // Monday weeks
+  const weekEnd = endOfWeek(toDate(todayDay), { weekStartsOn: 1 });   // Monday weeks
   if (!isBefore(weekEnd, d)) return 'week';
 
-  const monthEnd = endOfMonth(toDate(today()));
+  const monthEnd = endOfMonth(toDate(todayDay));
   if (!isBefore(monthEnd, d)) return 'month';
 
   return 'later';
@@ -164,8 +191,8 @@ export function isSameMonth(day: DayString, anchor: Date): boolean {
   return toDate(day).getMonth() === anchor.getMonth();
 }
 
-export function isToday(day: DayString): boolean {
-  return day === today();
+export function isToday(day: DayString, todayDay: DayString = today()): boolean {
+  return day === todayDay;
 }
 
 // ---------------------------------------------------------------------------
@@ -202,13 +229,16 @@ export function formatMonthYear(d: Date): string {
  * Consecutive Montreal days ending today (or yesterday — a streak survives
  * until the current day is over) with at least one completion.
  */
-export function computeStreak(completedAt: string[]): number {
+export function computeStreak(
+  completedAt: string[],
+  todayDay: DayString = today(),
+): number {
   if (completedAt.length === 0) return 0;
 
   const days = new Set(completedAt.map(instantToDay));
 
   let streak = 0;
-  let cursor = toDate(today());
+  let cursor = toDate(todayDay);
 
   if (!days.has(toDayString(cursor))) {
     cursor = addDays(cursor, -1);

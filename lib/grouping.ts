@@ -1,6 +1,6 @@
 "use client";
 
-import { bucketOf, type Bucket } from "@/lib/time";
+import { bucketOf, today as currentDay, type Bucket } from "@/lib/time";
 import type { Profile, Task } from "@/lib/store";
 import { copy } from "@/lib/copy";
 
@@ -56,6 +56,12 @@ export function buildColumns(
    * jumping to Terminé the instant the checkbox is hit.
    */
   holding: Map<string, Task["status"]> = new Map(),
+  /**
+   * The Montreal day to bucket against. Passed in rather than read from the
+   * clock so a caller inside a useMemo can depend on it honestly, and so the
+   * board re-buckets when the day rolls over instead of showing yesterday.
+   */
+  day: string = currentDay(),
 ): Column[] {
   // you first — a board you read every day should open on your own work
   const ordered = me
@@ -99,7 +105,7 @@ export function buildColumns(
   }));
   const index = new Map(columns.map((c) => [c.key, c]));
   for (const task of tasks) {
-    index.get(bucketOf(task.due_on))!.tasks.push(task);
+    index.get(bucketOf(task.due_on, day))!.tasks.push(task);
   }
   return columns.map(sortByPosition);
 }
