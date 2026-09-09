@@ -18,6 +18,15 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      /*
+        reference/ holds the specification's own implementations. They were
+        copied into lib/ and adapted there, and tsconfig already excludes them
+        for the same reason: they are a historical artifact, not app code, and
+        linting them only reports on decisions somebody else made.
+      */
+      "reference/**",
+      // scratch directory created and removed by scripts/verify-logic.mjs
+      ".verify-tmp-*/**",
     ],
   },
 ];
