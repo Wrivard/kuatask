@@ -6,6 +6,9 @@ import { AppChrome } from "@/components/shell/app-chrome";
 import { BottomBar } from "@/components/shell/bottom-bar";
 import { LiveRegion } from "@/components/shell/live-region";
 
+// per-user by definition: never prerender
+export const dynamic = "force-dynamic";
+
 /**
  * The app shell. Store hydration, hotkeys and the command palette mount here
  * in later phases — right now it is the frame and nothing else.

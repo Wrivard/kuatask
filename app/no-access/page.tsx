@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { copy } from "@/lib/copy";
 import { SignOutButton } from "./sign-out-button";
 
+// per-user by definition: never prerender
+export const dynamic = "force-dynamic";
+
 /**
  * A signed-in user with no memberships. Also what an uninvited stranger sees.
  * One line of copy and a way out — no nav, no shell, nothing else.

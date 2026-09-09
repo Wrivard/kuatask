@@ -20,11 +20,18 @@ export function isSupabaseConfigured() {
 }
 
 export async function createClient() {
+  /*
+    cookies() is awaited FIRST, before the config check, and the order is
+    load-bearing. Reading it marks the caller dynamic; throwing before it left
+    routes looking static, so `next build` tried to prerender /no-access, hit
+    the throw, and failed the whole build rather than the request. A missing
+    variable must break a request, never a build.
+  */
+  const cookieStore = await cookies();
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) throw new SupabaseConfigError();
-
-  const cookieStore = await cookies();
 
   return createServerClient<Database>(
     url,
