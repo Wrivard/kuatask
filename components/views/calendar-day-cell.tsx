@@ -61,6 +61,9 @@ export function CalendarDayCell({
           className={cn(
             "flex items-center gap-1 rounded-sm px-1 py-px text-[12px]",
             "touch-none select-none hover:bg-surface",
+            // a cell has room for three lines, so En cours is a rule rather
+            // than the chip the list and board can afford
+            task.status === "doing" && "border-l-2 border-accent pl-1",
             task.status === "done" && "line-through opacity-45",
           )}
         >

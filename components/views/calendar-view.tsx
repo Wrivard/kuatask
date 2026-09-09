@@ -183,6 +183,7 @@ export function CalendarView() {
                   onPointerDown={(e) => grab(task.id, e)}
                   className={cn(
                     "flex touch-none select-none flex-col rounded-sm px-1 py-px text-[12px] hover:bg-surface",
+                    task.status === "doing" && "border-l-2 border-accent pl-1",
                     task.status === "done" && "line-through opacity-45",
                   )}
                 >
