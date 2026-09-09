@@ -16,6 +16,7 @@ import {
 } from "@/lib/time";
 import { useStore, type Task } from "@/lib/store";
 import { useDragToTarget } from "@/lib/drag";
+import { useRescheduleWithFeedback } from "@/lib/completion";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +34,7 @@ export function CalendarView() {
   const tasks = useStore((s) => s.tasks);
   const members = useStore((s) => s.members);
   const filter = useStore((s) => s.assigneeFilter);
-  const reschedule = useStore((s) => s.reschedule);
+  const reschedule = useRescheduleWithFeedback();
 
   const [anchor, setAnchor] = React.useState(nowDate);
   const [mode, setMode] = React.useState<"month" | "week">("month");

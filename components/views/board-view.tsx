@@ -16,7 +16,11 @@ import {
 } from "@/lib/grouping";
 import { accentColor } from "@/components/task/assignee-dot";
 import { useStore, type Task } from "@/lib/store";
-import { useSetStatusWithFeedback } from "@/lib/completion";
+import {
+  useSetStatusWithFeedback,
+  useAssignWithFeedback,
+  useRescheduleWithFeedback,
+} from "@/lib/completion";
 import { useOpenTask } from "@/lib/events";
 import { firstDayOfBucket, type Bucket } from "@/lib/time";
 import { exit } from "@/lib/motion";
@@ -40,8 +44,9 @@ export function BoardView() {
   const me = useStore((s) => s.me);
   const filter = useStore((s) => s.assigneeFilter);
   const updateTask = useStore((s) => s.updateTask);
-  const reschedule = useStore((s) => s.reschedule);
   const setStatus = useSetStatusWithFeedback();
+  const assign = useAssignWithFeedback();
+  const rescheduleWithToast = useRescheduleWithFeedback();
 
   const [groupBy, setGroupBy] = React.useState<GroupBy>("person");
   const [openId, setOpenId] = React.useState<string | null>(null);
@@ -110,10 +115,8 @@ export function BoardView() {
         index !== null && column ? positionForDrop(column, index, taskId) : task.position;
 
       if (groupBy === "person") {
-        updateTask(taskId, {
-          assignee_id: columnKey === NO_ASSIGNEE ? null : columnKey,
-          position,
-        });
+        updateTask(taskId, { position });
+        assign(taskId, columnKey === NO_ASSIGNEE ? null : columnKey);
         return;
       }
 
@@ -126,9 +129,9 @@ export function BoardView() {
       }
 
       updateTask(taskId, { position });
-      reschedule(taskId, firstDayOfBucket(columnKey as Bucket));
+      rescheduleWithToast(taskId, firstDayOfBucket(columnKey as Bucket));
     },
-    [groupBy, updateTask, reschedule, setStatus],
+    [groupBy, updateTask, setStatus, assign, rescheduleWithToast],
   );
 
   const { dragId, target, index: dropIndex, grab } = useDragToTarget(drop);

@@ -100,6 +100,48 @@ export function useToggleWithFeedback() {
   );
 }
 
+/**
+ * Reassigning and rescheduling by drag, each with an undo.
+ *
+ * A drag is the easiest gesture in the app to perform by accident — one slip
+ * and a task is on the other person's plate or a week away. Completion and
+ * deletion both already offer a way back; these are the two mutations that
+ * could still surprise you silently.
+ */
+export function useAssignWithFeedback() {
+  return React.useCallback((id: string, assigneeId: string | null) => {
+    const state = useStore.getState();
+    const task = state.tasks.find((t) => t.id === id);
+    if (!task || task.assignee_id === assigneeId) return;
+
+    state.updateTask(id, { assignee_id: assigneeId });
+
+    const name =
+      state.members.find((m) => m.id === assigneeId)?.display_name ??
+      copy.task.nobody;
+
+    toast(copy.toast.assigned(name), {
+      duration: TOAST_MS,
+      action: { label: copy.toast.undo, onClick: () => state.undo() },
+    });
+  }, []);
+}
+
+export function useRescheduleWithFeedback() {
+  return React.useCallback((id: string, dueOn: string | null) => {
+    const state = useStore.getState();
+    const task = state.tasks.find((t) => t.id === id);
+    if (!task || task.due_on === dueOn) return;
+
+    state.reschedule(id, dueOn);
+
+    toast(copy.toast.rescheduled, {
+      duration: TOAST_MS,
+      action: { label: copy.toast.undo, onClick: () => state.undo() },
+    });
+  }, []);
+}
+
 export function useDeleteWithFeedback() {
   return React.useCallback((id: string) => {
     const state = useStore.getState();
