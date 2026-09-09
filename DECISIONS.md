@@ -691,3 +691,40 @@ a sigil. Completing mid-line reuses the existing space instead of leaving a gap.
 They had a click handler, no role, no tab stop and no Enter. Now operable from
 the keyboard. Dragging keeps its keyboard equivalents in the list — `S` for
 status, `A` for people, `D` for dates — so no mutation is mouse-only.
+
+---
+
+## Production, configured
+
+The four environment variables were never in the Vercel project at all —
+`vercel env ls production` returned "No Environment Variables found". Added via
+the CLI to Production scope, then deployed with `--force` so the build could not
+reuse a cached bundle compiled without them.
+
+`NEXT_PUBLIC_SITE_URL` is set to `https://kuatask.vercel.app`, not localhost.
+That value is what `signInWithOtp` sends as `emailRedirectTo`, so a localhost
+value here would have sent every production login to the developer's machine.
+
+**Verified on the live deployment**, not locally:
+
+- `/api/health` reports `ok: true` with all four present
+- `/`, `/board` and `/calendar` redirect to `/login`; `/login` serves 200
+- the service role key is absent from all 14 client chunks; the anon key is
+  inlined, which is correct — it is public by design
+
+### One dashboard setting still outstanding
+
+Supabase does not honour `https://kuatask.vercel.app/auth/callback` yet. Asking
+GoTrue for a link with that `redirect_to` returns one pointing at
+`http://localhost:3000` instead — it silently falls back to Site URL when a
+redirect target is not allowlisted, so production logins would land on the
+developer's machine and no session would ever reach the deployed app.
+
+Fix, in Authentication → URL Configuration:
+
+- Site URL → `https://kuatask.vercel.app`
+- Redirect URLs → add `https://kuatask.vercel.app/**`, keeping
+  `http://localhost:3000/**` so local development still works
+
+There is no API for this in the Supabase MCP server and the Management API needs
+a personal access token, so it cannot be done from here.
