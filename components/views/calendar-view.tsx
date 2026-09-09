@@ -91,7 +91,7 @@ export function CalendarView() {
   if (!ready) return <div className="px-6 py-6" />;
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] flex-col">
+    <div className="flex h-[calc(100dvh-7rem)] flex-col md:h-[calc(100dvh-3.5rem)]">
       <div className="flex items-center gap-3 px-6 py-3">
         <button
           type="button"

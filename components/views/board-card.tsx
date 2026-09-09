@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { TaskCheckbox } from "@/components/task/task-checkbox";
 import { LabelChip } from "@/components/task/label-chip";
@@ -18,7 +19,7 @@ import { cn } from "@/lib/utils";
  * so a task behaves identically wherever you meet it. The third gesture, drag,
  * only begins after the pointer moves, so clicking still opens.
  */
-export function BoardCard({
+function BoardCardImpl({
   task,
   dragging,
   onOpen,
@@ -104,3 +105,6 @@ export function BoardCard({
     </motion.div>
   );
 }
+
+/** Same reasoning as TaskRow: keep untouched cards out of the render pass. */
+export const BoardCard = React.memo(BoardCardImpl);

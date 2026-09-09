@@ -3,7 +3,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 
 /** Routes reachable without a session. */
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/auth/confirm"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/auth/callback",
+  "/auth/confirm",
+  // the config probe has to answer even when auth cannot be configured
+  "/api/health",
+];
 
 /**
  * Refreshes the session cookie and gates routes.

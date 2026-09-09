@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { TaskCheckbox } from "./task-checkbox";
 import { LabelChip } from "./label-chip";
@@ -18,7 +19,7 @@ import { cn } from "@/lib/utils";
  * completes, anywhere else opens the modal. That constraint is what keeps the
  * list scannable.
  */
-export function TaskRow({
+function TaskRowImpl({
   task,
   onOpen,
   pulseAssignee = false,
@@ -116,3 +117,11 @@ export function TaskRow({
     </div>
   );
 }
+
+/*
+  A store write replaces the tasks array, so without this every row in the list
+  re-renders on every keystroke in the modal and on every realtime event. The
+  task object's identity only changes when that task changes, and the callbacks
+  are stable setters, so memoizing here keeps a long list cheap.
+*/
+export const TaskRow = React.memo(TaskRowImpl);
