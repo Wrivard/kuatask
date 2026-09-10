@@ -16,7 +16,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-const NEEDED = ["time.ts", "copy.ts", "grouping.ts", "parse-fr.ts", "suggest.ts"];
+const NEEDED = [
+  "time.ts",
+  "copy.ts",
+  "grouping.ts",
+  "parse-fr.ts",
+  "suggest.ts",
+  "compose.ts",
+  "routing.ts",
+];
 
 // inside the project, so node resolves date-fns from the local node_modules
 const tmp = fs.mkdtempSync(".verify-tmp-");
@@ -35,6 +43,8 @@ const time = await load("time.ts");
 const grouping = await load("grouping.ts");
 const { parseFr } = await load("parse-fr.ts");
 const suggest = await load("suggest.ts");
+const { composeTask } = await load("compose.ts");
+const routing = await load("routing.ts");
 
 let failures = 0;
 const check = (name, ok, detail = "") => {
@@ -353,6 +363,122 @@ section("Instants — the cache does not outlive its key");
      time.instantToDay("2026-07-16T23:30:00Z"), "2026-07-16");
   eq("an instant in the other DST offset", time.instantToDay("2026-01-15T23:30:00Z"),
      "2026-01-15");
+}
+
+/*
+  The composer's whole path, end to end: parse a line, honour what the person
+  overrode, resolve a handle to a real person, decide the title. It lived inside
+  the component, which is why nothing could reach it — and it is the most
+  consequential path in the app, because a mistake here loses words out of a
+  task at the exact moment somebody is trying to write something down.
+*/
+section("Composing — what a typed line becomes");
+{
+  const people = [
+    { id: "u1", display_name: "wrivard", email: "wrivard@kua.quebec" },
+    { id: "u2", display_name: "guillaume", email: "gberther@kua.quebec" },
+  ];
+  const none = new Set();
+  const make = (value, dismissed = none, extra = {}) =>
+    composeTask({ value, dismissed, members: people, ...extra });
+
+  const plain = make("acheter du cafe");
+  eq("a bare line is just a title", plain.title, "acheter du cafe");
+  check("with nothing else attached",
+        plain.due_on === null && plain.label === null && plain.assignee_id === null &&
+        plain.important === false);
+
+  const full = make("envoyer la facture demain #acme @guillaume !");
+  eq("the notation comes out of the title", full.title, "envoyer la facture");
+  eq("the label is extracted", full.label, "acme");
+  eq("the person is resolved", full.assignee_id, "u2");
+  check("the date is set", full.due_on !== null, String(full.due_on));
+  check("and the bang", full.important === true);
+
+  eq("a handle resolves from the address too",
+     make("relancer @gberther").assignee_id, "u2");
+
+  /*
+    The one that matters. "Appeler Marie demain matin" is a real task title, and
+    dismissing the date has to put the words back rather than drop them.
+  */
+  const kept = make("appeler Marie demain", new Set(["date"]));
+  check("dismissing a date returns its words to the title",
+        kept.title.includes("demain"), kept.title);
+  eq("and the date is not set", kept.due_on, null);
+
+  const notation = make("envoyer la facture #acme", new Set(["label"]));
+  eq("dismissing a label does not put #acme back in the title",
+     notation.title, "envoyer la facture");
+  eq("but it does drop the label", notation.label, null);
+
+  eq("a composer pre-dated to a day uses it",
+     make("ranger le bureau", none, { defaultDueOn: "2026-09-20" }).due_on, "2026-09-20");
+  check("and a parsed date wins over that default",
+        make("ranger le bureau demain", none, { defaultDueOn: "2026-09-20" }).due_on
+          !== "2026-09-20");
+  eq("a lens on a person assigns to them",
+     make("ranger le bureau", none, { defaultAssigneeId: "u1" }).assignee_id, "u1");
+
+  eq("an empty line composes to nothing", make("   ").title, "");
+
+  /*
+    Stripping never empties a line. A task genuinely called "demain" keeps its
+    name, and a line that is nothing but notation keeps its text *and* drops the
+    readings — so it becomes one odd-looking task rather than an empty one
+    carrying a label and an assignee it never showed you.
+  */
+  const bare = make("demain");
+  eq("a task called demain keeps its title", bare.title, "demain");
+  eq("and is not given that date", bare.due_on, null);
+
+  const onlyNotation = make("#acme @guillaume !");
+  eq("pure notation keeps its text", onlyNotation.title, "#acme @guillaume !");
+  check("and carries none of the readings twice",
+        onlyNotation.label === null && onlyNotation.assignee_id === null &&
+        onlyNotation.important === false);
+}
+
+/*
+  Every branch here is a way to lock somebody out of their own task manager, and
+  the failures are asymmetric: sending a signed-in person to /login is annoying,
+  but a loop between /login and / leaves the app unusable with nothing on screen
+  to explain it. Eight interesting combinations, all of them walked.
+*/
+section("Routing — where a request ends up");
+{
+  const at = (pathname, hasUser, hasWorkspace, hadSessionCookie = false) =>
+    routing.routeFor({ pathname, hasUser, hasWorkspace, hadSessionCookie });
+  const shape = (d) => [d.action, d.to ?? "", d.search ?? ""].join(" ").trim();
+
+  eq("a stranger on the app is sent to login", shape(at("/", false, false)),
+     "redirect /login");
+  eq("a stranger on login stays", shape(at("/login", false, false)), "pass");
+  eq("a stranger on the auth callback stays", shape(at("/auth/callback", false, false)),
+     "pass");
+  eq("the health probe answers without a session", shape(at("/api/health", false, false)),
+     "pass");
+
+  eq("an expired session says so", shape(at("/", false, false, true)),
+     "redirect /login expired=1");
+  eq("but a first visit does not", shape(at("/", false, false, false)),
+     "redirect /login");
+
+  eq("a signed-in stranger goes to no-access", shape(at("/", true, false)),
+     "redirect /no-access");
+  eq("and no-access does not redirect to itself", shape(at("/no-access", true, false)),
+     "pass");
+
+  eq("a member on the app passes", shape(at("/", true, true)), "pass");
+  eq("a member on the board passes", shape(at("/board", true, true)), "pass");
+  eq("a member on login is sent home", shape(at("/login", true, true)), "redirect /");
+  eq("a member on no-access is sent home", shape(at("/no-access", true, true)),
+     "redirect /");
+
+  // the loop that would be invisible: / -> /login -> / -> ...
+  check("no state redirects to a path that redirects back",
+        shape(at("/login", true, true)) === "redirect /" &&
+        shape(at("/", true, true)) === "pass");
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);

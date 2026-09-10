@@ -3,6 +3,7 @@
 import * as React from "react";
 import { RotateCcw, X } from "lucide-react";
 import { parseFr } from "@/lib/parse-fr";
+import { composeTask } from "@/lib/compose";
 import { formatDueLabel, formatTime } from "@/lib/time";
 import { useStore } from "@/lib/store";
 import { useFocusComposer } from "@/lib/events";
@@ -55,6 +56,23 @@ export function TaskComposer({
 
   const parsed = React.useMemo(() => parseFr(value), [value]);
 
+  /*
+    Everything a submit would produce, derived rather than computed inside the
+    handler — the preview under the box has to show exactly what Enter is about
+    to make, and there is only one place that can be decided.
+  */
+  const composed = React.useMemo(
+    () =>
+      composeTask({
+        value,
+        dismissed,
+        members,
+        defaultDueOn,
+        defaultAssigneeId,
+      }),
+    [value, dismissed, members, defaultDueOn, defaultAssigneeId],
+  );
+
   // --- #label and @person autocomplete -------------------------------------
   const [cursor, setCursor] = React.useState(0);
   const [activeSuggestion, setActiveSuggestion] = React.useState(0);
@@ -83,66 +101,19 @@ export function TaskComposer({
   useFocusComposer(() => inputRef.current?.focus());
 
   const searching = search?.active ?? false;
-
-  // a dismissed chip means "you got that wrong" — honour it until the text changes
-  const active = React.useMemo(() => {
-    const kinds = new Set(parsed.matched.map((m) => m.kind));
-    return {
-      date: kinds.has("date") && !dismissed.has("date") ? parsed.dueOn : null,
-      time: kinds.has("time") && !dismissed.has("time") ? parsed.dueTime : null,
-      label: kinds.has("label") && !dismissed.has("label") ? parsed.label : null,
-      assignee:
-        kinds.has("assignee") && !dismissed.has("assignee")
-          ? parsed.assigneeHandle
-          : null,
-      important: parsed.important && !dismissed.has("important"),
-    };
-  }, [parsed, dismissed]);
-
-  const resolvedAssignee = React.useMemo(() => {
-    if (!active.assignee) return null;
-    const handle = active.assignee.toLowerCase();
-    // the same two keys the autocomplete offers, or @gberther would complete to
-    // a name that the submit path then failed to resolve back to a person
-    return (
-      members.find(
-        (m) =>
-          m.display_name.toLowerCase().startsWith(handle) ||
-          (m.email ?? "").split("@")[0].toLowerCase().startsWith(handle),
-      )?.id ?? null
-    );
-  }, [active.assignee, members]);
-
-  /*
-    The title this will actually create.
-
-    Dismissing a date or time chip means the parser was wrong and the words
-    belong to the title — "Appeler Marie demain matin" must not silently lose
-    "demain". They are re-appended rather than slotted back in place; word order
-    suffers slightly, losing the word does not. #label, @handle and ! are
-    notation, not prose, so they stay stripped.
-
-    Derived rather than computed inside submit, because the preview under the
-    box has to show exactly what Enter is about to make.
-  */
-  const finalTitle = React.useMemo(() => {
-    const restored = parsed.matched
-      .filter((m) => dismissed.has(m.kind) && (m.kind === "date" || m.kind === "time"))
-      .map((m) => m.text);
-    return [parsed.title.trim(), ...restored].join(" ").trim();
-  }, [parsed, dismissed]);
+  const finalTitle = composed.title;
 
   function submit() {
-    const title = finalTitle;
-    if (!title) return;
+    if (!composed.title) return;
 
+    // matched is for the chips; the store has no use for it
     createTask({
-      title,
-      due_on: active.date ?? defaultDueOn,
-      due_time: active.time,
-      label: active.label,
-      important: active.important,
-      assignee_id: resolvedAssignee ?? defaultAssigneeId,
+      title: composed.title,
+      due_on: composed.due_on,
+      due_time: composed.due_time,
+      label: composed.label,
+      important: composed.important,
+      assignee_id: composed.assignee_id,
     });
 
     // clear on the same frame — never await the write

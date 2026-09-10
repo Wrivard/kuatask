@@ -1,20 +1,18 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
-
-/** Routes reachable without a session. */
-const PUBLIC_PATHS = [
-  "/login",
-  "/auth/callback",
-  "/auth/confirm",
-  // the config probe has to answer even when auth cannot be configured
-  "/api/health",
-];
+import { routeFor } from "@/lib/routing";
 
 /**
  * Refreshes the session cookie and gates routes.
  *
- * The membership check here is a UX convenience so a stranger lands somewhere
+ * Two jobs wound together: refreshing the cookie needs a real request, real
+ * cookies and a round trip, and deciding where the request goes needs none of
+ * that. Only the first is hard to test, so the decision lives on its own in
+ * `lib/routing.ts`, where `verify:logic` walks every combination of it. Every
+ * branch there is a way to lock somebody out of their own task manager.
+ *
+ * The membership check is a UX convenience so a stranger lands somewhere
  * sensible. The security boundary is RLS — an uninvited user's queries return
  * empty sets whether or not this runs. Do not treat it as the guard.
  */
@@ -61,48 +59,49 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
-  const redirect = (to: string, reason?: string) => {
-    const url = request.nextUrl.clone();
-    url.pathname = to;
-    url.search = reason ? `?${reason}` : "";
-    const response = NextResponse.redirect(url);
+  const redirect = (to: string, search?: string) => {
+    const target = request.nextUrl.clone();
+    target.pathname = to;
+    target.search = search ? `?${search}` : "";
+    const response = NextResponse.redirect(target);
     // carry the refreshed auth cookies onto the redirect
     supabaseResponse.cookies.getAll().forEach((c) => response.cookies.set(c));
     return response;
   };
 
-  if (!user) {
-    if (isPublic) return supabaseResponse;
-    /*
-      A refresh that fails looks exactly like never having been signed in: you
-      are simply somewhere else, with a login screen and no idea why. Carrying
-      the reason lets the screen say "ta session a expiré" instead of nothing,
-      and only when a session cookie was actually present — otherwise the same
-      message would greet a first-time visitor.
-    */
-    const hadSession = request.cookies
-      .getAll()
-      .some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"));
-    return redirect("/login", hadSession ? "expired=1" : undefined);
+  /*
+    A refresh that stops working looks exactly like never having been signed in:
+    you are simply somewhere else, with a login screen and no idea why. Whether
+    a session cookie arrived is the only thing that separates the two, so it is
+    read before the decision rather than inferred after it.
+  */
+  const hadSessionCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"));
+
+  /*
+    Asked only when there is somebody to ask it about. A signed-in person on a
+    public path still needs it, because that is what decides whether /login
+    sends them into the app or to /no-access.
+  */
+  let hasWorkspace = false;
+  if (user) {
+    const { count } = await supabase
+      .from("workspace_members")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id);
+    hasWorkspace = (count ?? 0) > 0;
   }
 
-  const { count } = await supabase
-    .from("workspace_members")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id);
+  const decision = routeFor({
+    pathname,
+    hasUser: Boolean(user),
+    hasWorkspace,
+    hadSessionCookie,
+  });
 
-  const hasWorkspace = (count ?? 0) > 0;
-
-  if (!hasWorkspace) {
-    return pathname === "/no-access" ? supabaseResponse : redirect("/no-access");
-  }
-
-  // signed in, has a workspace — the login and no-access screens are behind them
-  if (pathname === "/login" || pathname === "/no-access") {
-    return redirect("/");
-  }
-
-  return supabaseResponse;
+  return decision.action === "pass"
+    ? supabaseResponse
+    : redirect(decision.to, decision.search);
 }

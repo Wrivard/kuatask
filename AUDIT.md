@@ -157,8 +157,8 @@ of this list rather than a gap in it.
 ## N. Testing
 
 102. [x] **P1** Server actions (`inviteMember`, `revokeInvite`, `removeMember`) are untested.
-103. **P2** No test for the middleware's routing decisions.
-104. **P2** No test that the composer's parse-then-create path produces the right task.
+103. [x] **P2** No test for the middleware's routing decisions. The middleware does two things wound together: refresh the cookie, which needs a real request and a round trip, and decide where the request goes, which needs neither. Only the first was hard to test, so the second moved to `lib/routing.ts` and the suite walks all thirteen states. Every branch there is a way to lock somebody out of their own task manager, and the failures are asymmetric — sending a signed-in person to `/login` is annoying, but a loop between `/login` and `/` leaves the app unusable with nothing on screen to explain it. There is an assertion for exactly that loop.
+104. [x] **P2** No test that the composer's parse-then-create path produces the right task. It lived inside the component, which is why nothing could reach it — and it is the most consequential path in the app, since a mistake there loses words out of a task at the moment somebody is trying to write something down. Now `lib/compose.ts`, pure, taking `members` rather than reaching for the store. Seventeen assertions, including the one that matters: dismissing a date on « appeler Marie demain » puts the word back in the title.
 105. **P2** The suites cannot run against a fresh database — they assume a seeded workspace.
 106. **P3** No visual regression testing (no browser available here).
 
