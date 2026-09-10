@@ -326,3 +326,19 @@ reviewed. Numbering continues.
      reads the real distance between two rendered cards, and the constant is
      demoted to what it always was: a guess for the first frame, before there is
      a card to measure.
+159. [x] **P2** `withRetry` and `explain` each decided for itself whether a
+     failure was the network or the database, both writing `!error.code`. They
+     agreed by coincidence, not by construction — two copies of a rule are two
+     chances to update one of them. The case that separates them is a refusal
+     arriving with a blank code: `!""` is true, so it was retried *and then*
+     described as a lost connection. One `isTransportFailure`, read by both.
+160. [x] **P2** `resync` threw away whatever search had pulled in from outside
+     the loaded window. It refetches the same bounded window as the first load,
+     so a task finished two months ago is correctly absent from the answer — and
+     was correctly discarded, which made results vanish the moment a sleeping tab
+     woke up mid-search. Those ids are tracked and kept; a row that is neither in
+     flight nor searched-for is still dropped, which is the point of the refetch.
+161. [x] **P3** `report`'s dedupe set could grow without bound. Its key includes
+     the message, and a message can carry a timestamp or an id — every crash
+     would be "new", the set would never stop growing, and the deduplication it
+     exists for would never fire.

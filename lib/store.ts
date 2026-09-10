@@ -17,6 +17,7 @@ import { create } from 'zustand';
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/database.types';
 import { instantToDay, now, recentCompletionCutoff, type DayString } from '@/lib/time';
+import { isTransportFailure, type Refusal } from '@/lib/errors';
 import { setSoundEnabled as applySoundEnabled } from '@/lib/sound';
 
 export type Task = Database['public']['Tables']['tasks']['Row'];
@@ -66,6 +67,15 @@ type Store = {
    * local precedence exists to prevent.
    */
   pending: Map<string, number>;
+
+  /**
+   * Ids pulled in from outside the loaded window, by search.
+   *
+   * `resync` refetches that window, so without this a task found by searching
+   * for something finished two months ago disappears the moment the tab wakes
+   * up — the row is correctly absent from the answer, and correctly discarded.
+   */
+  fetched: Set<string>;
   undoStack: Inverse[];
 
   /**
@@ -200,11 +210,11 @@ const PENDING_TIMEOUT = 30_000;
  */
 const RETRY_DELAY = 400;
 
-type Refusal = { message: string; code?: string | null } | null;
-
 async function withRetry<T extends { error: Refusal }>(run: () => PromiseLike<T>): Promise<T> {
   const first = await run();
-  if (!first.error || first.error.code) return first;
+  // the same predicate the toast uses, so the two can never disagree about
+  // what a blip is — one retried and the other explained it differently
+  if (!isTransportFailure(first.error)) return first;
   await new Promise((r) => setTimeout(r, RETRY_DELAY));
   return run();
 }
@@ -287,6 +297,7 @@ export const useStore = create<Store>((set, get) => {
     workspaceId: null,
     ready: false,
     pending: new Map<string, number>(),
+    fetched: new Set<string>(),
     undoStack: [],
     assigneeFilter: null,
     completionDays: [],
@@ -407,15 +418,24 @@ export const useStore = create<Store>((set, get) => {
           s.pending.has(row.id) ? (local.get(row.id) ?? row) : row,
         );
 
-        // optimistic rows the server has not accepted yet must survive the swap
+        /*
+          Rows the refetch does not return, but that must survive it.
+
+          Two kinds. Optimistic rows the server has not accepted yet — obvious,
+          and the reason this existed. And rows that search pulled back from
+          outside the loaded window: `resync` asks for the same bounded window
+          the first load did, so a task finished two months ago is correctly
+          absent from the answer and was being dropped. A tab waking from sleep
+          mid-search made the results silently vanish.
+        */
         const serverIds = new Set(rows.map((r) => r.id));
-        const unsent = s.tasks.filter(
-          (t) => !serverIds.has(t.id) && s.pending.has(t.id),
+        const keep = s.tasks.filter(
+          (t) => !serverIds.has(t.id) && (s.pending.has(t.id) || s.fetched.has(t.id)),
         );
 
         const me = members?.find((m) => m.id === s.me?.id) ?? s.me;
         return {
-          tasks: [...merged, ...unsent],
+          tasks: [...merged, ...keep],
           members: members ?? s.members,
           completionDays: days,
           me,
@@ -686,7 +706,12 @@ export const useStore = create<Store>((set, get) => {
         set((s) => {
           const known = new Set(s.tasks.map((t) => t.id));
           const extra = data.filter((row) => !known.has(row.id));
-          return extra.length ? { tasks: [...s.tasks, ...extra] } : {};
+          if (!extra.length) return {};
+          return {
+            tasks: [...s.tasks, ...extra],
+            // so a resync does not throw them away again
+            fetched: new Set([...s.fetched, ...extra.map((r) => r.id)]),
+          };
         });
       })();
     },
@@ -699,6 +724,7 @@ export const useStore = create<Store>((set, get) => {
         workspaceId: null,
         ready: false,
         pending: new Map(),
+        fetched: new Set(),
         undoStack: [],
         completionDays: [],
       });

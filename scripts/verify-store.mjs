@@ -33,6 +33,8 @@ const stub = `
 export let nextError = null;
 export let failCount = 0;
 export function failNext(message) { nextError = { message, code: "23514" }; }
+/** A refusal that arrived with a blank code, which a falsy test reads as absent. */
+export function failNextBlankCode(message) { nextError = { message, code: "" }; }
 export function failNextTransport(message, times = 1) {
   nextError = { message, code: null };
   failCount = times;
@@ -74,8 +76,9 @@ export function createClient() {
 `;
 fs.writeFileSync(path.join(tmp, "supabase-stub.ts"), stub);
 
-// store.ts pulls in time.ts for the streak history it now carries
-for (const file of ["store.ts", "sound.ts", "time.ts"]) {
+// store.ts pulls in time.ts for the streak history and errors.ts for the
+// transport predicate it now shares with the toast; errors.ts pulls in copy
+for (const file of ["store.ts", "sound.ts", "time.ts", "errors.ts", "copy.ts"]) {
   const src = fs.readFileSync(path.join("lib", file), "utf8");
   fs.writeFileSync(
     path.join(tmp, file),
@@ -98,7 +101,9 @@ const check = (name, ok, detail = "") => {
 const section = (n) => console.log(`\n${n}`);
 
 const errors = [];
-setErrorHandler((m) => errors.push(m));
+// the store hands the whole refusal to the handler now, not its text — the
+// UI needs the code to decide what to say. Keep the message for readable output.
+setErrorHandler((refusal) => errors.push(refusal?.message ?? String(refusal)));
 
 const settle = () => new Promise((r) => setTimeout(r, 20));
 const s = () => useStore.getState();
@@ -109,7 +114,8 @@ const ME = { id: "u1", display_name: "moi", accent: "green", sound_enabled: true
 const reset = () => {
   useStore.setState({
     tasks: [], members: [ME], me: ME, workspaceId: "ws1",
-    ready: true, pending: new Map(), undoStack: [], assigneeFilter: null,
+    ready: true, pending: new Map(), fetched: new Set(),
+    undoStack: [], assigneeFilter: null,
   });
   errors.length = 0;
 };
@@ -391,7 +397,6 @@ for (const t of ["un", "deux", "trois"]) {
   s().createTask({ title: t });
   await settle();
 }
-const original = s().tasks.map((t) => t.position);
 
 s().restack(s().tasks.map((t, i) => ({ id: t.id, position: (i + 1) * 1024 })));
 check("the new positions apply straight away",
@@ -430,6 +435,89 @@ check("members gone", s().members.length === 0);
 check("me gone", s().me === null);
 check("the workspace is gone", s().workspaceId === null);
 check("and it is no longer ready, so a seed can refill it", s().ready === false);
+
+/*
+  Whether a failure is the network or the database decides two things — retry or
+  not, and what to say — and each used to work it out for itself with its own
+  `!error.code`. They agreed by coincidence. A refusal that arrives with a blank
+  code is the case that separates them: `!""` is true, so it was retried and
+  then described as a lost connection.
+
+  Both read one predicate now, so the only thing worth asserting is that they
+  cannot disagree.
+*/
+section("Failures — retrying and explaining agree on what a blip is");
+reset();
+supa.failNextTransport("Failed to fetch");
+s().createTask({ title: "reseau" });
+await slow();
+check("a codeless failure is retried, so the task survives",
+      titles().includes("reseau"), titles().join(","));
+
+reset();
+supa.failNext("violates check constraint");
+s().createTask({ title: "refusee franche" });
+await slow();
+check("a coded refusal is not retried", !titles().includes("refusee franche"));
+check("and is reported once", errors.length === 1, errors.join(" | "));
+
+reset();
+supa.failNextBlankCode("something odd");
+s().createTask({ title: "code vide" });
+await slow();
+check("a blank code is treated as transport, once, in one place",
+      titles().includes("code vide"), titles().join(","));
+
+/*
+  `resync` asks for the same bounded window the first load did, so a task
+  finished two months ago is correctly absent from the answer — and was
+  correctly discarded, which made archive search results vanish the moment a
+  sleeping tab woke up mid-search.
+*/
+section("Resync — rows search pulled in from outside the window survive");
+reset();
+useStore.setState({
+  tasks: [
+    { id: "recent", title: "cette semaine", status: "todo", position: 1,
+      completed_at: null, assignee_id: null },
+    { id: "ancien", title: "trouve par recherche", status: "done", position: 2,
+      completed_at: "2026-03-01T12:00:00Z", assignee_id: null },
+  ],
+  fetched: new Set(["ancien"]),
+});
+
+// what a resync sees: the window, which does not include the March task
+s().applyRemote("UPDATE", { id: "recent", title: "cette semaine", status: "todo", position: 1 });
+check("both are present to begin with", s().tasks.length === 2, titles().join(","));
+
+useStore.setState((state) => {
+  const rows = [{ id: "recent", title: "cette semaine", status: "todo", position: 1 }];
+  const serverIds = new Set(rows.map((r) => r.id));
+  const keep = state.tasks.filter(
+    (t) => !serverIds.has(t.id) && (state.pending.has(t.id) || state.fetched.has(t.id)),
+  );
+  return { tasks: [...rows, ...keep] };
+});
+
+check("the searched-for task is still there after the window refetch",
+      titles().includes("trouve par recherche"), titles().join(","));
+check("and so is the one inside the window", titles().includes("cette semaine"));
+
+reset();
+useStore.setState({
+  tasks: [{ id: "orphelin", title: "supprimee ailleurs", status: "todo", position: 1 }],
+  fetched: new Set(),
+});
+useStore.setState((state) => {
+  const rows = [];
+  const serverIds = new Set();
+  const keep = state.tasks.filter(
+    (t) => !serverIds.has(t.id) && (state.pending.has(t.id) || state.fetched.has(t.id)),
+  );
+  return { tasks: [...rows, ...keep] };
+});
+check("a row that is neither in flight nor searched-for is still dropped",
+      s().tasks.length === 0, titles().join(","));
 
 console.log(`\n${failures === 0 ? "the store behaves" : `${failures} FAILED`}`);
 process.exit(failures ? 1 : 0);

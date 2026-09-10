@@ -21,6 +21,23 @@ import { copy } from '@/lib/copy';
 export type Refusal = { message: string; code?: string | null } | null | undefined;
 
 /**
+ * Did the request fail to arrive, or did the database refuse it?
+ *
+ * The distinction decides two separate things — whether to retry, and what to
+ * say — and each of them used to work it out for itself. Both wrote
+ * `!error.code`, which agreed by coincidence rather than by construction: two
+ * copies of a rule are two chances to update one of them.
+ *
+ * `code` absent or empty means nothing on the far side formed an opinion, which
+ * is the fetch failing. A PostgREST refusal always names a SQLSTATE. The empty
+ * string matters because `!''` is true — a refusal that arrived with a blank
+ * code would have been retried *and then* described as a lost connection.
+ */
+export function isTransportFailure(error: Refusal): boolean {
+  return Boolean(error) && !error!.code;
+}
+
+/**
  * Postgres SQLSTATEs, plus PostgREST's own. Only the ones reachable from this
  * app's writes are listed; anything else is deliberately unexplained.
  */
@@ -46,9 +63,9 @@ export function explain(error: Refusal): string | undefined {
 
   if (error.code && BY_CODE[error.code]) return BY_CODE[error.code];
 
-  // no code at all is the fetch failing rather than the database refusing
-  if (!error.code) return copy.error.offline;
+  if (isTransportFailure(error)) return copy.error.offline;
 
+  // a refusal this app cannot explain gets no second line at all
   return undefined;
 }
 

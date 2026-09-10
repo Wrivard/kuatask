@@ -13,8 +13,17 @@
  */
 const ENDPOINT = "/api/report";
 
-/** One report per message per session — a render loop must not become a flood. */
+/**
+ * One report per message per session — a render loop must not become a flood.
+ *
+ * Bounded, because the key includes the message and a message can carry a
+ * timestamp or an id: every crash would then be "new", the set would grow
+ * without limit, and the deduplication it exists for would never fire. Past the
+ * cap it is cleared rather than trimmed — a session that has produced fifty
+ * distinct crashes is not one where remembering the first forty-nine matters.
+ */
 const seen = new Set<string>();
+const SEEN_LIMIT = 50;
 
 export function report(error: unknown, extra: { digest?: string } = {}) {
   if (typeof window === "undefined") return;
@@ -23,6 +32,7 @@ export function report(error: unknown, extra: { digest?: string } = {}) {
     const err = error instanceof Error ? error : new Error(String(error));
     const key = `${err.message}|${extra.digest ?? ""}`;
     if (seen.has(key)) return;
+    if (seen.size >= SEEN_LIMIT) seen.clear();
     seen.add(key);
 
     const body = JSON.stringify({
