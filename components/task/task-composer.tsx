@@ -4,6 +4,7 @@ import * as React from "react";
 import { RotateCcw, X } from "lucide-react";
 import { parseFr } from "@/lib/parse-fr";
 import { composeTask } from "@/lib/compose";
+import { toast } from "sonner";
 import { formatDueLabel, formatTime } from "@/lib/time";
 import { useStore } from "@/lib/store";
 import { useFocusComposer } from "@/lib/events";
@@ -102,6 +103,57 @@ export function TaskComposer({
 
   const searching = search?.active ?? false;
   const finalTitle = composed.title;
+
+  /*
+    A list pasted in becomes a list of tasks.
+
+    The field is one line, so pasting six lines from a meeting note used to
+    produce one task with the newlines flattened out of it — six things to do,
+    collapsed into one unreadable title. Every line is parsed on its own, so
+    "relancer Marie demain" and "envoyer le devis #acme" each keep their own
+    date and label.
+
+    A single line pastes normally: it goes into the field, where it can still be
+    edited before Enter. Only a genuine multi-line paste creates anything, and
+    each line goes through exactly the same path a typed one does.
+  */
+  function onPaste(e: React.ClipboardEvent<HTMLInputElement>) {
+    if (searching) return;
+
+    const text = e.clipboardData.getData("text");
+    const lines = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (lines.length < 2) return;
+
+    e.preventDefault();
+
+    let made = 0;
+    for (const line of lines) {
+      const one = composeTask({
+        value: line,
+        dismissed: new Set(),
+        members,
+        defaultDueOn,
+        defaultAssigneeId,
+      });
+      if (!one.title) continue;
+      createTask({
+        title: one.title,
+        due_on: one.due_on,
+        due_time: one.due_time,
+        label: one.label,
+        important: one.important,
+        assignee_id: one.assignee_id,
+      });
+      made += 1;
+    }
+
+    if (made > 0) toast(copy.composer.pasted(made));
+    setValue("");
+    setDismissed(new Set());
+  }
 
   function submit() {
     if (!composed.title) return;
@@ -218,6 +270,7 @@ export function TaskComposer({
             submit();
           }
         }}
+        onPaste={onPaste}
         onKeyUp={(e) => setCursor(e.currentTarget.selectionStart ?? 0)}
         onClick={(e) => setCursor(e.currentTarget.selectionStart ?? 0)}
         placeholder={searching ? copy.composer.searchPlaceholder : copy.composer.placeholder}

@@ -201,6 +201,45 @@ eq("assignee handle extracted", tagged.assigneeHandle, "guillaume");
 eq("label extracted", tagged.label, "acme");
 check("bang sets important", parseFr("renouveler le domaine dans 3 jours !").important === true);
 
+/*
+  "rappeler le client demain matin" is a normal French sentence. The parser used
+  to keep "matin" in the title and set no time, so the task sorted ahead of a
+  16h one on a day ordered by time — the wrong way round. These are not precise
+  and are not pretending to be: they are the start of the part of the day meant,
+  which is enough to order a list.
+*/
+section("Time of day");
+{
+  const at = (line) => {
+    const r = parseFr(line);
+    return [r.title, r.dueTime];
+  };
+
+  eq("demain matin", at("rappeler le client demain matin"), ["rappeler le client", "08:00"]);
+  eq("cet apres-midi", at("reunion cet apres-midi"), ["reunion", "13:00"]);
+  eq("ce soir", at("souper ce soir"), ["souper", "18:00"]);
+  eq("a midi", at("appeler a midi"), ["appeler", "12:00"]);
+  eq("fin de journee", at("preparer la fin de journee"), ["preparer", "16:00"]);
+  // the leading "de" is part of the phrase, so it goes with it
+  eq("debut de matinee", at("appel de debut de matinee"), ["appel", "07:00"]);
+
+  // a clock time wins, but the words still have to leave the title
+  eq("a clock time wins over the part of day",
+     at("reunion demain matin a 10h"), ["reunion", "10:00"]);
+
+  // "demain" belongs to the date pass and must survive this one
+  check("the day word is left for the date pass",
+        parseFr("rappeler le client demain matin").dueOn === parseFr("rappeler demain").dueOn);
+  check("a weekday too",
+        parseFr("relancer lundi soir").dueOn === parseFr("relancer lundi").dueOn);
+
+  eq("apres-midi is not read as midi", at("envoyer le devis apres-midi"),
+     ["envoyer le devis", "13:00"]);
+  eq("an ordinary line is untouched", at("payer la facture"), ["payer la facture", null]);
+  eq("and so is one that merely contains the letters",
+     at("preparer le sominaire"), ["preparer le sominaire", null]);
+}
+
 // ------------------------------------------------------------ autocomplete
 section("Autocomplete");
 const tasks = [

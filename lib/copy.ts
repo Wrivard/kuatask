@@ -71,6 +71,7 @@ export const copy = {
     searchPlaceholder: "Chercher…",
     hint: "Entrée pour ajouter",
     emptyTitle: "Sans titre",
+    pasted: (n: number) => `${n} tâches ajoutées`,
     chipOff: "Ignorer cette lecture",
     chipOn: "Reprendre cette lecture",
   },
