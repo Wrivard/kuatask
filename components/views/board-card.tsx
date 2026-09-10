@@ -26,11 +26,14 @@ function BoardCardImpl({
   dragging,
   onOpen,
   onGrab,
+  onMove,
 }: {
   task: Task;
   dragging: boolean;
   onOpen: (id: string) => void;
   onGrab: (id: string, e: React.PointerEvent) => void;
+  /** Move one column left or right — the keyboard equivalent of a drag. */
+  onMove?: (id: string, direction: -1 | 1) => void;
 }) {
   const reduced = useReducedMotion();
   const members = useStore((s) => s.members);
@@ -57,10 +60,29 @@ function BoardCardImpl({
       // without a pointer; dragging has keyboard equivalents in the list (A/D/S)
       role="button"
       tabIndex={0}
+      data-card-id={task.id}
       onKeyDown={(e) => {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+
         if (e.key === "Enter") {
           e.preventDefault();
           onOpen(task.id);
+          return;
+        }
+        // dragging is a mouse gesture; these are the same move without one
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          onMove?.(task.id, -1);
+          return;
+        }
+        if (e.key === "ArrowRight") {
+          e.preventDefault();
+          onMove?.(task.id, 1);
+          return;
+        }
+        if (e.key.toLowerCase() === "x") {
+          e.preventDefault();
+          toggle(task.id);
         }
       }}
       className={cn(

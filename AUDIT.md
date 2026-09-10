@@ -88,8 +88,8 @@ of this list rather than a gap in it.
 
 ## G. Keyboard
 
-55. **P1** The board has no keyboard equivalent for moving a card between columns.
-56. **P2** `?` sheet does not list the board or calendar drag gestures.
+55. [x] **P1** The board has no keyboard equivalent for moving a card between columns.
+56. [x] **P2** `?` sheet does not list the board or calendar drag gestures.
 57. **P2** No `Escape` handling to close the day sheet from the keyboard.
 58. **P2** Row focus is lost when the list re-renders from a realtime event.
 59. **P3** No `G` then `S` for settings.
@@ -156,7 +156,7 @@ of this list rather than a gap in it.
 
 ## N. Testing
 
-102. **P1** Server actions (`inviteMember`, `revokeInvite`, `removeMember`) are untested.
+102. [x] **P1** Server actions (`inviteMember`, `revokeInvite`, `removeMember`) are untested.
 103. **P2** No test for the middleware's routing decisions.
 104. **P2** No test that the composer's parse-then-create path produces the right task.
 105. **P2** The suites cannot run against a fresh database — they assume a seeded workspace.

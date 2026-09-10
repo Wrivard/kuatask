@@ -172,6 +172,7 @@ export const copy = {
     title: "Raccourcis",
     scopeGlobal: "Partout",
     scopeList: "Dans la liste",
+    scopeBoard: "Sur le tableau",
     scopeCalendar: "Calendrier",
   },
 

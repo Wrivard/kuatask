@@ -32,6 +32,14 @@ const GROUPS: { scope: string; rows: [string, string][] }[] = [
     ],
   },
   {
+    scope: copy.shortcuts.scopeBoard,
+    rows: [
+      ["← →", "Déplacer la carte d'une colonne"],
+      ["X", copy.nav.done],
+      ["Entrée", "Ouvrir"],
+    ],
+  },
+  {
     scope: copy.shortcuts.scopeCalendar,
     rows: [
       ["← →", "Mois"],

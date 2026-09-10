@@ -156,6 +156,30 @@ export function BoardView() {
 
   const { dragId, target, index: dropIndex, grab } = useDragToTarget(drop);
 
+  /*
+    Arrow keys on a focused card run the same drop the pointer would, so the
+    board is operable without a mouse and there is one definition of what
+    landing in a column means. The card keeps focus across the move because it
+    is keyed on the task id, not its position.
+  */
+  const move = React.useCallback(
+    (taskId: string, direction: -1 | 1) => {
+      const cols = columnsRef.current;
+      const task = useStore.getState().tasks.find((t) => t.id === taskId);
+      if (!task) return;
+
+      const from = cols.findIndex((c) => c.key === columnOf(groupBy, task));
+      const to = from + direction;
+      if (from < 0 || to < 0 || to >= cols.length) return;
+
+      drop(taskId, cols[to].key, cols[to].tasks.length);
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>(`[data-card-id="${taskId}"]`)?.focus();
+      });
+    },
+    [drop, groupBy],
+  );
+
   // § 8.5 — the moment belongs to the day being cleared, not to one screen
   const { cleared, done: clearedCount } = useClearedToday(day, holding.size);
   const completionDays = useStore((s) => s.completionDays);
@@ -249,6 +273,7 @@ export function BoardView() {
                           dragging={dragId === task.id}
                           onOpen={setOpenId}
                           onGrab={grab}
+                          onMove={move}
                         />
                       </motion.div>
                     ))}

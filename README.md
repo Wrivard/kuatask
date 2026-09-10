@@ -56,7 +56,7 @@ app/            routes; (app) is the authenticated shell
 components/     task/, views/, shell/, ui/ (owned shadcn primitives)
 lib/            store, time, sound, parsing, drag, copy — the load-bearing parts
 supabase/       migrations, applied in order
-scripts/        verify-logic.mjs, verify-store.mjs, verify-db.mjs
+scripts/        verify-logic.mjs, verify-store.mjs, verify-db.mjs, verify-invites.mjs
 docs/           the original specification, still the source of truth
 reference/      the spec's reference implementations, copied into lib/
 DECISIONS.md    why anything non-obvious is the way it is
@@ -92,6 +92,12 @@ itself: RLS, the signup and completion triggers, the last-admin guard, and
 realtime delivery of all three event types. It creates throwaway users, deletes
 them, and then verifies the cleanup rather than assuming it. Point it at a
 project you are willing to write to.
+
+`npm run verify:invites` covers the membership rules the server actions enforce:
+who may invite, revoke and remove, that a duplicate invite is refused, that the
+last admin cannot be removed or demoted, and that removing someone leaves their
+tasks alone — a decision from `docs/03` that is easy to break later and
+invisible when broken.
 
 Two of the bugs it now covers — realtime never delivering deletions, and
 completions disappearing after 8pm Montreal — survived typecheck, lint and a

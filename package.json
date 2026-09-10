@@ -10,8 +10,9 @@
     "typecheck": "tsc --noEmit",
     "verify:db": "node scripts/verify-db.mjs",
     "verify:logic": "node --experimental-strip-types scripts/verify-logic.mjs",
-    "verify": "npm run verify:logic && npm run verify:store && npm run verify:db",
-    "verify:store": "node --experimental-strip-types scripts/verify-store.mjs"
+    "verify": "npm run verify:logic && npm run verify:store && npm run verify:db && npm run verify:invites",
+    "verify:store": "node --experimental-strip-types scripts/verify-store.mjs",
+    "verify:invites": "node scripts/verify-invites.mjs"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",
