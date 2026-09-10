@@ -40,6 +40,8 @@ export const copy = {
     settings: "Réglages",
     done: "Terminé",
     doneToday: "Terminé aujourd'hui",
+    doneRecent: "Terminé cette semaine",
+    doneWeek: (n: number) => `${plural(n, "autre")} cette semaine`,
   },
 
   filter: {

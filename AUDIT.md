@@ -44,7 +44,7 @@ of this list rather than a gap in it.
 23. **P3** No drag-to-reorder in the list (the board has it; the list is date-ordered).
 24. [x] **P3** Multi-line paste creates one task with newlines rather than several tasks. The field is one line, so pasting six lines out of a meeting note produced one task with the newlines flattened out of it — six things to do collapsed into one unreadable title. Each line now goes through exactly the same path a typed one does, so « relancer Marie demain » and « envoyer le devis #acme » each keep their own date and label. A single-line paste still just goes into the field, where it can be edited before Enter.
 25. **P3** No bulk selection or bulk actions.
-26. **P3** The completed footer shows a count but not a way to see yesterday's.
+26. [x] **P3** The completed footer shows a count but not a way to see yesterday's. The browser already holds a week of them (3), so « what did we finish yesterday » meant reaching for the search box to find data that was in memory. The footer has three states now — shut, today, and the week — and the second step is offered only when there is actually more to see. Newest first, which is the opposite of the open list: a finished task is history, and what happened last is what you are looking for.
 27. **NO** An archive view. "No archive, no trash" is an explicit scope decision.
 
 ## C. The board
@@ -56,7 +56,7 @@ of this list rather than a gap in it.
 32. [x] **P2** Dragging to a column that is scrolled out of view is impossible — no auto-scroll at the edges. Within 72px of a scrollable edge the container scrolls itself, at a speed that ramps with how far into the zone the pointer is, so a nudge creeps and a push moves. It finds the scrollable ancestor rather than assuming one, and prefers the horizontal axis — an off-screen column is a worse problem than a tall one.
 33. [x] **P2** A card does not show notes presence, same as the row. Same glyph.
 34. **P3** No WIP limit or "too much in En cours" signal.
-35. **P3** Cards do not show the label colour, only the text.
+35. **NO** Cards do not show the label colour, only the text. There is no label colour to show, by design: `docs/04` reserves colour for the accent and for identity, which is what lets a dot at 6px mean « this is Guillaume's » across every surface. Giving labels their own palette would put two colour languages on the same card and make the one that matters ambiguous.
 
 ## D. The calendar
 
@@ -65,7 +65,7 @@ of this list rather than a gap in it.
 38. [x] **P2** The week agenda has no time axis, so 9h and 17h look equally placed. Bands — Matin, Après-midi, Soir, Sans heure — rather than an hour grid. This is a task list, not a meeting calendar: most tasks here have no time at all, and a 24-row axis would be almost entirely empty lines drawn around three cards. A band appears only when it holds something, so a day with two afternoon tasks shows one heading rather than four.
 39. [x] **P2** No keyboard toggle between month and week. `M`, listed in the `?` sheet next to ← → and T.
 40. [x] **P2** Month navigation has no transition, so paging feels like a jump cut. The grid is keyed on the month and arrives with a 160ms opacity and 3px rise. No exit animation and no `AnimatePresence`: two grids alive at once means two sets of drop targets under the pointer, and paging must stay readable within a keypress.
-41. **P3** Cells cannot show more than three tasks even when the row is tall.
+41. [x] **P3** Cells cannot show more than three tasks even when the row is tall. Six rows of cells share whatever height the window gives the grid, so on a large display there was visible empty space under a « +4 de plus » — the information was there, the room was there, and a constant in the middle refused to put them together. A `ResizeObserver` on the grid divides the measured cell height by the card height. A media query could not answer this: it depends on the window, the browser chrome, and whether the preview banner is showing.
 42. **P3** No week numbers.
 
 ## E. The task modal
@@ -136,7 +136,7 @@ of this list rather than a gap in it.
 88. [x] **P1** A very long label or title with no spaces overflows its container.
 89. [x] **P2** `due_time` can survive a date being cleared through paths other than the modal's quick option. Enforced in `updateTask` rather than at each call site — a rule enforced in one place is a rule and a rule enforced in four is a coincidence. A time with no date has nowhere to render, since every surface reads `due_on` first, so it became a value that quietly survived and reappeared the next time the task was given a date.
 90. [x] **P2** Clock skew between client and server can make `completed_at` appear in the future. The whole product is calendar days, so a device with a wrong clock does not degrade gracefully — it buckets tasks wrongly, breaks the streak, and makes a completion vanish from « Terminé aujourd'hui ». The shell already renders on the server, so it hands its instant down and the offset is fixed once, during render rather than in an effect: an offset applied after the first commit would not re-bucket what that commit already drew. Every `today()`, every optimistic `completed_at` and `position` now reads through it.
-91. **P3** Emoji in a title break `truncate` measurement subtly.
+91. **NO** Emoji in a title break `truncate` measurement subtly. `truncate` is `text-overflow: ellipsis`, which the browser applies at a grapheme boundary — it does not split a surrogate pair or a ZWJ sequence into halves the way a JavaScript `slice` would. The width of an emoji does vary by font, so a truncated line lands in a slightly different place than a Latin one; that is a rendering difference, not a break, and nothing in the layout depends on the character count.
 92. [~] **P3** No handling for a task whose assignee was removed from the workspace. Checked: the board already folds such a task into « Personne » rather than dropping it, which was the outcome worth protecting, and the list shows it with no dot. What is still true is that `columnOf` returns the departed id, so ←/→ on that card finds no column and does nothing. Left as it is — it needs a member removal to reproduce, and `verify:invites` covers the rule that matters, which is that the tasks survive at all.
 
 ## L. Copy and content
@@ -206,7 +206,7 @@ of this list rather than a gap in it.
 134. [x] **P2** Board columns have a fixed 280px width regardless of viewport. `min(280px, calc(100vw - 4.5rem))`, so a phone shows one column and the edge of its neighbour instead of a column running off the screen.
 135. [x] **P2** The modal is not scrollable when the notes field grows past the viewport. Three bands now — the task, its metadata, the actions — and only the middle one scrolls, so long notes cannot push Supprimer off the bottom of the window.
 136. **NO** No max width on the board, so on an ultrawide it stretches. On review this is what a board is for: the columns are a fixed width and the row of them is as long as it is. Capping it would leave dead space beside a surface whose whole job is to be scrolled.
-137. **P3** The calendar week header is not sticky while scrolling a tall month.
+137. **NO** The calendar week header is not sticky while scrolling a tall month. A tall month does not scroll. The grid is `min-h-0 flex-1` over `grid-rows-6`, so it fits the height it is given and the individual cells scroll inside themselves — the weekday row is never anywhere but the top. Not reproducible.
 
 ## T. Data lifecycle
 

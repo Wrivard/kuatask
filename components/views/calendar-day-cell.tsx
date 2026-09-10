@@ -6,7 +6,18 @@ import { copy } from "@/lib/copy";
 import type { Profile, Task } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
-const MAX_VISIBLE = 3;
+/**
+ * How tall one compact card is, including the gap under it.
+ *
+ * Measured from the rendered card rather than derived: 11px text at 1.35
+ * leading in a `py-px` box, plus the grid's `gap-0.5`. If the card's padding
+ * changes, this has to change with it — which is why it sits next to the thing
+ * that renders it rather than in the hook that divides by it.
+ */
+export const CARD_HEIGHT = 20;
+
+/** The date numeral above the cards, the cell padding, and room for a « +N ». */
+export const CELL_CHROME = 40;
 
 /**
  * One month cell. Numerals are Geist Mono with tabular figures — mono is a data
@@ -21,6 +32,7 @@ export function CalendarDayCell({
   members,
   isDropTarget,
   today,
+  maxVisible,
   onOpenDay,
   onGrabTask,
 }: {
@@ -31,11 +43,13 @@ export function CalendarDayCell({
   isDropTarget: boolean;
   /** Passed in rather than read here, so midnight re-renders the whole grid. */
   today: string;
+  /** How many cards this cell has room for, measured from the grid's height. */
+  maxVisible: number;
   onOpenDay: (day: string) => void;
   onGrabTask: (taskId: string, e: React.PointerEvent) => void;
 }) {
   const outside = !isSameMonth(day, anchor);
-  const overflow = tasks.length - MAX_VISIBLE;
+  const overflow = tasks.length - maxVisible;
 
   return (
     <div
@@ -58,7 +72,7 @@ export function CalendarDayCell({
         {day.slice(-2)}
       </span>
 
-      {tasks.slice(0, MAX_VISIBLE).map((task) => (
+      {tasks.slice(0, maxVisible).map((task) => (
         <CalendarCard
           key={task.id}
           task={task}

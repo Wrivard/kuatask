@@ -13,6 +13,8 @@ const TaskModal = dynamic(
   { ssr: false },
 );
 import { CalendarCard } from "./calendar-card";
+import { CARD_HEIGHT, CELL_CHROME } from "./calendar-day-cell";
+import { useRowsThatFit } from "@/lib/fit";
 import {
   formatMonthYear,
   monthGrid,
@@ -85,6 +87,15 @@ export function CalendarView() {
 
   const today = useToday();
   const reduced = useReducedMotion();
+
+  /*
+    Six rows of cells share whatever height the window gives the grid, so on a
+    tall screen a hard cap of three left visible empty space under a « +4 de
+    plus » — the information was there, the room was there, and a constant in
+    the middle refused to put them together.
+  */
+  const gridRef = React.useRef<HTMLDivElement>(null);
+  const maxVisible = useRowsThatFit(gridRef, CARD_HEIGHT, CELL_CHROME);
   const [anchor, setAnchor] = React.useState(nowDate);
   const [mode, setMode] = useLocalLens<"month" | "week">(
     "kua-calendar-mode",
@@ -214,6 +225,7 @@ export function CalendarView() {
           initial={{ opacity: 0, y: reduced ? 0 : 3 }}
           animate={{ opacity: 1, y: 0 }}
           transition={snap}
+          ref={gridRef}
           className="grid min-h-0 flex-1 grid-cols-7 grid-rows-6"
         >
           {days.map((day) => (
@@ -225,6 +237,7 @@ export function CalendarView() {
               members={members}
               isDropTarget={dropDay === day && dragId !== null}
               today={today}
+              maxVisible={maxVisible}
               onOpenDay={setOpenDay}
               onGrabTask={grab}
             />

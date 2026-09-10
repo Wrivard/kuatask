@@ -65,8 +65,8 @@ export function ListView() {
   const [openId, setOpenId] = React.useState<string | null>(null);
   // expanded is a preference, not a transient: closing it on every trip to
   // the calendar means re-opening it every time you want yesterday's context
-  const [doneOpenRaw, setDoneOpen] = useLocalLens<"0" | "1">("kua-done-open", "0");
-  const doneOpen = doneOpenRaw === "1";
+  const [doneOpenRaw, setDoneOpen] = useLocalLens<"0" | "1" | "7">("kua-done-open", "0");
+  const doneOpen = doneOpenRaw !== "0";
   const [searching, setSearching] = React.useState(false);
   const [query, setQuery] = React.useState("");
 
@@ -142,7 +142,7 @@ export function ListView() {
     return ids;
   }, [tasks, holding, me?.id]);
 
-  const { sections, completedToday } = React.useMemo(() => {
+  const { sections, completedToday, completedRecently } = React.useMemo(() => {
     const byBucket = new Map<Bucket, Task[]>();
     const done: Task[] = [];
 
@@ -159,7 +159,9 @@ export function ListView() {
       }
 
       // only today's completions are in the UI; yesterday's are still in the DB
-      if (isOnDay(task.completed_at, day)) done.push(task);
+      // the browser holds a week of completions; today's are the footer's
+      // default, and the rest are one click away rather than a reload away
+      if (task.completed_at) done.push(task);
     }
 
     // overdue rises to the top of Aujourd'hui, then time, then creation order
@@ -174,11 +176,26 @@ export function ListView() {
       });
     }
 
+    /*
+      Newest first, which is the opposite of the open list. A finished task is
+      history: you read it to remember what happened, and what happened last is
+      what you are looking for.
+    */
+    done.sort((a, b) => (b.completed_at ?? "").localeCompare(a.completed_at ?? ""));
+
     return {
       sections: SECTIONS.map((s) => ({ ...s, tasks: byBucket.get(s.bucket) ?? [] })),
-      completedToday: done,
+      completedToday: done.filter((t) => isOnDay(t.completed_at, day)),
+      completedRecently: done,
     };
   }, [tasks, holding, day]);
+
+  /*
+    Three states rather than two. Shut, today, and the week the browser is
+    already holding — the footer used to show a count of today's and stop, so
+    « what did we finish yesterday » meant reaching for the search box.
+  */
+  const doneShows = doneOpenRaw === "7" ? completedRecently : completedToday;
 
   const visibleCount = sections.reduce((n, s) => n + s.tasks.length, 0);
 
@@ -389,7 +406,7 @@ export function ListView() {
         )
       )}
 
-      {!results && completedToday.length > 0 && (
+      {!results && completedRecently.length > 0 && (
         <section className="mt-2">
           <button
             type="button"
@@ -404,10 +421,10 @@ export function ListView() {
               strokeWidth={1.5}
             />
             <span className="text-[13px] font-medium text-fg-muted">
-              {copy.nav.doneToday}
+              {doneOpenRaw === "7" ? copy.nav.doneRecent : copy.nav.doneToday}
             </span>
             <span className="ml-auto font-mono text-[12px] tabular-nums text-fg-faint">
-              {completedToday.length}
+              {doneShows.length}
             </span>
           </button>
 
@@ -420,9 +437,24 @@ export function ListView() {
                 transition={exit}
                 style={{ overflow: "hidden" }}
               >
-                {completedToday.map((task) => (
+                {doneShows.map((task) => (
                   <TaskRow key={task.id} task={task} onOpen={setOpenId} />
                 ))}
+
+                {/*
+                  Only offered when there is actually more to see, and only once
+                  the section is open — a control for something you cannot see
+                  is a control you have to think about.
+                */}
+                {doneOpenRaw === "1" && completedRecently.length > completedToday.length && (
+                  <button
+                    type="button"
+                    onClick={() => setDoneOpen("7")}
+                    className="py-2 text-left text-[12px] text-fg-faint hover:text-fg"
+                  >
+                    {copy.nav.doneWeek(completedRecently.length - completedToday.length)}
+                  </button>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
