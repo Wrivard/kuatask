@@ -97,9 +97,9 @@ of this list rather than a gap in it.
 
 ## H. Accessibility
 
-61. **P1** The progress ring has no accessible text — a screen reader gets nothing.
-62. **P1** The streak number has no label.
-63. **P1** Board columns have no accessible name tying cards to their column.
+61. [x] **P1** The progress ring has no accessible text — a screen reader gets nothing.
+62. [x] **P1** The streak number has no label.
+63. [x] **P1** Board columns have no accessible name tying cards to their column.
 64. **P2** The live region announces completions only; deletions and reassignments are silent.
 65. **P2** The task row is a `div` with `role="button"`, which is a real button in disguise.
 66. **P2** No skip-to-content link.
@@ -123,7 +123,7 @@ of this list rather than a gap in it.
 
 ## J. Security and robustness
 
-81. **P1** No security headers at all — no CSP, no `X-Content-Type-Options`, no `Referrer-Policy`.
+81. [x] **P1** No security headers at all — no CSP, no `X-Content-Type-Options`, no `Referrer-Policy`.
 82. **P2** No rate limiting on the invite action; an admin can hammer Supabase's mailer.
 83. **P2** Invite email validation is `includes("@")`.
 84. **P2** A failed session refresh is silent — the user simply finds themselves logged out.
@@ -133,7 +133,7 @@ of this list rather than a gap in it.
 
 ## K. Correctness and edge cases
 
-88. **P1** A very long label or title with no spaces overflows its container.
+88. [x] **P1** A very long label or title with no spaces overflows its container.
 89. **P2** `due_time` can survive a date being cleared through paths other than the modal's quick option.
 90. **P2** Clock skew between client and server can make `completed_at` appear in the future.
 91. **P3** Emoji in a title break `truncate` measurement subtly.
@@ -148,7 +148,7 @@ of this list rather than a gap in it.
 
 ## M. Deployment and operations
 
-97. **P1** No `robots.txt`; a private task app should not invite indexing.
+97. [x] **P1** No `robots.txt`; a private task app should not invite indexing.
 98. **P2** No `/api/health` check of the database, only of configuration.
 99. **P2** No error reporting — a crash in production is invisible unless someone looks.
 100. **P3** No preview-environment configuration for Vercel.
@@ -224,8 +224,8 @@ of this list rather than a gap in it.
 
 ## V. Final sweep
 
-146. **P2** No favicon beyond the Next default.
-147. **P2** No `apple-touch-icon` or web manifest, so adding to a home screen looks generic.
-148. **P2** No `<meta name="description">` or Open Graph tags.
-149. **P3** `theme-color` not set, so mobile browser chrome does not match the app.
-150. **P3** No `viewport-fit=cover`, which is what makes safe-area insets meaningful.
+146. [x] **P2** No favicon beyond the Next default.
+147. [x] **P2** No `apple-touch-icon` or web manifest, so adding to a home screen looks generic.
+148. [x] **P2** No `<meta name="description">` or Open Graph tags.
+149. [x] **P3** `theme-color` not set, so mobile browser chrome does not match the app.
+150. [x] **P3** No `viewport-fit=cover`, which is what makes safe-area insets meaningful.

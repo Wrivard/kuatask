@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Toaster } from "@/components/ui/sonner";
@@ -7,6 +7,26 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: copy.app.name,
+  description: copy.app.description,
+  // a private tool: never index it, whatever robots.txt says
+  robots: { index: false, follow: false },
+  manifest: "/site.webmanifest",
+  appleWebApp: { capable: true, title: copy.app.name },
+};
+
+/**
+ * viewport-fit=cover is what makes env(safe-area-inset-*) mean anything, which
+ * the mobile bar depends on. themeColor matches the two grounds so the browser
+ * chrome does not sit as a bright band above a near-black app.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
 };
 
 /**

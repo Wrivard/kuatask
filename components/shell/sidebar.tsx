@@ -124,8 +124,12 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
 
       {streak > 0 && (
         <div className="mt-auto px-4 py-4">
-          <span className="font-mono text-[12px] tabular-nums text-fg-faint">
-            {copy.streak(streak)}
+          <span
+            className="font-mono text-[12px] tabular-nums text-fg-faint"
+            title={copy.a11y.streak(streak)}
+          >
+            <span className="sr-only">{copy.a11y.streak(streak)}</span>
+            <span aria-hidden>{copy.streak(streak)}</span>
           </span>
         </div>
       )}

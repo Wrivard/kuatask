@@ -55,7 +55,11 @@ export function ProgressRing() {
   const offset = C * (1 - done / total);
 
   return (
-    <div className="flex items-center gap-2">
+    <div
+      className="flex items-center gap-2"
+      role="img"
+      aria-label={copy.a11y.progress(done, total)}
+    >
       <svg width={SIZE} height={SIZE} className="-rotate-90" aria-hidden>
         <circle
           cx={SIZE / 2}

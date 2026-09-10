@@ -168,6 +168,16 @@
   }
 
   /*
+    A title or label with no spaces in it — a URL, a long client code — used to
+    push its row wider than the container instead of wrapping. Titles truncate
+    to one line in the list, but the modal and the board show full text, and
+    there a single long token has to break.
+  */
+  h1, h2, h3, p, span, li, td, th {
+    overflow-wrap: anywhere;
+  }
+
+  /*
     Separation is hairline borders, never shadows. Keyboard navigation is a
     primary input method here, so every focusable element keeps a visible ring.
   */

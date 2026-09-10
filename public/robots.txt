@@ -1,0 +1,5 @@
+# A private task manager for two people. Nothing here is meant to be indexed,
+# and the app is behind auth anyway — this just stops crawlers wasting requests
+# on a login screen.
+User-agent: *
+Disallow: /

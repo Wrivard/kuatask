@@ -1,0 +1,11 @@
+{
+  "name": "Küa Tasks",
+  "short_name": "Küa",
+  "description": "Les tâches partagées de Küa.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "lang": "fr-CA",
+  "icons": []
+}

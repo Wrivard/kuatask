@@ -182,6 +182,7 @@ export function BoardView() {
               <section
                 key={column.key}
                 data-drop-target={column.key}
+                aria-label={copy.a11y.column(column.title, column.tasks.length)}
                 className={cn(
                   "flex h-full w-[280px] shrink-0 flex-col rounded-md border border-border",
                   isTarget && "border-accent bg-surface-hover",

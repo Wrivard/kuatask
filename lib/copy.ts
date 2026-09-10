@@ -11,6 +11,7 @@
 export const copy = {
   app: {
     name: "Küa Tasks",
+    description: "Les tâches partagées de Küa.",
   },
 
   nav: {
@@ -186,6 +187,17 @@ export const copy = {
     crashedBody:
       "Tes tâches sont intactes — c'est l'affichage qui a lâché, pas les données. Réessaie, ou recharge la page.",
     retry: "Réessayer",
+  },
+
+  /** Text that exists only for screen readers, never shown on screen. */
+  a11y: {
+    progress: (done: number, total: number) =>
+      `Progression : ${done} sur ${total} tâches terminées aujourd'hui`,
+    streak: (days: number) =>
+      days === 1 ? "1 jour d'affilée" : `${days} jours d'affilée`,
+    column: (title: string, count: number) =>
+      `${title} — ${count} ${count === 1 ? "tâche" : "tâches"}`,
+    skipToContent: "Aller au contenu",
   },
 
   notFound: {
