@@ -1,36 +1,26 @@
 # Reference files
 
-Working code for the parts that are easy to get subtly wrong. Copy into `lib/`, fix the imports, and adapt. Do not rewrite from scratch.
+**These are the originals, as delivered. `lib/` is what runs.**
 
-| File | Goes to | Why it's here |
-|---|---|---|
-| `time.ts` | `lib/time.ts` | Montreal day buckets. Every "today" bug in this app comes from doing this ad hoc. |
-| `sound.ts` | `lib/sound.ts` | The rising pentatonic run. The single most effective mechanic in the app. |
-| `motion.ts` | `lib/motion.ts` | Animation tokens plus the completion timings from § 8.1. |
-| `parse-fr.ts` | `lib/parse-fr.ts` | French date/assignee/label parsing for the composer. Tedious to write, easy to get wrong. |
-| `store.ts` | `lib/store.ts` | Optimistic store, undo stack, local-precedence reconciliation. |
-| `realtime.ts` | `lib/realtime.ts` | Channel wiring. Mount once in the shell after hydration. |
+They were the starting point for the parts that are easy to get subtly wrong,
+copied into `lib/` in Phase 1 and adapted from there. They are kept for
+provenance — so it is possible to see what was given versus what was decided —
+and they are **not** maintained. Every one of them has since diverged, several
+of them substantially:
 
-## Notes
+| File | Then | Now | What happened |
+|---|---:|---:|---|
+| `time.ts` | 166 | 385 | Day-dependent helpers take the day as a parameter, so nothing reads the clock mid-render. `bucketOf` compares day strings against boundaries computed once per day instead of parsing dates per task, and `instantToDay` uses `Intl` behind a cache — together about 200× faster. Plus the clock offset from the server, so a wrong device clock cannot decide what day it is. |
+| `store.ts` | 238 | 653 | Ref-counted `pending` with a timeout, undo entries carrying preconditions, retry on transport failure but not on refusal, no-op patch elision, server-seeded hydration, bounded completion window, archive search. |
+| `realtime.ts` | 41 | 80 | Reconnect and resync on wake, and `DELETE` handling that needed a migration to work at all. |
+| `parse-fr.ts` | 160 | 168 | Year rollover for numeric dates. |
+| `sound.ts` | 95 | 98 | — |
+| `motion.ts` | 51 | 52 | — |
 
-**`store.ts` assumes `lib/database.types.ts` exists.** Generate it after applying the migration:
+If you are reading one of these to understand how something works, read the
+`lib/` version instead. If you are wondering why something in `lib/` looks the
+way it does, the diff against the file here is often the answer, and
+`DECISIONS.md` usually has the reasoning.
 
-```bash
-npx supabase gen types typescript --project-id <id> > lib/database.types.ts
-```
-
-**`parse-fr.ts` needs test coverage.** These strings must all resolve correctly:
-
-```
-"rappeler le fournisseur demain 14h"
-"envoyer les maquettes @guillaume #acme vendredi"
-"renouveler le domaine dans 3 jours !"
-"appeler le comptable lundi prochain"
-"préparer la soumission 15 mars"
-"faire le suivi 15/03"
-"demain"                    -> title stays "demain", no date
-```
-
-The last one is the guard against stripping a title down to nothing.
-
-**`sound.ts` builds its AudioContext lazily** on the first completion, because browsers block construction outside a user gesture. Do not move it to module scope.
+Do not edit these. Do not import from them — `eslint.config.mjs` ignores this
+directory precisely because it is not part of the build.

@@ -217,8 +217,8 @@ of this list rather than a gap in it.
 ## U. Developer experience
 
 141. [x] **P2** No `.env.example` documenting the four variables. With what each one is for, which are safe in a browser and why, and the two places `NEXT_PUBLIC_SITE_URL` has to agree — it is what the login page hands Supabase as `emailRedirectTo`, so getting it wrong is what makes a production email link point at localhost.
-142. **P2** `reference/` is stale relative to `lib/` and may mislead a future reader.
-143. **P2** No CONTRIBUTING or architecture note beyond DECISIONS.
+142. [x] **P2** `reference/` is stale relative to `lib/` and may mislead a future reader. Its README still said « copy into `lib/` », as though that had not already happened three phases ago. It now says these are the originals as delivered, that `lib/` is what runs, and tabulates what diverged and why — `store.ts` 238 lines to 653, `time.ts` 166 to 385. Kept rather than deleted, because the diff against them is often the fastest answer to why something in `lib/` looks the way it does.
+143. [x] **P2** No CONTRIBUTING or architecture note beyond DECISIONS. `ARCHITECTURE.md`: one array and three views, the store's contract, the two different things called dates, what the server owns, and what is deliberately absent. `DECISIONS.md` records why individual calls were made; this is the shape, and specifically the parts that cannot be changed without breaking something that is not obviously connected.
 144. **P3** No pre-commit hook running typecheck.
 145. **P3** Migrations have no down-migrations.
 

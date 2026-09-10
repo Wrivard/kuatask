@@ -58,8 +58,10 @@ lib/            store, time, sound, parsing, drag, copy — the load-bearing par
 supabase/       migrations, applied in order
 scripts/        verify-logic.mjs, verify-store.mjs, verify-db.mjs, verify-invites.mjs
 docs/           the original specification, still the source of truth
-reference/      the spec's reference implementations, copied into lib/
+reference/      the spec's implementations as delivered; lib/ has diverged
+ARCHITECTURE.md the shape, and what cannot change without breaking something
 DECISIONS.md    why anything non-obvious is the way it is
+AUDIT.md        150 things that could be better, and which are done
 ```
 
 Two rules the code holds to everywhere: every user-facing string comes from
