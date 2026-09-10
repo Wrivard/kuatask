@@ -16,7 +16,6 @@ import {
   endOfMonth,
   endOfWeek,
   format,
-  isBefore,
   parseISO,
   startOfWeek,
 } from 'date-fns';
@@ -46,9 +45,33 @@ export function recentCompletionCutoff(): string {
 /** A calendar day, 'yyyy-MM-dd'. The app's only date type. */
 export type DayString = string;
 
+/*
+  Every "today" in the app is read through this.
+
+  The whole product is calendar days, so a device whose clock is wrong does not
+  degrade gracefully — it puts tasks in the wrong bucket, breaks the streak, and
+  makes a completion vanish from "Terminé aujourd'hui". Phones do drift, and a
+  laptop resumed from sleep can be minutes out before NTP catches up.
+
+  The shell already renders on the server, so it hands down the server's instant
+  and the offset is fixed once at boot. Elapsed time comes from the device,
+  which is fine — a wrong clock is an offset error, not a rate error.
+*/
+let clockOffset = 0;
+
+export function setClockOffset(serverNow: string) {
+  const parsed = Date.parse(serverNow);
+  if (!Number.isNaN(parsed)) clockOffset = parsed - Date.now();
+}
+
+/** Milliseconds, with the server's correction applied. */
+export function now(): number {
+  return Date.now() + clockOffset;
+}
+
 /** Now, in Montreal. */
 export function nowTz(): TZDate {
-  return TZDate.tz(TZ);
+  return TZDate.tz(TZ, new Date(now()));
 }
 
 /*
@@ -87,7 +110,7 @@ function dayOf(d: Date): DayString {
 
 /** Today's Montreal calendar day. */
 export function today(): DayString {
-  return dayOf(new Date());
+  return dayOf(new Date(now()));
 }
 
 /**
@@ -235,27 +258,39 @@ function frameFor(todayDay: DayString): Frame {
  * an arbitrary day, so each bucket resolves to its first available day and is
  * clamped so it cannot spill into the next bucket.
  */
-export function firstDayOfBucket(bucket: Bucket): DayString | null {
+export function firstDayOfBucket(
+  bucket: Bucket,
+  todayDay: DayString = today(),
+): DayString | null | undefined {
   if (bucket === 'undated') return null;
-  if (bucket === 'today') return today();
-  if (bucket === 'tomorrow') return tomorrow();
+  if (bucket === 'today') return todayDay;
 
-  const base = toDate(today());
-  const weekEnd = endOfWeek(base, { weekStartsOn: 1 });
-  const monthEnd = endOfMonth(base);
+  /*
+    The earliest day that is actually in the bucket, found by asking bucketOf
+    rather than by reconstructing its boundaries.
 
-  if (bucket === 'week') {
-    const start = addDays(base, 2);
-    return toDayString(isBefore(weekEnd, start) ? weekEnd : start);
+    Reconstructing them is what went wrong. Dropping a card on "Cette semaine"
+    on a Saturday clamped to the end of the week, which is Sunday, which is
+    tomorrow — the card jumped a column and the toast said it had been
+    rescheduled. "Ce mois-ci" had the same fault on a Sunday. Both were
+    invisible in the test suite because it only ever ran against the real today.
+
+    Two buckets can be genuinely empty: on a Saturday every day left in the week
+    is already tomorrow, and on the 30th the same is true of the month.
+    `undefined` says so, and the caller declines the drop rather than doing
+    something else and claiming success.
+  */
+  const base = toDate(todayDay);
+  for (let offset = 1; offset <= SEARCH_DAYS; offset += 1) {
+    const day = toDayString(addDays(base, offset));
+    if (bucketOf(day, todayDay) === bucket) return day;
   }
-
-  if (bucket === 'month') {
-    const start = addDays(weekEnd, 1);
-    return toDayString(isBefore(monthEnd, start) ? monthEnd : start);
-  }
-
-  return toDayString(addDays(monthEnd, 1));
+  return undefined;
 }
+
+/** Far enough to cross a month boundary from any day in it. */
+const SEARCH_DAYS = 62;
+
 
 // ---------------------------------------------------------------------------
 // calendar grid

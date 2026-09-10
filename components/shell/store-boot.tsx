@@ -4,6 +4,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import { setErrorHandler, useStore, type Profile, type Task } from "@/lib/store";
 import { useRealtimeTasks } from "@/lib/realtime";
+import { setClockOffset } from "@/lib/time";
 import { copy } from "@/lib/copy";
 
 /**
@@ -33,8 +34,21 @@ export function StoreBoot({
     workspaceId: string;
     /** Montreal days that already had a completion — the streak's history. */
     completionDays: string[];
+    /** The server's instant at render, so a wrong device clock cannot decide a day. */
+    serverNow: string;
   };
 }) {
+  /*
+    During render, not in an effect. StoreBoot sits above the views in the tree,
+    so this runs before anything asks what day it is — and an offset applied
+    after the first commit would not re-bucket what that commit already drew.
+
+    Writing a module variable during render is safe here in a way store state is
+    not: on the server the offset is always about zero, so there is nothing for
+    one request to leak into the next.
+  */
+  setClockOffset(initial.serverNow);
+
   React.useEffect(() => {
     setErrorHandler((reason) =>
       toast.error(copy.error.saveFailed, { description: reason }),

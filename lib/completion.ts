@@ -3,7 +3,7 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { useStore, type Task } from "@/lib/store";
-import { formatDueLabel } from "@/lib/time";
+import { formatDueLabel, now } from "@/lib/time";
 import { completionTone, uncompleteTone, tick } from "@/lib/sound";
 import { announce } from "@/components/shell/live-region";
 import { copy } from "@/lib/copy";
@@ -91,7 +91,7 @@ export function useSetStatusWithFeedback() {
       tick();
       state.updateTask(id, {
         status: next,
-        completed_at: new Date().toISOString(),
+        completed_at: new Date(now()).toISOString(),
         completed_by: state.me?.id ?? null,
       });
       notify(state.undo);

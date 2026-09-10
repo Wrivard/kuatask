@@ -16,7 +16,7 @@
 import { create } from 'zustand';
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/database.types';
-import { instantToDay, recentCompletionCutoff, type DayString } from '@/lib/time';
+import { instantToDay, now, recentCompletionCutoff, type DayString } from '@/lib/time';
 import { setSoundEnabled as applySoundEnabled } from '@/lib/sound';
 
 export type Task = Database['public']['Tables']['tasks']['Row'];
@@ -407,11 +407,11 @@ export const useStore = create<Store>((set, get) => {
         created_by: me.id,
         completed_at: null,
         completed_by: null,
-        position: Date.now() / 1000,
+        position: now() / 1000,
         // instants, not day buckets — timestamptz columns are absolute, so UTC
         // is correct here. Every *calendar day* value goes through lib/time.ts.
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        created_at: new Date(now()).toISOString(),
+        updated_at: new Date(now()).toISOString(),
       } as Task;
 
       set((s) => ({ tasks: [...s.tasks, optimistic] }));
@@ -454,6 +454,17 @@ export const useStore = create<Store>((set, get) => {
         patch,
         (Object.keys(patch) as (keyof Task)[]).filter((k) => before[k] !== patch[k]),
       ) as Partial<Task>;
+
+      /*
+        A time with no date has nowhere to be rendered — every surface reads
+        due_on first — so it becomes a value that exists, survives, and shows up
+        again when the task is next given a date. The modal's own quick option
+        cleared both; every other path that cleared a date did not. It belongs
+        here rather than at each call site, because a rule enforced in one place
+        is a rule and a rule enforced in four is a coincidence.
+      */
+      if (changed.due_on === null && before.due_time !== null) changed.due_time = null;
+
       if (Object.keys(changed).length === 0) return;
 
       patchLocal(id, changed);
@@ -493,7 +504,7 @@ export const useStore = create<Store>((set, get) => {
       */
       get().updateTask(id, {
         status: next,
-        completed_at: done ? new Date().toISOString() : null,
+        completed_at: done ? new Date(now()).toISOString() : null,
         completed_by: done ? (get().me?.id ?? null) : null,
       } as Partial<Task>);
     },

@@ -97,6 +97,7 @@ export default async function AppLayout({
           me: members?.find((m) => m.id === user.id) ?? null,
           workspaceId: membership.workspace_id,
           completionDays,
+          serverNow: new Date().toISOString(),
         }}
       />
       {/*

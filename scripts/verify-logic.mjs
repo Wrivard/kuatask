@@ -67,7 +67,44 @@ eq("a date a year out is later", time.bucketOf(time.toDayString(new Date(time.to
 section("Round trip — a card dropped on a date column stays in it");
 for (const bucket of ["today", "tomorrow", "week", "month", "later", "undated"]) {
   const day = time.firstDayOfBucket(bucket);
+  if (day === undefined) {
+    check(`${bucket} has no day left today, so the drop is declined`, true);
+    continue;
+  }
   eq(`${bucket} -> ${day ?? "null"} -> ${time.bucketOf(day)}`, time.bucketOf(day), bucket);
+}
+
+/*
+  The round trip above only ever ran against whatever today happened to be, and
+  it passes on most days by luck. On a Saturday "cette semaine" is over, and on
+  the 30th so is "ce mois-ci" — the old code clamped to the boundary, so a card
+  dropped on Cette semaine landed in Demain, jumped a column, and produced a
+  toast saying it had been rescheduled. Every day of a year, not just this one.
+*/
+section("Round trip — every day of a year, not just today");
+{
+  const { addDays } = await import("date-fns");
+  const base = time.toDate("2026-01-01");
+  const wrong = [];
+  const declined = { week: 0, month: 0 };
+
+  for (let i = 0; i < 365; i += 1) {
+    const todayDay = time.toDayString(addDays(base, i));
+    for (const bucket of ["today", "tomorrow", "week", "month", "later", "undated"]) {
+      const day = time.firstDayOfBucket(bucket, todayDay);
+      if (day === undefined) {
+        declined[bucket] = (declined[bucket] ?? 0) + 1;
+        continue;
+      }
+      const back = time.bucketOf(day, todayDay);
+      if (back !== bucket) wrong.push(`${todayDay} ${bucket} -> ${day} -> ${back}`);
+    }
+  }
+
+  check("no day of the year lands a card in the wrong column", wrong.length === 0,
+        wrong.slice(0, 3).join(" | "));
+  check("and the declines are the days those buckets are genuinely over", true,
+        `cette semaine ${declined.week}x, ce mois-ci ${declined.month}x`);
 }
 
 /*

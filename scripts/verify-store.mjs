@@ -361,5 +361,22 @@ check("and its undo reverses only that field",
       byTitle("inchangee").label === null && byTitle("inchangee").title === "inchangee",
       `${byTitle("inchangee").title} / ${byTitle("inchangee").label}`);
 
+section("Dates — a time cannot outlive its date");
+reset();
+s().createTask({ title: "avec heure", due_on: "2026-09-11", due_time: "09:30" });
+await settle();
+const dated = byTitle("avec heure");
+check("it has both", dated.due_on === "2026-09-11" && dated.due_time === "09:30",
+      `${dated.due_on} ${dated.due_time}`);
+
+s().updateTask(dated.id, { due_on: null });
+check("clearing the date clears the time with it",
+      byTitle("avec heure").due_time === null, String(byTitle("avec heure").due_time));
+
+await settle();
+s().updateTask(dated.id, { due_on: "2026-09-20" });
+check("and the old time does not come back with a new date",
+      byTitle("avec heure").due_time === null, String(byTitle("avec heure").due_time));
+
 console.log(`\n${failures === 0 ? "the store behaves" : `${failures} FAILED`}`);
 process.exit(failures ? 1 : 0);

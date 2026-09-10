@@ -134,10 +134,10 @@ of this list rather than a gap in it.
 ## K. Correctness and edge cases
 
 88. [x] **P1** A very long label or title with no spaces overflows its container.
-89. **P2** `due_time` can survive a date being cleared through paths other than the modal's quick option.
-90. **P2** Clock skew between client and server can make `completed_at` appear in the future.
+89. [x] **P2** `due_time` can survive a date being cleared through paths other than the modal's quick option. Enforced in `updateTask` rather than at each call site — a rule enforced in one place is a rule and a rule enforced in four is a coincidence. A time with no date has nowhere to render, since every surface reads `due_on` first, so it became a value that quietly survived and reappeared the next time the task was given a date.
+90. [x] **P2** Clock skew between client and server can make `completed_at` appear in the future. The whole product is calendar days, so a device with a wrong clock does not degrade gracefully — it buckets tasks wrongly, breaks the streak, and makes a completion vanish from « Terminé aujourd'hui ». The shell already renders on the server, so it hands its instant down and the offset is fixed once, during render rather than in an effect: an offset applied after the first commit would not re-bucket what that commit already drew. Every `today()`, every optimistic `completed_at` and `position` now reads through it.
 91. **P3** Emoji in a title break `truncate` measurement subtly.
-92. **P3** No handling for a task whose assignee was removed from the workspace.
+92. [~] **P3** No handling for a task whose assignee was removed from the workspace. Checked: the board already folds such a task into « Personne » rather than dropping it, which was the outcome worth protecting, and the list shows it with no dot. What is still true is that `columnOf` returns the departed id, so ←/→ on that card finds no column and does nothing. Left as it is — it needs a member removal to reproduce, and `verify:invites` covers the rule that matters, which is that the tasks survive at all.
 
 ## L. Copy and content
 
@@ -187,9 +187,9 @@ of this list rather than a gap in it.
 
 ## Q. Further correctness review
 
-124. **P2** `firstDayOfBucket("week")` can return a day that is also "tomorrow" late in the week.
-125. **P2** Dropping onto "Plus tard" always picks the first day of next month, which may be a weekend.
-126. **P2** The streak counts any completion, including one undone immediately after.
+124. [x] **P2** `firstDayOfBucket("week")` can return a day that is also "tomorrow" late in the week. Worse than reported, and the suite could not see it: the round-trip test only ever ran against the real today, so it passed by luck. Run across a full year it failed on every Sunday for « Ce mois-ci » as well. The function no longer reconstructs the boundaries — it asks `bucketOf` for the earliest day that is genuinely in the bucket, so the two cannot disagree by construction. Two buckets are legitimately empty on some days (a Saturday has no « cette semaine » left, the 30th has no « ce mois-ci »), and `undefined` says so, so the board declines the drop rather than putting the card somewhere else and reporting success. 104 and 49 such days a year.
+125. **NO** Dropping onto "Plus tard" always picks the first day of next month, which may be a weekend. Not a defect: `docs/04` is explicit that these two work weekends, and the calendar deliberately gives Saturday and Sunday no special treatment. Skipping a weekend here would be the app having an opinion about their week that they do not share.
+126. **NO** The streak counts any completion, including one undone immediately after. Checked rather than assumed: reopening clears `completed_at`, both optimistically and through the trigger, and the streak is derived from that column, so an undone completion stops counting the moment it is undone. There was nothing here.
 127. **P3** `computeStreak` walks day by day with no upper bound.
 128. [x] **P3** `instantToDay` parses every completion timestamp on every streak computation. It went through `TZDate` and date-fns `format` — 5 to 10µs a call, 8.0ms across 2000 tasks. Now one `Intl.DateTimeFormat` built once, reading parts by name rather than trusting a locale's ordering, plus a bounded cache keyed on the timestamp string, which hits nearly always because `completed_at` is a stable value that recurs on every render. 0.07ms. The whole rewrite is cross-checked against the date-fns implementation it replaced, over 5840 day pairs spanning a year and both DST changeovers.
 

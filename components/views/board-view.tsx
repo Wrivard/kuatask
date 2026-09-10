@@ -170,10 +170,15 @@ export function BoardView() {
         return;
       }
 
+      const landing = firstDayOfBucket(columnKey as Bucket, day);
+      // a bucket with no day left today cannot take a card; better to decline
+      // than to put it somewhere else and say it worked
+      if (landing === undefined) return;
+
       updateTask(taskId, { position });
-      rescheduleWithToast(taskId, firstDayOfBucket(columnKey as Bucket));
+      rescheduleWithToast(taskId, landing);
     },
-    [groupBy, updateTask, setStatus, assign, rescheduleWithToast],
+    [groupBy, day, updateTask, setStatus, assign, rescheduleWithToast],
   );
 
   const { dragId, target, index: dropIndex, grab } = useDragToTarget(drop);
