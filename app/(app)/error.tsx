@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { copy } from "@/lib/copy";
+import { report } from "@/lib/report";
 
 /**
  * Catches a render error inside the app shell.
@@ -23,6 +24,8 @@ export default function AppError({
   React.useEffect(() => {
     // the digest is the only handle on the server-side trace
     console.error("[kua] view crashed", error);
+    // and the console of the person it happened to is not somewhere anyone looks
+    report(error, { digest: error.digest });
   }, [error]);
 
   return (

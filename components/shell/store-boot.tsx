@@ -7,6 +7,7 @@ import { useRealtimeTasks } from "@/lib/realtime";
 import { setClockOffset } from "@/lib/time";
 import { copy } from "@/lib/copy";
 import { explain, logRefusal } from "@/lib/errors";
+import { installGlobalReporting } from "@/lib/report";
 
 /**
  * Installs the data the server already fetched, connects the store's error
@@ -51,6 +52,9 @@ export function StoreBoot({
   setClockOffset(initial.serverNow);
 
   React.useEffect(() => {
+    // a rejected promise nobody awaited never reaches a React boundary, and
+    // every write in the store is exactly that shape
+    installGlobalReporting();
     setErrorHandler((refusal) => {
       // the raw message goes where whoever is debugging will look for it
       logRefusal(refusal);

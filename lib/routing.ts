@@ -25,6 +25,13 @@ export const PUBLIC_PATHS = [
   '/auth/confirm',
   // the config probe has to answer even when auth cannot be configured
   '/api/health',
+  /*
+    A crash report has to get out from wherever the crash was, including the
+    login screen — which is where the last two real production failures
+    happened. It writes a clipped line to stderr and answers 204; there is
+    nothing behind it to reach.
+  */
+  '/api/report',
 ];
 
 export type RouteDecision =
