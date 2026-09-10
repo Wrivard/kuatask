@@ -37,6 +37,7 @@ import { useCompletionHold } from "@/lib/hold";
 import { useScrollMemory } from "@/lib/scroll-memory";
 import { useClearedToday } from "@/lib/clear-out";
 import { useToday } from "@/lib/day";
+import { useLocalLens } from "@/lib/lens";
 import { useOpenTask, useStartSearch, focusComposer } from "@/lib/events";
 import { nextDay } from "date-fns";
 import { copy } from "@/lib/copy";
@@ -62,7 +63,10 @@ export function ListView() {
   const me = useStore((s) => s.me);
   const filter = useStore((s) => s.assigneeFilter);
   const [openId, setOpenId] = React.useState<string | null>(null);
-  const [doneOpen, setDoneOpen] = React.useState(false);
+  // expanded is a preference, not a transient: closing it on every trip to
+  // the calendar means re-opening it every time you want yesterday's context
+  const [doneOpenRaw, setDoneOpen] = useLocalLens<"0" | "1">("kua-done-open", "0");
+  const doneOpen = doneOpenRaw === "1";
   const [searching, setSearching] = React.useState(false);
   const [query, setQuery] = React.useState("");
 
@@ -389,7 +393,7 @@ export function ListView() {
         <section className="mt-2">
           <button
             type="button"
-            onClick={() => setDoneOpen((v) => !v)}
+            onClick={() => setDoneOpen(doneOpen ? "0" : "1")}
             className="flex w-full items-baseline gap-1.5 py-1 text-left"
           >
             <ChevronRight

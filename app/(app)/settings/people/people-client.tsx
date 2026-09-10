@@ -57,18 +57,28 @@ export function PeopleClient({
           {members.map((m) => (
             <li
               key={m.userId}
-              className="flex h-11 items-center gap-3 border-b border-border"
+              className="flex min-h-11 items-center gap-3 border-b border-border py-1.5"
             >
               <span
                 className="size-1.5 shrink-0 rounded-full"
                 style={{ backgroundColor: accentColor(m.accent) }}
               />
-              <span className="min-w-0 flex-1 truncate text-[15px]">
-                {m.displayName}
-                {m.userId === meId && (
-                  <span className="ml-1.5 text-[12px] text-fg-faint">
-                    ({copy.people.you})
-                  </span>
+              {/*
+                Two people can pick the same display name, and an invite is sent
+                to an address rather than to a name — so a member list that shows
+                only names cannot be checked against the invite that produced it.
+              */}
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-[15px]">
+                  {m.displayName}
+                  {m.userId === meId && (
+                    <span className="ml-1.5 text-[12px] text-fg-faint">
+                      ({copy.people.you})
+                    </span>
+                  )}
+                </span>
+                {m.email && m.email !== m.displayName && (
+                  <span className="truncate text-[12px] text-fg-faint">{m.email}</span>
                 )}
               </span>
               <span className="shrink-0 text-[12px] text-fg-faint">

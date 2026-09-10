@@ -29,16 +29,25 @@ export function ClearOut({
   const line = copy.clearOut[seed % copy.clearOut.length];
 
   return (
-    <div className="relative overflow-hidden py-10">
+    /*
+      The band is 4rem travelling through at least 10rem. It used to be 6rem in
+      a box its own content sized — taller than the space it had to cross, so it
+      arrived before it had moved and read as a flash rather than a sweep.
+
+      It stays inside this block deliberately. § 8.5 asks for one narrow band
+      and says restraint is what makes the moment land the twentieth time; a
+      sweep across the whole window is the confetti the same paragraph refuses.
+    */
+    <div className="relative min-h-[10rem] overflow-hidden py-10">
       {!reduced && (
         <motion.div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 h-24"
+          className="pointer-events-none absolute inset-x-0 h-16"
           style={{
             background:
               "linear-gradient(180deg, transparent, color-mix(in oklab, var(--color-accent) 14%, transparent), transparent)",
           }}
-          initial={{ top: "-6rem" }}
+          initial={{ top: "-4rem" }}
           animate={{ top: "100%" }}
           transition={{ duration: SWEEP_DURATION / 1000, ease: "easeInOut" }}
         />

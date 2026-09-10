@@ -44,6 +44,20 @@ async function requireAdmin() {
 /** One @, something either side, a dot in the domain, no whitespace. */
 const EMAIL = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 
+/**
+ * How many invites a workspace may create in an hour.
+ *
+ * Nothing stopped an admin from putting a hundred addresses through this, each
+ * one asking Supabase to send mail — which is somebody else's rate limit, and
+ * hitting it takes out the magic-link login for everyone in the project, not
+ * just invitations. This workspace is meant to hold two people.
+ *
+ * Counted in the database rather than in memory. Server actions run on
+ * instances that come and go, so an in-memory counter would reset whenever one
+ * did, which is exactly when it would matter.
+ */
+const INVITES_PER_HOUR = 10;
+
 export async function inviteMember(email: string): Promise<ActionResult> {
   const ctx = await requireAdmin();
   if (!ctx) return { ok: false, error: copy.error.inviteFailed };
@@ -57,6 +71,17 @@ export async function inviteMember(email: string): Promise<ActionResult> {
   */
   if (!EMAIL.test(address) || address.length > 254) {
     return { ok: false, error: copy.error.inviteFailed };
+  }
+
+  const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
+  const { count: recentInvites } = await ctx.supabase
+    .from("pending_invites")
+    .select("id", { count: "exact", head: true })
+    .eq("workspace_id", ctx.workspaceId)
+    .gte("created_at", hourAgo);
+
+  if ((recentInvites ?? 0) >= INVITES_PER_HOUR) {
+    return { ok: false, error: copy.error.tooManyInvites };
   }
 
   // already a member, or already invited

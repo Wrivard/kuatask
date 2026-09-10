@@ -209,6 +209,7 @@ export const copy = {
     offline: "Connexion perdue. Les modifications reprendront au retour du réseau.",
     inviteFailed: "L'invitation n'a pas pu être envoyée. Vérifie l'adresse.",
     inviteExists: "Cette personne est déjà membre ou déjà invitée.",
+    tooManyInvites: "Trop d'invitations d'un coup. Réessaie dans une heure.",
     lastAdmin: "Il faut au moins un admin dans l'espace.",
     loginFailed: "Le lien n'a pas pu être envoyé. Vérifie l'adresse.",
     sessionExpired: "Ta session a expiré. Reconnecte-toi.",

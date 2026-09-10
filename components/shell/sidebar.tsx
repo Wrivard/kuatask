@@ -192,17 +192,34 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
         {copy.nav.settings}
       </Link>
 
-      {streak > 0 && (
-        <div className="mt-auto px-4 py-4">
+      {/*
+        Who you are, at the foot of the rail. It was only in settings, which is
+        two clicks away and the last place you would think to look after being
+        bounced to a login screen and back — and with two people sharing a board
+        it decides what "Moi" means.
+      */}
+      <div className="mt-auto flex items-center gap-2 px-4 py-4">
+        {me && (
+          <>
+            <span
+              className="size-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: accentColor(me.accent) }}
+            />
+            <span className="min-w-0 truncate text-[12px] text-fg-faint">
+              {me.display_name}
+            </span>
+          </>
+        )}
+        {streak > 0 && (
           <span
-            className="font-mono text-[12px] tabular-nums text-fg-faint"
+            className="ml-auto shrink-0 font-mono text-[12px] tabular-nums text-fg-faint"
             title={copy.a11y.streak(streak)}
           >
             <span className="sr-only">{copy.a11y.streak(streak)}</span>
             <span aria-hidden>{copy.streak(streak)}</span>
           </span>
-        </div>
-      )}
+        )}
+      </div>
     </aside>
   );
 }

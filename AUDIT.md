@@ -91,7 +91,7 @@ of this list rather than a gap in it.
 55. [x] **P1** The board has no keyboard equivalent for moving a card between columns.
 56. [x] **P2** `?` sheet does not list the board or calendar drag gestures.
 57. [x] **P2** No `Escape` handling to close the day sheet from the keyboard. Wrong on inspection — the sheet is a Radix dialog and has always closed on Escape. Nothing to change; recorded so it is not re-opened.
-58. **P2** Row focus is lost when the list re-renders from a realtime event.
+58. [~] **P2** Row focus is lost when the list re-renders from a realtime event. Read the path rather than assuming it. Row focus is an id, not a DOM reference, and it is only cleared when that id leaves the list — a realtime event that reorders or edits other rows does not touch it. DOM focus now lands on the row's title button, whose React key is the task id, so a re-render keeps it too. What remains true is the narrower case the item did not name: if your partner *deletes* the row you have focused, the focus goes with it and there is nothing under J/K until you press it again. That is arguably correct and definitely not worth machinery.
 59. **P3** No `G` then `S` for settings.
 60. **P3** No repeat-count prefixes (`3j` to move down three).
 
@@ -124,7 +124,7 @@ of this list rather than a gap in it.
 ## J. Security and robustness
 
 81. [x] **P1** No security headers at all — no CSP, no `X-Content-Type-Options`, no `Referrer-Policy`.
-82. **P2** No rate limiting on the invite action; an admin can hammer Supabase's mailer.
+82. [x] **P2** No rate limiting on the invite action; an admin can hammer Supabase's mailer. Ten an hour per workspace, which for a two-person board is generous. That is somebody else's rate limit being spent, and hitting it takes out the magic-link login for the whole project rather than just invitations. Counted in the database, not in memory: server actions run on instances that come and go, and an in-memory counter would reset at exactly the moment it mattered.
 83. [x] **P2** Invite email validation is `includes("@")`. Which accepted `@`, `a@b`, and a line with a space in it. Not a full RFC 5322 parse — nothing sensible is — but enough that a typo is caught before it becomes an invite row nobody can ever consume, since a pending invite is matched against the address a real signup arrives with.
 84. [x] **P2** A failed session refresh is silent — the user simply finds themselves logged out. It looked exactly like never having been signed in: you are somewhere else, with a login screen and no idea why. The middleware carries the reason, and only when a session cookie was actually present — otherwise the same message would greet a first-time visitor.
 85. **P3** No audit trail for member add/remove.
@@ -167,8 +167,8 @@ of this list rather than a gap in it.
 107. [x] **P2** The composer does not clear its dismissed-chip state when the view changes. Resolved together with 131, which wanted the opposite thing: the *text* now survives a view switch and the dismissals do not. Capture is the one thing this app must never lose, and "I typed it, then I looked at the calendar, then it was gone" is the worst way to lose it — while a dismissal is a judgement about a specific reading and has no business outliving the trip.
 108. [x] **P2** Toasts can cover the mobile bottom bar. Lifted clear of it, and of the home indicator under that. An undo you cannot reach is not an undo.
 109. **P2** The settings tabs do not indicate which pane is loading on a slow navigation.
-110. **P2** The people page shows no email for members, only display names.
-111. **P2** No indication anywhere of who you are signed in as, except settings.
+110. [x] **P2** The people page shows no email for members, only display names. Two people can pick the same display name, and an invite is sent to an address rather than to a name — so the member list could not be checked against the invite that produced it.
+111. [x] **P2** No indication anywhere of who you are signed in as, except settings — two clicks away, and the last place you would think to look after being bounced to a login screen and back. At the foot of the rail now, with the accent dot, because with two people on one board it is what decides what « Moi » means.
 112. **P3** The sidebar workspace name is not a link to anything.
 113. **P3** Bucket anchors scroll the section to the very top, hiding the header under the app header.
 114. **P3** The board's group-by control loses its scroll position on re-render.
@@ -196,13 +196,13 @@ of this list rather than a gap in it.
 ## R. State that should persist and does not
 
 129. [x] **P2** The board's grouping persists; the calendar's month/week mode does not. Both go through a new `useLocalLens`, which also documents why these live in localStorage rather than the URL or the profile: a link to the board should not carry your grouping, and the two people here use a laptop and a phone very differently.
-130. **P2** The completed-footer expanded state resets on every navigation.
+130. [x] **P2** The completed-footer expanded state resets on every navigation. Expanded is a preference, not a transient — closing it on every trip to the calendar means re-opening it every time you want yesterday's context.
 131. [x] **P3** The composer's in-progress text is lost when switching views. Held in memory, not sessionStorage: a draft should survive a glance, not a reload — after a reload an empty box is the right thing to come back to.
 132. [x] **P3** Scroll memory covers the list but not the board's horizontal position. It does now, per grouping. The board scrolls inside an element rather than in the window, which is why the existing hook could not see it, and it is the view where losing your place costs most — column five is a journey, not a flick.
 
 ## S. Visual and layout
 
-133. **P2** The clear-out sweep is fixed height and does not cover a long list.
+133. [~] **P2** The clear-out sweep is fixed height and does not cover a long list. Half accepted. The real defect was geometry: a 6rem band travelling through a box its own content sized, so it arrived before it had moved and read as a flash rather than a sweep. It is 4rem through at least 10rem now. Making it cross the whole window is refused — § 8.5 asks for one narrow band and says restraint is what makes the moment land the twentieth time, and a full-window sweep is the confetti the same paragraph rules out.
 134. [x] **P2** Board columns have a fixed 280px width regardless of viewport. `min(280px, calc(100vw - 4.5rem))`, so a phone shows one column and the edge of its neighbour instead of a column running off the screen.
 135. [x] **P2** The modal is not scrollable when the notes field grows past the viewport. Three bands now — the task, its metadata, the actions — and only the middle one scrolls, so long notes cannot push Supprimer off the bottom of the window.
 136. **NO** No max width on the board, so on an ultrawide it stretches. On review this is what a board is for: the columns are a fixed width and the row of them is as long as it is. Capping it would leave dead space beside a surface whose whole job is to be scrolled.
