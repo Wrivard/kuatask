@@ -8,9 +8,10 @@ import type { NextConfig } from "next";
  * third parties. The permissions policy denies capabilities this app has no use
  * for, so a compromised dependency cannot quietly reach for them.
  *
- * No CSP yet. Next injects inline scripts for hydration and the theme boot
- * script is inline by design, so a correct policy needs nonce plumbing — worth
- * doing, but not worth shipping half of.
+ * The CSP is not here. It needs a fresh nonce per request, which a static
+ * header table cannot produce, so it is built in the middleware — see
+ * `lib/csp.ts`. `X-Frame-Options` below and the policy's `frame-ancestors`
+ * say the same thing to browsers of different ages.
  */
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },

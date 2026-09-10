@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 import { routeFor } from "@/lib/routing";
+import { buildCsp, makeNonce } from "@/lib/csp";
 
 /**
  * Refreshes the session cookie and gates routes.
@@ -17,10 +18,30 @@ import { routeFor } from "@/lib/routing";
  * empty sets whether or not this runs. Do not treat it as the guard.
  */
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
-
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  /*
+    The nonce goes out on the response and back in on the request headers.
+    Next reads the incoming Content-Security-Policy header, lifts the nonce out
+    of it, and stamps it onto the script tags it injects for hydration — so the
+    policy has to be attached to the request as well as the response, or the
+    app's own bootstrap is the first thing the policy blocks.
+  */
+  const nonce = makeNonce();
+  const csp = buildCsp(nonce, url);
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", csp);
+
+  const next = () => {
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    response.headers.set("Content-Security-Policy", csp);
+    return response;
+  };
+
+  let supabaseResponse = next();
 
   /*
     Without this guard a missing env var throws inside createServerClient, and
@@ -44,7 +65,8 @@ export async function updateSession(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        supabaseResponse = NextResponse.next({ request });
+        // rebuilt, so the refreshed cookies and the policy travel together
+        supabaseResponse = next();
         cookiesToSet.forEach(({ name, value, options }) =>
           supabaseResponse.cookies.set(name, value, options),
         );
@@ -67,6 +89,7 @@ export async function updateSession(request: NextRequest) {
     const response = NextResponse.redirect(target);
     // carry the refreshed auth cookies onto the redirect
     supabaseResponse.cookies.getAll().forEach((c) => response.cookies.set(c));
+    response.headers.set("Content-Security-Policy", csp);
     return response;
   };
 

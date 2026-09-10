@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Toaster } from "@/components/ui/sonner";
@@ -43,9 +44,17 @@ try {
 }
 `.trim();
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  /*
+    Set by the middleware, which also sends the policy. Reading it here rather
+    than generating one keeps a single nonce per request — two would mean the
+    policy names one and the script carries the other, and the theme boot would
+    be refused on every load.
+  */
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     // lang matters for screen readers and for the browser's own date inputs
     <html
@@ -54,7 +63,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>
         {children}

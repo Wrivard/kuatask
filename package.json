@@ -16,7 +16,8 @@
     "bench": "node scripts/bench-derive.mjs",
     "size": "node scripts/bundle-size.mjs",
     "backup": "node scripts/backup.mjs",
-    "hooks": "git config core.hooksPath .githooks"
+    "hooks": "git config core.hooksPath .githooks",
+    "verify:headers": "node scripts/verify-headers.mjs"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",
