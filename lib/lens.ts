@@ -19,7 +19,11 @@ import * as React from 'react';
 export function useLocalLens<T extends string>(
   key: string,
   fallback: T,
-  allowed: readonly T[],
+  /**
+   * The values worth restoring. Omit it where the value is free-form — a set of
+   * collapsed column keys, say — and anything stored is taken as written.
+   */
+  allowed?: readonly T[],
 ): [T, (next: T) => void] {
   const [value, setValue] = React.useState<T>(fallback);
 
@@ -29,7 +33,9 @@ export function useLocalLens<T extends string>(
   React.useEffect(() => {
     try {
       const saved = localStorage.getItem(key) as T | null;
-      if (saved && allowedRef.current.includes(saved)) setValue(saved);
+      if (saved !== null && (!allowedRef.current || allowedRef.current.includes(saved))) {
+        setValue(saved);
+      }
     } catch {
       /* blocked storage — the default stands, and that is a fine outcome */
     }

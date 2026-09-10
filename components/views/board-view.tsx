@@ -31,12 +31,14 @@ import { ClearOut } from "./clear-out";
 import { streakFromDays, instantToDay, dayOfMonth } from "@/lib/time";
 import { useToday } from "@/lib/day";
 import { useLocalLens } from "@/lib/lens";
-import { firstDayOfBucket, isOnDay, type Bucket } from "@/lib/time";
+import { firstDayOfBucket, isOnDay, isOverdue, type Bucket } from "@/lib/time";
+import { useElementScrollMemory } from "@/lib/scroll-memory";
 import { exit } from "@/lib/motion";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
 const GROUP_KEY = "kua-board-group";
+const COLLAPSED_KEY = "kua-board-collapsed";
 const GROUP_VALUES = GROUP_OPTIONS.map((o) => o.value);
 
 /**
@@ -68,6 +70,33 @@ export function BoardView() {
     "person",
     GROUP_VALUES,
   );
+
+  /*
+    Grouping by date makes six columns, which on a laptop is more horizontal
+    scrolling than a two-person board is worth. A collapsed column keeps its
+    count and stays a drop target — folding something away must not make it
+    unreachable, or the fold becomes a way to lose work.
+
+    Stored as a joined string keyed by grouping, so collapsing "Plus tard" by
+    date does not also collapse a person.
+  */
+  const [collapsedRaw, setCollapsed] = useLocalLens<string>(COLLAPSED_KEY, "");
+  const collapsed = React.useMemo(
+    () => new Set(collapsedRaw.split("|").filter(Boolean)),
+    [collapsedRaw],
+  );
+  const toggleCollapsed = (key: string) => {
+    const next = new Set(collapsed);
+    if (next.has(`${groupBy}:${key}`)) next.delete(`${groupBy}:${key}`);
+    else next.add(`${groupBy}:${key}`);
+    setCollapsed([...next].join("|"));
+  };
+  const isCollapsed = (key: string) => collapsed.has(`${groupBy}:${key}`);
+
+  // the board is where losing your place costs most: column five is a journey,
+  // not a flick, and it scrolls sideways so the window-level memory cannot see it
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  useElementScrollMemory(`board:${groupBy}`, scrollRef);
 
   useOpenTask(setOpenId);
 
@@ -219,34 +248,70 @@ export function BoardView() {
         </p>
       )}
 
-      <div className="min-h-0 flex-1 overflow-x-auto px-6 pb-6">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-x-auto px-6 pb-6">
         <div className="flex h-full min-w-max gap-3">
           {columns.map((column) => {
             const isTarget = target === column.key && dragId !== null;
+            const folded = isCollapsed(column.key);
+            const late = column.tasks.filter((t) => isOverdue(t.due_on, t.status)).length;
             return (
               <section
                 key={column.key}
                 data-drop-target={column.key}
                 aria-label={copy.a11y.column(column.title, column.tasks.length)}
                 className={cn(
-                  "flex h-full w-[280px] shrink-0 flex-col rounded-md border border-border",
+                  "flex h-full shrink-0 flex-col rounded-md border border-border",
+                  // never wider than the viewport leaves room for, so a phone
+                  // shows one column and its neighbour's edge rather than a
+                  // column running off the screen
+                  folded ? "w-11" : "w-[min(280px,calc(100vw-4.5rem))]",
                   isTarget && "border-accent bg-surface-hover",
                 )}
               >
-                <header className="flex items-center gap-2 px-3 py-2">
+                <header
+                  className={cn(
+                    "flex gap-2 px-3 py-2",
+                    folded ? "flex-1 flex-col items-center px-0" : "items-center",
+                  )}
+                >
                   {column.accent && (
                     <span
                       className="size-1.5 shrink-0 rounded-full"
                       style={{ backgroundColor: column.accent }}
                     />
                   )}
-                  <h2 className="text-[13px] font-medium text-fg-muted">{column.title}</h2>
-                  <span className="ml-auto font-mono text-[12px] tabular-nums text-fg-faint">
+                  <button
+                    type="button"
+                    onClick={() => toggleCollapsed(column.key)}
+                    aria-expanded={!folded}
+                    title={folded ? copy.board.expand : copy.board.collapse}
+                    className={cn(
+                      "min-w-0 truncate text-[13px] font-medium text-fg-muted hover:text-fg",
+                      // vertical text, so a folded column still says what it is
+                      folded && "[writing-mode:vertical-rl] py-1",
+                    )}
+                  >
+                    {column.title}
+                  </button>
+                  {late > 0 && (
+                    <span className="shrink-0 text-[12px] text-danger" title={copy.task.overdue}>
+                      {late}
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      "font-mono text-[12px] tabular-nums text-fg-faint",
+                      folded ? "mt-auto pb-2" : "ml-auto",
+                    )}
+                  >
                     {column.tasks.length}
                   </span>
                 </header>
 
-                <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-2">
+                <div
+                  hidden={folded}
+                  className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-2"
+                >
                   <AnimatePresence initial={false}>
                     {column.tasks.map((task, i) => (
                       <motion.div

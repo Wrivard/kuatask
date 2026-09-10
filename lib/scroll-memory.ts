@@ -15,6 +15,7 @@ import * as React from "react";
  * not a reload, and after a reload the top is the right place to be anyway.
  */
 const positions = new Map<string, number>();
+const offsets = new Map<string, number>();
 
 export function useScrollMemory(key: string, enabled = true) {
   React.useLayoutEffect(() => {
@@ -34,4 +35,32 @@ export function useScrollMemory(key: string, enabled = true) {
       remember();
     };
   }, [key, enabled]);
+}
+
+/**
+ * The same memory for an element that scrolls sideways.
+ *
+ * The board scrolls horizontally rather than in the window, so the hook above
+ * cannot see it — and the board is the view where losing your place costs the
+ * most, because column five is a deliberate journey rather than a flick.
+ */
+export function useElementScrollMemory(
+  key: string,
+  ref: React.RefObject<HTMLElement | null>,
+) {
+  React.useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const saved = offsets.get(key);
+    if (saved) node.scrollLeft = saved;
+
+    const remember = () => offsets.set(key, node.scrollLeft);
+    node.addEventListener("scroll", remember, { passive: true });
+
+    return () => {
+      node.removeEventListener("scroll", remember);
+      remember();
+    };
+  }, [key, ref]);
 }

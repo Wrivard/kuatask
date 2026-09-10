@@ -56,6 +56,8 @@ export const copy = {
     done: "Terminé",
     unassigned: "Personne",
     empty: "Rien ici.",
+    collapse: "Replier la colonne",
+    expand: "Déplier la colonne",
   },
 
   composer: {

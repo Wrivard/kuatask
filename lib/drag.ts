@@ -19,6 +19,18 @@ import * as React from "react";
 const MOVE_THRESHOLD = 4;
 const LONG_PRESS_MS = 350;
 
+/**
+ * Edge auto-scroll while dragging.
+ *
+ * A board wider than the window has columns you cannot reach: you pick a card
+ * up, run out of screen, and there is nowhere to put it — the pointer is
+ * captured, so the container will not scroll on its own. Within EDGE_ZONE of a
+ * scrollable edge the container scrolls itself, at a speed that ramps with how
+ * far into the zone the pointer is, so a nudge creeps and a push moves.
+ */
+const EDGE_ZONE = 72;
+const EDGE_MAX_SPEED = 18;   // px per frame at the very edge
+
 export type DragState = {
   /** The item currently being dragged, or null. */
   dragId: string | null;
@@ -66,6 +78,67 @@ export function useDragToTarget(
     const targetUnder = (x: number, y: number) =>
       document.elementFromPoint(x, y)?.closest("[data-drop-target]") ?? null;
 
+    /** The nearest ancestor that can actually scroll on the given axis. */
+    const scrollableAncestor = (el: Element | null, axis: "x" | "y") => {
+      for (let node = el; node; node = node.parentElement) {
+        const style = getComputedStyle(node);
+        const overflow = axis === "x" ? style.overflowX : style.overflowY;
+        if (!/auto|scroll/.test(overflow)) continue;
+        const room =
+          axis === "x"
+            ? node.scrollWidth - node.clientWidth
+            : node.scrollHeight - node.clientHeight;
+        if (room > 1) return node;
+      }
+      return null;
+    };
+
+    let edgeFrame: number | null = null;
+    let edge: { node: Element; axis: "x" | "y"; speed: number } | null = null;
+
+    const runEdgeScroll = () => {
+      if (!edge) {
+        edgeFrame = null;
+        return;
+      }
+      if (edge.axis === "x") edge.node.scrollLeft += edge.speed;
+      else edge.node.scrollTop += edge.speed;
+      edgeFrame = requestAnimationFrame(runEdgeScroll);
+    };
+
+    /** Ramps from 0 at the inner boundary of the zone to full at the edge. */
+    const speedFor = (distance: number) =>
+      Math.ceil(((EDGE_ZONE - distance) / EDGE_ZONE) * EDGE_MAX_SPEED);
+
+    const updateEdgeScroll = (x: number, y: number, container: Element | null) => {
+      edge = null;
+
+      const horizontal = scrollableAncestor(container, "x");
+      if (horizontal) {
+        const box = horizontal.getBoundingClientRect();
+        if (x - box.left < EDGE_ZONE) {
+          edge = { node: horizontal, axis: "x", speed: -speedFor(x - box.left) };
+        } else if (box.right - x < EDGE_ZONE) {
+          edge = { node: horizontal, axis: "x", speed: speedFor(box.right - x) };
+        }
+      }
+
+      // a tall column matters less than an off-screen one, so x wins the tie
+      if (!edge) {
+        const vertical = scrollableAncestor(container, "y");
+        if (vertical) {
+          const box = vertical.getBoundingClientRect();
+          if (y - box.top < EDGE_ZONE) {
+            edge = { node: vertical, axis: "y", speed: -speedFor(y - box.top) };
+          } else if (box.bottom - y < EDGE_ZONE) {
+            edge = { node: vertical, axis: "y", speed: speedFor(box.bottom - y) };
+          }
+        }
+      }
+
+      if (edge && edgeFrame === null) edgeFrame = requestAnimationFrame(runEdgeScroll);
+    };
+
     /*
       Insertion point is how many card midpoints sit above the pointer. Using
       midpoints rather than edges means the card you are hovering yields as soon
@@ -105,6 +178,7 @@ export function useDragToTarget(
       currentIndex = container ? indexWithin(container, ev.clientY) : null;
       setTarget(currentTarget);
       setIndex(currentIndex);
+      updateEdgeScroll(ev.clientX, ev.clientY, container);
     };
 
     const cancel = (ev: KeyboardEvent) => {
@@ -115,6 +189,9 @@ export function useDragToTarget(
 
     function cleanup() {
       if (longPress) clearTimeout(longPress);
+      if (edgeFrame !== null) cancelAnimationFrame(edgeFrame);
+      edgeFrame = null;
+      edge = null;
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", finish);
       window.removeEventListener("pointercancel", abort);

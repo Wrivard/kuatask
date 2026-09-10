@@ -51,9 +51,9 @@ of this list rather than a gap in it.
 
 28. [x] **P1** No empty state when every column is empty — the board looks broken rather than clear.
 29. [x] **P1** The clear-out moment exists only on the list, so finishing your last task on the board is silent.
-30. **P2** Columns cannot be collapsed; five date columns on a laptop is a lot of horizontal scrolling.
-31. **P2** No per-column count of what is overdue or due today.
-32. **P2** Dragging to a column that is scrolled out of view is impossible — no auto-scroll at the edges.
+30. [x] **P2** Columns cannot be collapsed; five date columns on a laptop is a lot of horizontal scrolling. Clicking a column's title folds it to a 44px strip with its title running vertically and its count at the foot. A folded column stays a drop target — folding something away must not make it unreachable, or the fold becomes a way to lose work. Remembered per grouping, so folding « Plus tard » by date does not also fold a person.
+31. [x] **P2** No per-column count of what is overdue or due today. The overdue count sits in the header in danger, and only when it is not zero.
+32. [x] **P2** Dragging to a column that is scrolled out of view is impossible — no auto-scroll at the edges. Within 72px of a scrollable edge the container scrolls itself, at a speed that ramps with how far into the zone the pointer is, so a nudge creeps and a push moves. It finds the scrollable ancestor rather than assuming one, and prefers the horizontal axis — an off-screen column is a worse problem than a tall one.
 33. [x] **P2** A card does not show notes presence, same as the row. Same glyph.
 34. **P3** No WIP limit or "too much in En cours" signal.
 35. **P3** Cards do not show the label colour, only the text.
@@ -198,14 +198,14 @@ of this list rather than a gap in it.
 129. [x] **P2** The board's grouping persists; the calendar's month/week mode does not. Both go through a new `useLocalLens`, which also documents why these live in localStorage rather than the URL or the profile: a link to the board should not carry your grouping, and the two people here use a laptop and a phone very differently.
 130. **P2** The completed-footer expanded state resets on every navigation.
 131. **P3** The composer's in-progress text is lost when switching views.
-132. **P3** Scroll memory covers the list but not the board's horizontal position.
+132. [x] **P3** Scroll memory covers the list but not the board's horizontal position. It does now, per grouping. The board scrolls inside an element rather than in the window, which is why the existing hook could not see it, and it is the view where losing your place costs most — column five is a journey, not a flick.
 
 ## S. Visual and layout
 
 133. **P2** The clear-out sweep is fixed height and does not cover a long list.
-134. **P2** Board columns have a fixed 280px width regardless of viewport.
+134. [x] **P2** Board columns have a fixed 280px width regardless of viewport. `min(280px, calc(100vw - 4.5rem))`, so a phone shows one column and the edge of its neighbour instead of a column running off the screen.
 135. **P2** The modal is not scrollable when the notes field grows past the viewport.
-136. **P3** No max width on the board, so on an ultrawide it stretches.
+136. **NO** No max width on the board, so on an ultrawide it stretches. On review this is what a board is for: the columns are a fixed width and the row of them is as long as it is. Capping it would leave dead space beside a surface whose whole job is to be scrolled.
 137. **P3** The calendar week header is not sticky while scrolling a tall month.
 
 ## T. Data lifecycle
