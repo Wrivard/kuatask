@@ -13,6 +13,7 @@ import {
   buildColumns,
   columnOf,
   positionForDrop,
+  restackedPositions,
   GROUP_OPTIONS,
   NO_ASSIGNEE,
   type GroupBy,
@@ -56,6 +57,7 @@ export function BoardView() {
   const me = useStore((s) => s.me);
   const filter = useStore((s) => s.assigneeFilter);
   const updateTask = useStore((s) => s.updateTask);
+  const restack = useStore((s) => s.restack);
   const setStatus = useSetStatusWithFeedback();
   const assign = useAssignWithFeedback();
   const rescheduleWithToast = useRescheduleWithFeedback();
@@ -145,16 +147,29 @@ export function BoardView() {
         optimistic update, and skipping the no-op case means picking a card up
         and putting it back does not push an undo entry.
       */
+      /*
+        A `null` back from positionForDrop means the two neighbours have been
+        squeezed together by repeated halving and there is no longer a value
+        between them. Spread the column out and ask again — the second answer
+        always fits, because the gaps are 1024 wide again.
+      */
+      const placeIn = (col: typeof column, at: number): number => {
+        const first = positionForDrop(col!, at, taskId);
+        if (first !== null) return first;
+        restack(restackedPositions(col!));
+        return positionForDrop(col!, at, taskId) ?? task.position;
+      };
+
       if (sameColumn) {
         if (index === null || !column) return;
-        const next = positionForDrop(column, index, taskId);
+        const next = placeIn(column, index);
         if (next !== task.position) updateTask(taskId, { position: next });
         return;
       }
 
       // a cross-column drop also lands where it was dropped, not at the end
       const position =
-        index !== null && column ? positionForDrop(column, index, taskId) : task.position;
+        index !== null && column ? placeIn(column, index) : task.position;
 
       if (groupBy === "person") {
         updateTask(taskId, { position });
@@ -178,7 +193,7 @@ export function BoardView() {
       updateTask(taskId, { position });
       rescheduleWithToast(taskId, landing);
     },
-    [groupBy, day, updateTask, setStatus, assign, rescheduleWithToast],
+    [groupBy, day, updateTask, setStatus, assign, rescheduleWithToast, restack],
   );
 
   const { dragId, target, index: dropIndex, grab } = useDragToTarget(drop);

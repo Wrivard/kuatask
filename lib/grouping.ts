@@ -150,11 +150,28 @@ function sortByPosition(column: Column): Column {
  * renumbering the column, so a reorder stays a single optimistic update like
  * every other mutation. `position` is double precision precisely for this.
  */
+/**
+ * The smallest gap still worth halving.
+ *
+ * `position` is a double, so repeatedly dropping a card between the same two
+ * neighbours halves the gap toward zero: after roughly fifty reorders the
+ * midpoint stops being distinguishable from its neighbours and the card simply
+ * refuses to move, with nothing on screen to say why. Well above the point
+ * where the arithmetic gives out, so the renumber happens while it still can.
+ */
+const MIN_GAP = 1e-6;
+
+/**
+ * Where a card dropped at `index` should sit.
+ *
+ * `null` means the two neighbours have been squeezed together and the column
+ * has to be renumbered before anything can go between them.
+ */
 export function positionForDrop(
   column: Column,
   index: number,
   movingId: string,
-): number {
+): number | null {
   // the card being moved should not count as its own neighbour
   const others = column.tasks.filter((t) => t.id !== movingId);
   const before = others[index - 1];
@@ -163,7 +180,13 @@ export function positionForDrop(
   if (!before && !after) return Date.now() / 1000;
   if (!before) return after.position - 1;
   if (!after) return before.position + 1;
+  if (after.position - before.position < MIN_GAP) return null;
   return (before.position + after.position) / 2;
+}
+
+/** Evenly spaced positions for a column, wide enough to subdivide for years. */
+export function restackedPositions(column: Column): { id: string; position: number }[] {
+  return column.tasks.map((task, i) => ({ id: task.id, position: (i + 1) * 1024 }));
 }
 
 /** Which column a task currently sits in, so a no-op drop can be skipped. */

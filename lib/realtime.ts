@@ -13,7 +13,7 @@
 
 import { useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useStore, type Task } from '@/lib/store';
+import { useStore, type Profile, type Task } from '@/lib/store';
 
 /** Below this, a tab was never really away and the socket held. */
 const STALE_AFTER_MS = 15_000;
@@ -21,6 +21,7 @@ const STALE_AFTER_MS = 15_000;
 export function useRealtimeTasks() {
   const workspaceId = useStore((s) => s.workspaceId);
   const applyRemote = useStore((s) => s.applyRemote);
+  const applyRemoteProfile = useStore((s) => s.applyRemoteProfile);
 
   /** Set once the channel has been up, so the first SUBSCRIBED is not a "re"connect. */
   const wasConnected = useRef(false);
@@ -44,6 +45,22 @@ export function useRealtimeTasks() {
         (payload) => {
           const row = (payload.new ?? payload.old) as Task;
           applyRemote(payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE', row);
+        },
+      )
+      /*
+        Identity is the only shared state that is not a task, and it was the one
+        thing a live session never heard about: renaming yourself or changing
+        your colour reached the other person's open tab only on a resync. No
+        workspace filter, because `profiles` has no workspace column — RLS
+        already scopes what a member can see, so the rows that arrive are the
+        rows they were entitled to read anyway.
+      */
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        (payload) => {
+          if (payload.eventType === 'DELETE') return;
+          applyRemoteProfile(payload.new as Profile);
         },
       )
       .subscribe((status) => {
@@ -76,5 +93,5 @@ export function useRealtimeTasks() {
       window.removeEventListener('online', resync);
       void supabase.removeChannel(channel);
     };
-  }, [workspaceId, applyRemote]);
+  }, [workspaceId, applyRemote, applyRemoteProfile]);
 }

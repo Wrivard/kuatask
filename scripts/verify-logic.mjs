@@ -520,5 +520,48 @@ section("Routing — where a request ends up");
         shape(at("/", true, true)) === "pass");
 }
 
+/*
+  `position` is a double, so dropping a card between the same two neighbours
+  halves the gap toward zero. After about fifty such moves the midpoint stops
+  being distinguishable and the card refuses to move, with nothing on screen to
+  say why. The guard has to fire before the arithmetic gives out, not after.
+*/
+section("Positions — the gap between two cards is finite");
+{
+  const col = (positions) => ({
+    key: "c",
+    title: "c",
+    tasks: positions.map((position, i) => ({ id: `t${i}`, position })),
+  });
+
+  eq("an empty column gets a value", typeof grouping.positionForDrop(col([]), 0, "x"),
+     "number");
+  eq("dropping between 1 and 3 gives 2",
+     grouping.positionForDrop(col([1, 3]), 1, "x"), 2);
+  eq("dropping at the top goes below the first",
+     grouping.positionForDrop(col([10, 20]), 0, "x"), 9);
+  eq("dropping at the end goes above the last",
+     grouping.positionForDrop(col([10, 20]), 2, "x"), 21);
+
+  // halve until the gap is gone, exactly as repeated reordering would
+  let lo = 1;
+  let hi = 2;
+  let halvings = 0;
+  while (grouping.positionForDrop(col([lo, hi]), 1, "x") !== null && halvings < 200) {
+    hi = (lo + hi) / 2;
+    halvings += 1;
+  }
+  check("a collapsed gap is refused rather than silently rounded",
+        halvings < 200, `gave up after ${halvings} halvings`);
+  check("and it holds out for a realistic number of reorders", halvings >= 19,
+        `${halvings} halvings before the guard fired`);
+
+  const restacked = grouping.restackedPositions(col([1, 1.0000001, 1.0000002]));
+  eq("a restack spreads them evenly", restacked.map((r) => r.position),
+     [1024, 2048, 3072]);
+  check("and the gaps are wide enough to subdivide again",
+        grouping.positionForDrop(col(restacked.map((r) => r.position)), 1, "x") === 1536);
+}
+
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);
 process.exit(failures ? 1 : 0);

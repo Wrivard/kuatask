@@ -137,8 +137,31 @@ type Store = {
   deleteTask: (id: string) => void;
   reschedule: (id: string, dueOn: string | null) => void;
 
+  /**
+   * Spreads a column's positions back out.
+   *
+   * `position` is a double and dropping a card between the same two neighbours
+   * halves the gap toward zero. After about fifty such moves the midpoint stops
+   * being distinguishable and the card refuses to move, with nothing on screen
+   * to say why. This is the way out, and it is a normalisation rather than an
+   * action: it pushes no undo entry, because there is nothing a person did here
+   * that they could want back.
+   */
+  restack: (positions: { id: string; position: number }[]) => void;
+
   undo: () => void;
   applyRemote: (type: 'INSERT' | 'UPDATE' | 'DELETE', row: Task) => void;
+
+  /**
+   * A profile changed somewhere else.
+   *
+   * Identity is the one piece of shared state that is not a task: the accent
+   * colour is how you tell whose card is whose on every surface, and the
+   * display name is what the board's columns are called. Changing either used
+   * to reach the other person only on a resync, so for as long as their tab
+   * stayed open the board was labelled with a name that no longer existed.
+   */
+  applyRemoteProfile: (row: Profile) => void;
 };
 
 const UNDO_LIMIT = 20;
@@ -520,6 +543,26 @@ export const useStore = create<Store>((set, get) => {
       get().updateTask(id, { due_on: dueOn });
     },
 
+    restack(positions) {
+      if (positions.length === 0) return;
+
+      for (const { id, position } of positions) patchLocal(id, { position });
+
+      void (async () => {
+        // one write per row, which is fine: this runs once in a very long while
+        await Promise.all(
+          positions.map(async ({ id, position }) => {
+            const release = claim(id);
+            const { error } = await withRetry(() =>
+              supabase.from('tasks').update({ position }).eq('id', id),
+            );
+            release();
+            if (error) toastError(error);
+          }),
+        );
+      })();
+    },
+
     deleteTask(id) {
       const before = get().tasks.find((t) => t.id === id);
       if (!before) return;
@@ -611,6 +654,20 @@ export const useStore = create<Store>((set, get) => {
           return extra.length ? { tasks: [...s.tasks, ...extra] } : {};
         });
       })();
+    },
+
+    applyRemoteProfile(row) {
+      /*
+        `members` only. `me` is deliberately left alone: your own profile is
+        edited optimistically in settings, and a late echo of your own write
+        would overwrite the field you are still typing in — the same reason
+        applyRemote defers to a local write in flight.
+      */
+      set((s) => ({
+        members: s.members.some((m) => m.id === row.id)
+          ? s.members.map((m) => (m.id === row.id ? row : m))
+          : [...s.members, row],
+      }));
     },
 
     applyRemote(type, row) {

@@ -254,6 +254,42 @@ try {
     check("DELETE delivered", seen.includes("DELETE"), seen.join(" -> "));
   }
   await channel.unsubscribe();
+
+  /*
+    Identity is the only shared state that is not a task. It needs its own line
+    in the publication (migration 0008) and there is nothing in the app that
+    would fail loudly without it — a rename would simply never arrive, and the
+    other person's board would keep a column labelled with a name that no longer
+    exists until they reloaded.
+  */
+  section("Realtime — a profile change reaches a member too");
+  const profileSeen = [];
+  const profileChannel = member.client
+    .channel(`verify-profile:${stamp}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "profiles" },
+      (payload) => profileSeen.push(payload.new?.display_name),
+    );
+
+  const profileUp = await new Promise((resolve) => {
+    profileChannel.subscribe((status) => {
+      if (status === "SUBSCRIBED") resolve(true);
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") resolve(false);
+    });
+    setTimeout(() => resolve(false), 15000);
+  });
+  check("profile channel subscribed", profileUp);
+
+  if (profileUp) {
+    await new Promise((r) => setTimeout(r, 3000));
+    const renamed = `verify-${stamp}`;
+    await admin.from("profiles").update({ display_name: renamed }).eq("id", member.id);
+    await new Promise((r) => setTimeout(r, 4000));
+    check("a rename is delivered", profileSeen.includes(renamed),
+          profileSeen.join(", ") || "nothing arrived — is profiles in the publication?");
+  }
+  await profileChannel.unsubscribe();
 } catch (err) {
   console.log(`\n  ERROR  ${err.message}`);
   failures += 1;

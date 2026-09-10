@@ -367,6 +367,9 @@ export function computeStreak(
  * already reduced to one entry per day. Whole rows are not needed to know that
  * something was finished on a Tuesday.
  */
+/** Ten years of consecutive days, which nobody is going to reach. */
+const MAX_STREAK_DAYS = 3660;
+
 export function streakFromDays(
   dayList: DayString[],
   todayDay: DayString = today(),
@@ -383,7 +386,14 @@ export function streakFromDays(
     if (!days.has(toDayString(cursor))) return 0;
   }
 
-  while (days.has(toDayString(cursor))) {
+  /*
+    Bounded. The loop can only run as far as the data reaches, so in practice it
+    stops on its own — but "in practice" is doing a lot of work in a loop whose
+    exit depends on a Set built from timestamps that arrive over a network. Ten
+    years is longer than any streak this app will ever hold and short enough
+    that a malformed history cannot hang the render it is called from.
+  */
+  while (days.has(toDayString(cursor)) && streak < MAX_STREAK_DAYS) {
     streak += 1;
     cursor = addDays(cursor, -1);
   }
