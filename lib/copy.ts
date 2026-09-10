@@ -240,6 +240,10 @@ export const copy = {
   },
 
   error: {
+    unreachableTitle: "La base de données ne répond pas",
+    unreachableBody:
+      "Le projet Supabase est probablement en pause — le plan gratuit met un projet en pause après une semaine sans activité. Réveille-le depuis le tableau de bord, puis recharge la page.",
+    unreachableNothingLost: "Rien n'est perdu. Tes tâches sont toujours là.",
     saveFailed: "La modification n'a pas été enregistrée. Réessaie.",
     titleLength: "Un titre fait entre 1 et 500 caractères.",
     alreadyThere: "C'est déjà là.",
@@ -252,6 +256,8 @@ export const copy = {
     tooManyInvites: "Trop d'invitations d'un coup. Réessaie dans une heure.",
     lastAdmin: "Il faut au moins un admin dans l'espace.",
     loginFailed: "Le lien n'a pas pu être envoyé. Vérifie l'adresse.",
+    serviceDown:
+      "La base de données ne répond pas. Le projet Supabase est probablement en pause — réveille-le depuis le tableau de bord, puis réessaie.",
     sessionExpired: "Ta session a expiré. Reconnecte-toi.",
     linkExpired: "Ce lien a expiré. Demandes-en un nouveau.",
     crashed: "Cette vue a planté.",

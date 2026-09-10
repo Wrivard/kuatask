@@ -432,3 +432,23 @@ reviewed. Numbering continues.
      nothing has changed » — what they were looking at was `/login`. This
      browser having used the app before is the only evidence left, and the login
      screen now says so.
+175. [x] **P1** A sleeping database was reported as a wrong email address. This
+     project is on the free plan, which pauses after a week without activity —
+     a long weekend for two people. On the Monday, `getUser()` fails, the visit
+     lands on `/login`, the sign-in fails, and the app says « Vérifie
+     l'adresse ». The address is fine. Somebody would retype it, try again, and
+     never learn that what they need is a click in a dashboard they were not
+     thinking about. The login screen asks `/api/health` on the failure path —
+     definitive rather than inferred from the shape of an auth error — and names
+     the likely cause. Confirmed by pointing a build at a host that does not
+     exist: the probe answers 503 with `database.ok: false` in four seconds.
+176. [x] **P2** A failed task query rendered as an empty workspace. `tasks ?? []`
+     meant a read that did not answer produced « Rien encore. Ajoute ta première
+     tâche. » for somebody with forty — an empty state and a failed read look
+     identical from the inside, mean opposite things, and the wrong one invites
+     you to type your work in again. Only that query is guarded; a missing
+     workspace name is a blank heading and missing profiles is a board without
+     colours, which are honest degradations. Testing narrowed the claim: a fully
+     paused project never reaches this, because auth fails first. What it covers
+     is auth answering while PostgREST does not, which they can do
+     independently.

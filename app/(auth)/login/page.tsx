@@ -66,12 +66,44 @@ export default function LoginPage() {
     setSending(false);
 
     if (error) {
-      setError(copy.error.loginFailed);
+      /*
+        « Vérifie l'adresse » is the wrong thing to say when the address is
+        fine and the database is asleep.
+
+        This project is on Supabase's free plan, which pauses a project after a
+        week without activity — a realistic Monday for two people who did not
+        touch it over a long weekend. The person would retype their address,
+        try again, and never learn that what is needed is a click in a dashboard
+        they were not thinking about.
+
+        Asked rather than inferred: /api/health already reaches the database
+        with the same key the app uses, so it can answer definitively instead of
+        this guessing from the shape of an auth error. One extra request, only
+        ever on the failure path.
+      */
+      setError((await databaseIsDown()) ? copy.error.serviceDown : copy.error.loginFailed);
       return;
     }
 
     setSentTo(address);
     setCooldown(RESEND_SECONDS);
+  }
+
+  /**
+   * True when the probe says the database did not answer.
+   *
+   * Any doubt resolves to false: a probe that itself fails to load proves
+   * nothing, and claiming the database is down when it might not be sends
+   * somebody to a dashboard for no reason.
+   */
+  async function databaseIsDown(): Promise<boolean> {
+    try {
+      const health = await fetch("/api/health", { cache: "no-store" });
+      const body = await health.json();
+      return body?.configured === true && body?.database?.ok === false;
+    } catch {
+      return false;
+    }
   }
 
   function onSubmit(e: React.FormEvent) {

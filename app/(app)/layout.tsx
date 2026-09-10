@@ -6,6 +6,7 @@ import { AppChrome } from "@/components/shell/app-chrome";
 import { BottomBar } from "@/components/shell/bottom-bar";
 import { LiveRegion } from "@/components/shell/live-region";
 import { SetupRequired } from "@/components/shell/setup-required";
+import { Unreachable } from "@/components/shell/unreachable";
 import { PreviewBanner } from "@/components/shell/preview-banner";
 import { instantToDay, recentCompletionCutoff } from "@/lib/time";
 import { copy } from "@/lib/copy";
@@ -56,8 +57,12 @@ export default async function AppLayout({
   */
   const recent = recentCompletionCutoff();
 
-  const [{ data: workspace }, { data: tasks }, { data: members }, { data: completions }] =
-    await Promise.all([
+  const [
+    { data: workspace },
+    { data: tasks, error: tasksError },
+    { data: members },
+    { data: completions },
+  ] = await Promise.all([
     supabase
       .from("workspaces")
       .select("name")
@@ -76,6 +81,28 @@ export default async function AppLayout({
       .eq("workspace_id", membership.workspace_id)
       .not("completed_at", "is", null),
   ]);
+
+  /*
+    A failed query is not an empty workspace.
+
+    Without this the shell fell through to `tasks ?? []` and rendered « Rien
+    encore. Ajoute ta première tâche. » to somebody who has forty — an empty
+    state and a failed read look identical from the inside and mean opposite
+    things, and the wrong one of the two invites you to type your work in again.
+
+    Only the tasks query is checked. The others degrade into something honest on
+    their own: no workspace name is a blank heading, no profiles is a board
+    without colours. An empty task list is the one that actively lies.
+
+    Measured which case this actually covers, rather than assuming. A project
+    that is fully asleep fails `getUser()` too, so the visit is redirected to
+    /login and the message there does the explaining. This is the narrower
+    split-brain: auth answering while PostgREST does not, which they can do
+    independently because they are separate services. Narrower, still real, and
+    the only version of it where somebody is looking at their own workspace
+    being described as empty.
+  */
+  if (tasksError) return <Unreachable />;
 
   // distinct Montreal days, computed here so the client never sees the raw list
   const completionDays = [
