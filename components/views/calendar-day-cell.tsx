@@ -2,6 +2,7 @@
 
 import { AssigneeDot } from "@/components/task/assignee-dot";
 import { isSameMonth, isToday } from "@/lib/time";
+import { copy } from "@/lib/copy";
 import type { Profile, Task } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,7 @@ export function CalendarDayCell({
   tasks,
   members,
   isDropTarget,
+  today,
   onOpenDay,
   onGrabTask,
 }: {
@@ -27,6 +29,8 @@ export function CalendarDayCell({
   tasks: Task[];
   members: Profile[];
   isDropTarget: boolean;
+  /** Passed in rather than read here, so midnight re-renders the whole grid. */
+  today: string;
   onOpenDay: (day: string) => void;
   onGrabTask: (taskId: string, e: React.PointerEvent) => void;
 }) {
@@ -38,7 +42,7 @@ export function CalendarDayCell({
       data-drop-target={day}
       onClick={() => onOpenDay(day)}
       className={cn(
-        "flex min-h-0 cursor-pointer flex-col gap-0.5 border-b border-r border-border p-1.5",
+        "group/cell flex min-h-0 cursor-pointer flex-col gap-0.5 border-b border-r border-border p-1.5",
         "hover:bg-surface-hover",
         // the drop target reads as a 1px accent border, nothing heavier
         isDropTarget && "border-accent bg-surface-hover ring-1 ring-accent ring-inset",
@@ -48,7 +52,7 @@ export function CalendarDayCell({
         className={cn(
           "font-mono text-[12px] tabular-nums",
           outside ? "text-fg-faint" : "text-fg-muted",
-          isToday(day) && "text-accent",
+          isToday(day, today) && "text-accent",
         )}
       >
         {day.slice(-2)}
@@ -72,9 +76,14 @@ export function CalendarDayCell({
         </div>
       ))}
 
+      {/*
+        The cell has always opened the day; the overflow just did not look like
+        it was the way in. It now says what it does and underlines on hover —
+        the same treatment as a link, because that is what it behaves like.
+      */}
       {overflow > 0 && (
-        <span className="px-1 font-mono text-[12px] tabular-nums text-fg-faint">
-          +{overflow}
+        <span className="px-1 text-[12px] text-fg-muted underline decoration-border underline-offset-2 group-hover/cell:decoration-fg-faint">
+          {copy.calendar.more(overflow)}
         </span>
       )}
     </div>

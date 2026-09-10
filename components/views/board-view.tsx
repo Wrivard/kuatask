@@ -30,12 +30,14 @@ import { useClearedToday } from "@/lib/clear-out";
 import { ClearOut } from "./clear-out";
 import { streakFromDays, instantToDay, dayOfMonth } from "@/lib/time";
 import { useToday } from "@/lib/day";
+import { useLocalLens } from "@/lib/lens";
 import { firstDayOfBucket, isOnDay, type Bucket } from "@/lib/time";
 import { exit } from "@/lib/motion";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
 const GROUP_KEY = "kua-board-group";
+const GROUP_VALUES = GROUP_OPTIONS.map((o) => o.value);
 
 /**
  * One board, three groupings. Dragging a card between columns writes exactly
@@ -57,27 +59,14 @@ export function BoardView() {
   const rescheduleWithToast = useRescheduleWithFeedback();
 
   const day = useToday();
-  const [groupBy, setGroupBy] = React.useState<GroupBy>("person");
   const [openId, setOpenId] = React.useState<string | null>(null);
 
   // the grouping is a lens, like the assignee filter, so it persists locally
-  React.useEffect(() => {
-    try {
-      const saved = localStorage.getItem(GROUP_KEY) as GroupBy | null;
-      if (saved && GROUP_OPTIONS.some((o) => o.value === saved)) setGroupBy(saved);
-    } catch {
-      /* blocked storage — the default stands */
-    }
-  }, []);
-
-  function chooseGroup(next: GroupBy) {
-    setGroupBy(next);
-    try {
-      localStorage.setItem(GROUP_KEY, next);
-    } catch {
-      /* blocked storage */
-    }
-  }
+  const [groupBy, chooseGroup] = useLocalLens<GroupBy>(
+    GROUP_KEY,
+    "person",
+    GROUP_VALUES,
+  );
 
   useOpenTask(setOpenId);
 

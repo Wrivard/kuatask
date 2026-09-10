@@ -60,11 +60,11 @@ of this list rather than a gap in it.
 
 ## D. The calendar
 
-36. **P1** The day sheet has no drag; the calendar's own gesture stops at the cell.
-37. **P2** `+N` is not obviously clickable.
+36. [x] **P1** The day sheet has no drag; the calendar's own gesture stops at the cell. The sheet now carries a week strip: seven days that are both navigation — look at tomorrow without closing anything — and drop targets for its rows. Targets inside the sheet rather than on the grid behind it, because the overlay owns the pointer while the sheet is open and fighting that would cost more than it returns. `TaskRow` gained an optional `onGrab`, left off in the list where the order is the date's to decide and `touch-none` would cost the page its scroll.
+37. [x] **P2** `+N` is not obviously clickable. It always was — the whole cell opens the day — it just looked inert. Now reads « +2 de plus », underlined, darkening on cell hover.
 38. **P2** The week agenda has no time axis, so 9h and 17h look equally placed.
-39. **P2** No keyboard toggle between month and week.
-40. **P2** Month navigation has no transition, so paging feels like a jump cut.
+39. [x] **P2** No keyboard toggle between month and week. `M`, listed in the `?` sheet next to ← → and T.
+40. [x] **P2** Month navigation has no transition, so paging feels like a jump cut. The grid is keyed on the month and arrives with a 160ms opacity and 3px rise. No exit animation and no `AnimatePresence`: two grids alive at once means two sets of drop targets under the pointer, and paging must stay readable within a keypress.
 41. **P3** Cells cannot show more than three tasks even when the row is tall.
 42. **P3** No week numbers.
 
@@ -90,7 +90,7 @@ of this list rather than a gap in it.
 
 55. [x] **P1** The board has no keyboard equivalent for moving a card between columns.
 56. [x] **P2** `?` sheet does not list the board or calendar drag gestures.
-57. **P2** No `Escape` handling to close the day sheet from the keyboard.
+57. [x] **P2** No `Escape` handling to close the day sheet from the keyboard. Wrong on inspection — the sheet is a Radix dialog and has always closed on Escape. Nothing to change; recorded so it is not re-opened.
 58. **P2** Row focus is lost when the list re-renders from a realtime event.
 59. **P3** No `G` then `S` for settings.
 60. **P3** No repeat-count prefixes (`3j` to move down three).
@@ -195,7 +195,7 @@ of this list rather than a gap in it.
 
 ## R. State that should persist and does not
 
-129. **P2** The board's grouping persists; the calendar's month/week mode does not.
+129. [x] **P2** The board's grouping persists; the calendar's month/week mode does not. Both go through a new `useLocalLens`, which also documents why these live in localStorage rather than the URL or the profile: a link to the board should not carry your grouping, and the two people here use a laptop and a phone very differently.
 130. **P2** The completed-footer expanded state resets on every navigation.
 131. **P3** The composer's in-progress text is lost when switching views.
 132. **P3** Scroll memory covers the list but not the board's horizontal position.

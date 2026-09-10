@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { addMonths, addDays, startOfWeek } from "date-fns";
+import { motion, useReducedMotion } from "motion/react";
 import { CalendarDayCell } from "./calendar-day-cell";
 import dynamic from "next/dynamic";
 
@@ -24,10 +25,13 @@ import { useStore, type Task } from "@/lib/store";
 import { useDragToTarget } from "@/lib/drag";
 import { useRescheduleWithFeedback } from "@/lib/completion";
 import { useToday } from "@/lib/day";
+import { useLocalLens } from "@/lib/lens";
+import { snap } from "@/lib/motion";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
 const WEEKDAYS = ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"];
+const MODES = ["month", "week"] as const;
 
 /**
  * Hand-built with date-fns. No calendar library — a library brings a payload and
@@ -44,10 +48,19 @@ export function CalendarView() {
   const reschedule = useRescheduleWithFeedback();
 
   const today = useToday();
+  const reduced = useReducedMotion();
   const [anchor, setAnchor] = React.useState(nowDate);
-  const [mode, setMode] = React.useState<"month" | "week">("month");
+  const [mode, setMode] = useLocalLens<"month" | "week">(
+    "kua-calendar-mode",
+    "month",
+    MODES,
+  );
   const [openDay, setOpenDay] = React.useState<string | null>(null);
   const [openTask, setOpenTask] = React.useState<string | null>(null);
+
+  // read inside the key handler, which is bound once
+  const modeRef = React.useRef(mode);
+  modeRef.current = mode;
 
   const visible = React.useMemo(
     () => (filter === null ? tasks : tasks.filter((t) => t.assignee_id === filter)),
@@ -88,10 +101,12 @@ export function CalendarView() {
       if (e.key === "ArrowLeft") setAnchor((a) => addMonths(a, -1));
       else if (e.key === "ArrowRight") setAnchor((a) => addMonths(a, 1));
       else if (e.key.toLowerCase() === "t") setAnchor(nowDate());
+      else if (e.key.toLowerCase() === "m")
+        setMode(modeRef.current === "month" ? "week" : "month");
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [setMode]);
 
   const { dragId, target: dropDay, grab } = useDragToTarget((taskId, day) =>
     reschedule(taskId, day),
@@ -122,11 +137,12 @@ export function CalendarView() {
           →
         </button>
 
-        <div className="ml-auto flex shrink-0 gap-1">
-          {(["month", "week"] as const).map((m) => (
+        <div className="ml-auto flex shrink-0 gap-1" aria-label={copy.calendar.mode}>
+          {MODES.map((m) => (
             <button
               key={m}
               type="button"
+              aria-pressed={mode === m}
               onClick={() => setMode(m)}
               className={cn(
                 "rounded-sm border border-border px-2 py-1 text-[12px]",
@@ -151,7 +167,19 @@ export function CalendarView() {
       </div>
 
       {mode === "month" ? (
-        <div className="grid min-h-0 flex-1 grid-cols-7 grid-rows-6">
+        <motion.div
+          /*
+            Keyed on the month so React remounts and the enter animation runs.
+            No exit animation and no AnimatePresence: two grids alive at once
+            would mean two sets of drop targets under the pointer, and paging
+            has to stay readable within a keypress.
+          */
+          key={days[0]}
+          initial={{ opacity: 0, y: reduced ? 0 : 3 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={snap}
+          className="grid min-h-0 flex-1 grid-cols-7 grid-rows-6"
+        >
           {days.map((day) => (
             <CalendarDayCell
               key={day}
@@ -160,11 +188,12 @@ export function CalendarView() {
               tasks={byDay.get(day) ?? []}
               members={members}
               isDropTarget={dropDay === day && dragId !== null}
+              today={today}
               onOpenDay={setOpenDay}
               onGrabTask={grab}
             />
           ))}
-        </div>
+        </motion.div>
       ) : (
         <div className="grid min-h-0 flex-1 grid-cols-7">
           {days.map((day) => (

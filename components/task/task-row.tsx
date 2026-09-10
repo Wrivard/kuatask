@@ -27,6 +27,7 @@ function TaskRowImpl({
   pulseAssignee = false,
   focused = false,
   onFocus,
+  onGrab,
 }: {
   task: Task;
   onOpen: (id: string) => void;
@@ -34,6 +35,11 @@ function TaskRowImpl({
   /** Row focus is separate from DOM focus and from selection. */
   focused?: boolean;
   onFocus?: (id: string) => void;
+  /**
+   * Makes the row draggable. Left off in the list, where the order is the
+   * date's to decide and `touch-none` would cost the page its scroll.
+   */
+  onGrab?: (id: string, e: React.PointerEvent) => void;
 }) {
   const reduced = useReducedMotion();
   const toggle = useToggleWithFeedback();
@@ -61,6 +67,7 @@ function TaskRowImpl({
       tabIndex={0}
       onClick={() => onOpen(task.id)}
       onMouseEnter={() => onFocus?.(task.id)}
+      onPointerDown={onGrab && ((e) => onGrab(task.id, e))}
       data-focused={focused || undefined}
       data-task-id={task.id}
       className={cn(
@@ -72,6 +79,7 @@ function TaskRowImpl({
         "[@media(pointer:coarse)]:h-13",
         // focus is a 1px accent ring, and never lands flush against the header
         focused && "scroll-mt-20 ring-1 ring-accent ring-inset",
+        onGrab && "touch-none select-none",
         done && "opacity-45",
       )}
     >

@@ -36,6 +36,11 @@ export const copy = {
     mine: "Moi",
   },
 
+  calendar: {
+    more: (n: number) => `+${n} de plus`,
+    mode: "Mois ou semaine",
+  },
+
   board: {
     groupBy: "Grouper par",
     byPerson: "Personne",
