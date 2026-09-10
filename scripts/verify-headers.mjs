@@ -30,26 +30,64 @@ const ref = new URL(URL_).hostname.split(".")[0];
 const base = process.argv[2] ?? "http://localhost:3000";
 
 const admin = createClient(URL_, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-const { data: members } = await admin.from("workspace_members").select("user_id").limit(1);
-const { data: u } = await admin.auth.admin.getUserById(members[0].user_id);
-const { data: link } = await admin.auth.admin.generateLink({ type: "magiclink", email: u.user.email });
 
-const res = await fetch(
-  `${URL_}/auth/v1/verify?token=${link.properties.hashed_token}&type=magiclink&redirect_to=${base}`,
-  { headers: { apikey: ANON }, redirect: "manual" },
-);
-const frag = new URLSearchParams((res.headers.get("location") ?? "").split("#")[1] ?? "");
-const access = frag.get("access_token");
-if (!access) throw new Error("no token");
+/*
+  A throwaway member, not a real one.
 
-const session = {
-  access_token: access,
-  refresh_token: frag.get("refresh_token"),
-  expires_in: Number(frag.get("expires_in")),
-  expires_at: Math.floor(Date.now() / 1000) + Number(frag.get("expires_in")),
-  token_type: "bearer",
-  user: u.user,
+  This used to mint a magic link for the first member it found — which is an
+  owner's actual address. Supabase invalidates any earlier link for an address
+  when a new one is issued, so running this while somebody was signing in broke
+  their link, with nothing on either end to explain why. A verification script
+  is not allowed to interfere with the thing it is verifying.
+
+  Same shape as the other live suites: invite, create, sign in with a password,
+  delete afterwards, and never touch an account a person uses.
+*/
+const stamp = Date.now();
+const PW = `Headers-${stamp}-aA1!`;
+const email = `kua-headers-${stamp}@example.com`;
+
+const { data: ws } = await admin.from("workspaces").select("id").limit(1).maybeSingle();
+if (!ws) {
+  console.error("no workspace to join — run npm run verify:db first, or seed one");
+  process.exit(2);
+}
+
+const { data: invite } = await admin
+  .from("pending_invites")
+  .insert({ workspace_id: ws.id, email, role: "member" })
+  .select("id")
+  .single();
+
+const { data: created, error: createError } = await admin.auth.admin.createUser({
+  email,
+  password: PW,
+  email_confirm: true,
+});
+if (createError) throw createError;
+
+/*
+  Cleanup is awaited in a `finally`, not fired from a `process.on("exit")` hook.
+
+  The first version did the latter and it did not work: the exit event is
+  synchronous, so the delete was dispatched and the process was gone before it
+  landed. The throwaway member survived every run — caught by checking
+  afterwards rather than by trusting the code, which is the same lesson
+  verify-db carries at the top of its own cleanup.
+*/
+const cleanup = async () => {
+  if (invite?.id) await admin.from("pending_invites").delete().eq("id", invite.id);
+  await admin.auth.admin.deleteUser(created.user.id);
 };
+
+const client = createClient(URL_, ANON, { auth: { persistSession: false } });
+const { data: signedIn, error: signInError } = await client.auth.signInWithPassword({
+  email,
+  password: PW,
+});
+if (signInError) throw signInError;
+
+const session = signedIn.session;
 const value = "base64-" + Buffer.from(JSON.stringify(session)).toString("base64");
 const CHUNK = 3180;
 const cookie = (value.length <= CHUNK
@@ -64,42 +102,53 @@ const check = (name, ok, detail = "") => {
   console.log(`  ${ok ? "PASS" : "FAIL"}  ${name}${detail ? `  (${detail})` : ""}`);
 };
 
-for (const path of ["/", "/board", "/calendar", "/login"]) {
-  const r = await fetch(base + path, { headers: { cookie }, redirect: "manual" });
-  const csp = r.headers.get("content-security-policy");
-  if (!csp) {
-    check(`${path} carries a policy`, false);
-    continue;
+try {
+  for (const path of ["/", "/board", "/calendar", "/login"]) {
+    const r = await fetch(base + path, { headers: { cookie }, redirect: "manual" });
+    const csp = r.headers.get("content-security-policy");
+    if (!csp) {
+      check(`${path} carries a policy`, false);
+      continue;
+    }
+
+    const nonce = csp.match(/'nonce-([^']+)'/)?.[1];
+    const html = r.status === 200 ? await r.text() : "";
+
+    // every <script> that is not a JSON payload must carry the nonce
+    const scripts = [...html.matchAll(/<script\b([^>]*)>/gi)].map((m) => m[1]);
+    const executable = scripts.filter((a) => !/type="application\/json"/.test(a));
+    const unnonced = executable.filter((a) => !a.includes(`nonce="${nonce}"`));
+
+    console.log(`\n${path}  ${r.status}  ${executable.length} script tags`);
+    check("a policy is sent", Boolean(csp));
+    check("it names a nonce", Boolean(nonce));
+    check("every executable script carries it", unnonced.length === 0,
+          unnonced.slice(0, 2).join(" | "));
+    check("no unsafe-inline in script-src",
+          !/script-src[^;]*'unsafe-inline'/.test(csp));
+    check("no unsafe-eval in a production build",
+          !/script-src[^;]*'unsafe-eval'/.test(csp));
+    check("connect-src reaches Supabase over https and wss",
+          csp.includes(new URL(URL_).origin) && csp.includes(`wss://${new URL(URL_).host}`));
+    check("frame-ancestors is none", /frame-ancestors 'none'/.test(csp));
+    check("object-src is none", /object-src 'none'/.test(csp));
+
+    // the static ones from next.config.ts, which travel on the same responses
+    check("nosniff", r.headers.get("x-content-type-options") === "nosniff");
+    check("framing denied", r.headers.get("x-frame-options") === "DENY");
+    check("referrer policy", r.headers.get("referrer-policy") === "strict-origin-when-cross-origin");
+    check("permissions policy", (r.headers.get("permissions-policy") ?? "").includes("camera=()"));
   }
 
-  const nonce = csp.match(/'nonce-([^']+)'/)?.[1];
-  const html = r.status === 200 ? await r.text() : "";
+    console.log(`\n${bad === 0 ? "the policy holds" : `${bad} FAILED`}`);
+} finally {
+  await cleanup();
 
-  // every <script> that is not a JSON payload must carry the nonce
-  const scripts = [...html.matchAll(/<script\b([^>]*)>/gi)].map((m) => m[1]);
-  const executable = scripts.filter((a) => !/type="application\/json"/.test(a));
-  const unnonced = executable.filter((a) => !a.includes(`nonce="${nonce}"`));
-
-  console.log(`\n${path}  ${r.status}  ${executable.length} script tags`);
-  check("a policy is sent", Boolean(csp));
-  check("it names a nonce", Boolean(nonce));
-  check("every executable script carries it", unnonced.length === 0,
-        unnonced.slice(0, 2).join(" | "));
-  check("no unsafe-inline in script-src",
-        !/script-src[^;]*'unsafe-inline'/.test(csp));
-  check("no unsafe-eval in a production build",
-        !/script-src[^;]*'unsafe-eval'/.test(csp));
-  check("connect-src reaches Supabase over https and wss",
-        csp.includes(new URL(URL_).origin) && csp.includes(`wss://${new URL(URL_).host}`));
-  check("frame-ancestors is none", /frame-ancestors 'none'/.test(csp));
-  check("object-src is none", /object-src 'none'/.test(csp));
-
-  // the static ones from next.config.ts, which travel on the same responses
-  check("nosniff", r.headers.get("x-content-type-options") === "nosniff");
-  check("framing denied", r.headers.get("x-frame-options") === "DENY");
-  check("referrer policy", r.headers.get("referrer-policy") === "strict-origin-when-cross-origin");
-  check("permissions policy", (r.headers.get("permissions-policy") ?? "").includes("camera=()"));
+  // verified, not assumed — the reason this file was wrong the first time
+  const { data: users } = await admin.auth.admin.listUsers();
+  const stray = users.users.filter((u) => u.email?.startsWith("kua-headers-"));
+  check("no throwaway member left behind", stray.length === 0,
+        stray.map((u) => u.email).join(", "));
 }
 
-console.log(`\n${bad === 0 ? "the policy holds" : `${bad} FAILED`}`);
 process.exit(bad ? 1 : 0);

@@ -365,3 +365,16 @@ reviewed. Numbering continues.
      imports nothing, and has nothing to clear. Back to 217 kB. Four assertions,
      including that one handler throwing does not leave the rest holding the
      previous person's data.
+165. [x] **P1** `verify:headers` minted a magic link for a real member's
+     address. Supabase invalidates any earlier link for an address when a new
+     one is issued, so running the check while somebody was signing in broke
+     their link — with nothing on either end to explain why. A verification
+     script is not allowed to interfere with the thing it verifies. It invites,
+     creates and signs in a throwaway member now, the same shape the other two
+     live suites use, and never touches an account a person uses.
+166. [x] **P2** The first version of that cleanup did not run. It was fired from
+     `process.on("exit")`, which is synchronous — the delete was dispatched and
+     the process was gone before it landed, so the throwaway member survived
+     every run. Awaited in a `finally` now, and the script checks afterwards
+     that nothing is left, which is how this was found: by looking rather than
+     by trusting the code that had just been written to do it.
