@@ -342,3 +342,13 @@ reviewed. Numbering continues.
      the message, and a message can carry a timestamp or an id — every crash
      would be "new", the set would never stop growing, and the deduplication it
      exists for would never fire.
+162. [x] **P3** A dismissed chip outlived the text it was a judgement about. The
+     day sheet's composer changes draft key as you browse the week strip, which
+     swaps the line underneath it — so a chip switched off for Monday's draft
+     stayed off for Tuesday's, hiding a reading of words it had never seen.
+163. **NO** The CSP request-header plumbing is spoofable. Checked rather than
+     assumed: the middleware uses `Headers.set` on a copy of the request's
+     headers, not `append`, so a client sending its own `x-nonce` or
+     `Content-Security-Policy` has it overwritten before Next reads either. The
+     response only ever carries the policy; `x-nonce` is request-side and never
+     leaves the server.

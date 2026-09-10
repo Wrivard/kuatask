@@ -47,8 +47,17 @@ export function TaskComposer({
   };
 }) {
   // survives a glance at the calendar; see lib/draft.ts
-  const [value, setValue] = useDraft("composer:" + (defaultDueOn ?? "main"));
+  const draftKey = "composer:" + (defaultDueOn ?? "main");
+  const [value, setValue] = useDraft(draftKey);
   const [dismissed, setDismissed] = React.useState<Set<string>>(new Set());
+
+  /*
+    A dismissal is a judgement about one line of text. The day sheet's composer
+    changes key as you browse the week strip, which swaps the text underneath —
+    so without this, a chip switched off for Monday's draft stayed off for
+    Tuesday's, hiding a reading of words it had never seen.
+  */
+  React.useEffect(() => setDismissed(new Set()), [draftKey]);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const createTask = useStore((s) => s.createTask);
