@@ -18,6 +18,8 @@ has had every earlier one applied.
 | `0006_revoke_trigger_functions_from_public` | 0005 revoked from `anon` and `authenticated`, both of which inherit from `PUBLIC`, so it did nothing. Both are kept so the history shows what was true |
 | `0007_rls_policy_tuning` | `(select auth.uid())` so the planner evaluates it once per query rather than once per row |
 | `0008_profiles_realtime` | A rename or a colour change reaches an open session |
+| `0009_private_rls_helpers` | `is_admin`/`is_member` move to a schema PostgREST does not expose, so they stop being `/rest/v1/rpc/` endpoints. Revoking `execute` was not an option — policies are evaluated as the caller |
+| `0010_foreign_key_indexes` | Covering indexes so a cascade delete does not scan. Shape, not a measured problem |
 
 ### There are no down-migrations, deliberately
 
@@ -64,6 +66,23 @@ they want back — not by a command that seemed easy to run at the time.
 
 Upgrading the organisation to Pro is what replaces all of this with daily
 backups and PITR, and is the right answer if these two ever depend on it.
+
+## Known advisor findings
+
+`npm run verify:db` covers the invariants; Supabase's own linter covers the
+posture. One finding is left standing on purpose:
+
+**Leaked password protection is disabled.** It checks new passwords against
+HaveIBeenPwned. This app signs people in with magic links and has no password
+field anywhere — the only passworded accounts that have ever existed here are
+the throwaway users the verification scripts create and delete. Turning it on
+would change nothing about anybody real. It is a dashboard setting under
+Authentication if that ever stops being true.
+
+Two performance findings are also left standing, both INFO. `tasks_ws_status_due`
+is reported unused: at nine rows an index is *supposed* to go unused, and it
+covers the query every page load makes. The unindexed foreign keys were the
+other one, and 0010 answers it.
 
 ## Checking it
 
