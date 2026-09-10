@@ -175,6 +175,45 @@ try {
         "docs/03: deleting someone's tasks when they leave loses work");
   check("and is still assigned to them", survivingTask?.[0]?.assignee_id === plain.id);
 
+  /*
+    Deleting an account is a Law 25 obligation, and the whole erasure rests on
+    one assumption: that removing the `auth.users` row takes the profile and the
+    membership with it. If those cascades were ever dropped, the action would
+    report success and leave a profile behind — a name and an address belonging
+    to somebody who asked to be forgotten.
+
+    What must NOT cascade is the tasks. Deleting somebody's work when they leave
+    loses work.
+  */
+  section("Erasure — what a deleted account takes with it");
+  const leaving = await join(WS, "member", "gone");
+  mine.invites = mine.invites.filter((i) => i !== leaving.inviteId);
+
+  const { data: theirs } = await admin
+    .from("tasks")
+    .insert({ workspace_id: WS, title: `tache de ${leaving.email}`, created_by: leaving.id, assignee_id: leaving.id })
+    .select().single();
+  mine.tasks.push(theirs.id);
+
+  await admin.auth.admin.deleteUser(leaving.id);
+  mine.users = mine.users.filter((u) => u !== leaving.id);
+
+  const { data: ghostProfile } = await admin.from("profiles").select("id").eq("id", leaving.id);
+  check("the profile goes with the account", ghostProfile?.length === 0,
+        "a name and an address belonging to somebody who asked to be forgotten");
+
+  const { data: ghostMember } = await admin
+    .from("workspace_members").select("user_id").eq("user_id", leaving.id);
+  check("and so does the membership", ghostMember?.length === 0);
+
+  const { data: survived } = await admin.from("tasks").select("id,assignee_id,created_by").eq("id", theirs.id);
+  check("their task does not", survived?.length === 1,
+        "deleting somebody's work when they leave loses work");
+  check("and the assignee is cleared rather than dangling",
+        survived?.[0]?.assignee_id === null, String(survived?.[0]?.assignee_id));
+  check("as is the author", survived?.[0]?.created_by === null,
+        String(survived?.[0]?.created_by));
+
   section("The last admin");
   const { data: admins } = await admin
     .from("workspace_members").select("user_id").eq("workspace_id", WS).eq("role", "admin");

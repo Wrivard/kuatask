@@ -14,6 +14,39 @@ of this list rather than a gap in it.
 
 ---
 
+## Where this ended up
+
+**All 150 resolved.** 107 built, 4 partly, 39 refused with the reason written
+down next to them.
+
+The refusals are the more interesting half. Some were scope — an archive, bulk
+actions, recurring tasks, week numbers — and the brief already answered those.
+The ones worth reading are where the item turned out to be wrong on inspection:
+
+- **#72** claimed the whole task list ships on every view switch. Measured: a
+  switch is 9.9 KB and carries none of it. The shell layout sits above the page
+  segment and is not re-rendered.
+- **#77** claimed `tw-animate-css` was unused. Eight call sites carry every
+  dialog and sheet transition in the app.
+- **#11** claimed the realtime channel is never torn down. It is — the effect
+  lists `workspaceId` and its cleanup removes the channel.
+- **#113**, **#114**, **#137** each described a scroll problem that does not
+  exist, because nothing above the list is `sticky` and the calendar grid does
+  not scroll.
+
+And three items turned out to be worse than reported, which is the other reason
+to check rather than assume:
+
+- **#46** said the undo toast was covered by the closing modal. There was no
+  toast: both delete paths in the modal called the store directly.
+- **#124** said one bucket could pick a day belonging to another. Run across a
+  year rather than against today, it did so on **153 days**.
+- **#86** asked for an account deletion path. Writing the test found deletion
+  was not missing but *impossible* — three foreign keys refused the cascade, so
+  nobody who had ever typed a task could be erased.
+
+---
+
 ## A. Store, data flow and reactivity
 
 1. [x] **P1** `applyRemote` skips any row with a local write in flight — including a remote DELETE. If your partner deletes a task while you are editing it, it lingers until the next resync.
@@ -41,9 +74,9 @@ of this list rather than a gap in it.
 20. [x] **P2** A row does not show whether it has notes, so the modal is the only way to find out. A glyph, not a count — how many lines are in someone's notes is not information.
 21. [x] **P2** The label chip is not clickable; filtering by client means using the palette. Clicking it searches `#client`, which reuses the search box rather than adding a second kind of filter to the app. The chip is a `span` where nothing can act on it and a `button` where something can — a control that does nothing is worse than no control.
 22. [x] **P2** The assignee dot is not clickable either. It now switches the lens to that person. A 6px dot is not a target, so a negative margin gives it a 22px hit area without moving anything around it.
-23. **P3** No drag-to-reorder in the list (the board has it; the list is date-ordered).
+23. **NO** No drag-to-reorder in the list (the board has it; the list is date-ordered). The parenthetical is the answer. A list ordered by date cannot also be ordered by hand without one of the two silently losing — drag a task up past a date boundary and either the date changes under you or the order does not stick. The board is where manual order lives, and it has it.
 24. [x] **P3** Multi-line paste creates one task with newlines rather than several tasks. The field is one line, so pasting six lines out of a meeting note produced one task with the newlines flattened out of it — six things to do collapsed into one unreadable title. Each line now goes through exactly the same path a typed one does, so « relancer Marie demain » and « envoyer le devis #acme » each keep their own date and label. A single-line paste still just goes into the field, where it can be edited before Enter.
-25. **P3** No bulk selection or bulk actions.
+25. **NO** No bulk selection or bulk actions. The case that actually comes up is bulk *creation* — six lines out of a meeting note — and that is 24. Selecting several existing tasks to act on at once is a shape for a backlog of hundreds; this is a workspace for two people whose whole design goal is that a single task takes one keystroke.
 26. [x] **P3** The completed footer shows a count but not a way to see yesterday's. The browser already holds a week of them (3), so « what did we finish yesterday » meant reaching for the search box to find data that was in memory. The footer has three states now — shut, today, and the week — and the second step is offered only when there is actually more to see. Newest first, which is the opposite of the open list: a finished task is history, and what happened last is what you are looking for.
 27. **NO** An archive view. "No archive, no trash" is an explicit scope decision.
 
@@ -55,7 +88,7 @@ of this list rather than a gap in it.
 31. [x] **P2** No per-column count of what is overdue or due today. The overdue count sits in the header in danger, and only when it is not zero.
 32. [x] **P2** Dragging to a column that is scrolled out of view is impossible — no auto-scroll at the edges. Within 72px of a scrollable edge the container scrolls itself, at a speed that ramps with how far into the zone the pointer is, so a nudge creeps and a push moves. It finds the scrollable ancestor rather than assuming one, and prefers the horizontal axis — an off-screen column is a worse problem than a tall one.
 33. [x] **P2** A card does not show notes presence, same as the row. Same glyph.
-34. **P3** No WIP limit or "too much in En cours" signal.
+34. [x] **P3** No WIP limit or "too much in En cours" signal. Not a limit: nothing is blocked, nothing is refused, no warning appears. Past five, the count in the column header stops being quiet — that is the whole intervention. Two people cannot be working on nine things, and a status everything sits in has stopped sorting anything.
 35. **NO** Cards do not show the label colour, only the text. There is no label colour to show, by design: `docs/04` reserves colour for the accent and for identity, which is what lets a dot at 6px mean « this is Guillaume's » across every surface. Giving labels their own palette would put two colour languages on the same card and make the one that matters ambiguous.
 
 ## D. The calendar
@@ -66,7 +99,7 @@ of this list rather than a gap in it.
 39. [x] **P2** No keyboard toggle between month and week. `M`, listed in the `?` sheet next to ← → and T.
 40. [x] **P2** Month navigation has no transition, so paging feels like a jump cut. The grid is keyed on the month and arrives with a 160ms opacity and 3px rise. No exit animation and no `AnimatePresence`: two grids alive at once means two sets of drop targets under the pointer, and paging must stay readable within a keypress.
 41. [x] **P3** Cells cannot show more than three tasks even when the row is tall. Six rows of cells share whatever height the window gives the grid, so on a large display there was visible empty space under a « +4 de plus » — the information was there, the room was there, and a constant in the middle refused to put them together. A `ResizeObserver` on the grid divides the measured cell height by the card height. A media query could not answer this: it depends on the window, the browser chrome, and whether the preview banner is showing.
-42. **P3** No week numbers.
+42. **NO** No week numbers. A planning device — you use them when scheduling is negotiated with people who are not looking at the same screen, which is a project manager's problem. These two share one board and say « jeudi ». Adding a column of numerals nobody reads to the one view that is already the densest would cost more than it says.
 
 ## E. The task modal
 
@@ -84,7 +117,7 @@ of this list rather than a gap in it.
 51. [x] **P2** `@` autocomplete matches on display name only, not on the email local part. `@gberther` is how one of these two is addressed all day and it matched nothing at all. Both the suggestion list and the submit path resolve on either key — they had to move together, or a completion would have produced a handle the parser could not turn back into a person.
 52. [x] **P2** No recently-used labels ordering beyond raw frequency. Raw frequency ranks a client you billed forty hours to last spring above the one you are on this week, which is backwards for a field you are typing into right now. Each use is worth a point that halves every fortnight, so a finished client falls away on its own and nothing ever needs archiving.
 53. [x] **P3** No support for `demain matin` / `cet après-midi` as time-of-day hints. « rappeler le client demain matin » is a normal French sentence, and the parser kept « matin » in the title and set no time — so the task sorted ahead of a 16h one on a day ordered by time, which is the wrong way round. Matin, midi, après-midi, soir, début de matinée and fin de journée now set the start of the part of the day meant. Not precise and not pretending to be; precise enough to order a list. A clock time still wins — « demain matin à 10h » is 10h — but the words leave the title either way, or the task ends up called « matin ». The day word in front is deliberately left for the date pass. Twelve assertions.
-54. **P3** No undo for the composer itself (Ctrl+Z inside the input is browser-native).
+54. **NO** No undo for the composer itself (Ctrl+Z inside the input is browser-native). Which is to say it already works, and works better than anything written here would: the browser's own undo stack knows about selections, IME composition and autocorrect. The store's ⌘Z deliberately does not fire while a field has focus, precisely so it does not fight this.
 
 ## G. Keyboard
 
@@ -93,7 +126,7 @@ of this list rather than a gap in it.
 57. [x] **P2** No `Escape` handling to close the day sheet from the keyboard. Wrong on inspection — the sheet is a Radix dialog and has always closed on Escape. Nothing to change; recorded so it is not re-opened.
 58. [~] **P2** Row focus is lost when the list re-renders from a realtime event. Read the path rather than assuming it. Row focus is an id, not a DOM reference, and it is only cleared when that id leaves the list — a realtime event that reorders or edits other rows does not touch it. DOM focus now lands on the row's title button, whose React key is the task id, so a re-render keeps it too. What remains true is the narrower case the item did not name: if your partner *deletes* the row you have focused, the focus goes with it and there is nothing under J/K until you press it again. That is arguably correct and definitely not worth machinery.
 59. [x] **P3** No `G` then `S` for settings. `S` alone cycles a row's status; behind `G` there is no collision. Listed in the `?` sheet.
-60. **P3** No repeat-count prefixes (`3j` to move down three).
+60. **NO** No repeat-count prefixes (`3j` to move down three). A vi idiom for files of thousands of lines. The longest list here is a day's tasks, `J` repeats on key-hold, and a prefix would mean swallowing every digit key — which `1` through `4` already use to jump to a section.
 
 ## H. Accessibility
 
@@ -127,8 +160,10 @@ of this list rather than a gap in it.
 82. [x] **P2** No rate limiting on the invite action; an admin can hammer Supabase's mailer. Ten an hour per workspace, which for a two-person board is generous. That is somebody else's rate limit being spent, and hitting it takes out the magic-link login for the whole project rather than just invitations. Counted in the database, not in memory: server actions run on instances that come and go, and an in-memory counter would reset at exactly the moment it mattered.
 83. [x] **P2** Invite email validation is `includes("@")`. Which accepted `@`, `a@b`, and a line with a space in it. Not a full RFC 5322 parse — nothing sensible is — but enough that a typo is caught before it becomes an invite row nobody can ever consume, since a pending invite is matched against the address a real signup arrives with.
 84. [x] **P2** A failed session refresh is silent — the user simply finds themselves logged out. It looked exactly like never having been signed in: you are somewhere else, with a login screen and no idea why. The middleware carries the reason, and only when a session cookie was actually present — otherwise the same message would greet a first-time visitor.
-85. **P3** No audit trail for member add/remove.
-86. **P3** No account deletion path.
+85. **NO** No audit trail for member add/remove. There are two people and the people page shows the current state; an audit trail answers « who removed whom, and when » for an organisation where that could be in dispute. Supabase's own logs already hold the auth events if it ever is. Building a second, weaker copy in the application is compliance theatre for a workspace whose entire membership fits on one screen.
+86. [x] **P3** No account deletion path. Law 25 gives a person the right to have their personal information erased, and that does not stop applying because they are one of two owners — a working address, a name and a record of what they did each day is personal information whoever holds it. There was no way to exercise it short of asking somebody with the service role key.
+
+    Writing the test for it found that it was not merely missing, it was **impossible**: `tasks.created_by`, `tasks.completed_by` and `pending_invites.invited_by` all referenced `profiles` with `no action`, so the cascade from `auth.users` was refused and anyone who had ever typed a task — that is, anyone — could not be deleted. Migration 0011 makes those three `set null` and `created_by` nullable; the insert policy still requires `created_by = auth.uid()`, so a task can never be *created* without an author and null means exactly one thing. The tasks survive, which is the rule from `docs/03`, and stop naming somebody who is gone. Five assertions in `verify:invites`, all of which failed before the migration.
 87. **NO** Client-side title length validation. The database check is the real one and the error surfaces.
 
 ## K. Correctness and edge cases
@@ -137,7 +172,7 @@ of this list rather than a gap in it.
 89. [x] **P2** `due_time` can survive a date being cleared through paths other than the modal's quick option. Enforced in `updateTask` rather than at each call site — a rule enforced in one place is a rule and a rule enforced in four is a coincidence. A time with no date has nowhere to render, since every surface reads `due_on` first, so it became a value that quietly survived and reappeared the next time the task was given a date.
 90. [x] **P2** Clock skew between client and server can make `completed_at` appear in the future. The whole product is calendar days, so a device with a wrong clock does not degrade gracefully — it buckets tasks wrongly, breaks the streak, and makes a completion vanish from « Terminé aujourd'hui ». The shell already renders on the server, so it hands its instant down and the offset is fixed once, during render rather than in an effect: an offset applied after the first commit would not re-bucket what that commit already drew. Every `today()`, every optimistic `completed_at` and `position` now reads through it.
 91. **NO** Emoji in a title break `truncate` measurement subtly. `truncate` is `text-overflow: ellipsis`, which the browser applies at a grapheme boundary — it does not split a surrogate pair or a ZWJ sequence into halves the way a JavaScript `slice` would. The width of an emoji does vary by font, so a truncated line lands in a slightly different place than a Latin one; that is a rendering difference, not a break, and nothing in the layout depends on the character count.
-92. [~] **P3** No handling for a task whose assignee was removed from the workspace. Checked: the board already folds such a task into « Personne » rather than dropping it, which was the outcome worth protecting, and the list shows it with no dot. What is still true is that `columnOf` returns the departed id, so ←/→ on that card finds no column and does nothing. Left as it is — it needs a member removal to reproduce, and `verify:invites` covers the rule that matters, which is that the tasks survive at all.
+92. [x] **P3** No handling for a task whose assignee was removed from the workspace. `columnOf` returned the departed id, so `buildColumns` put the card in « Personne » while `columnOf` insisted it lived elsewhere — and the arrow keys on that card silently did nothing. It takes the member list now and agrees with the board. Mostly moot after 140 and 86, which stop the state arising, but a row can still be read from a session that was open when somebody left.
 
 ## L. Copy and content
 
@@ -160,7 +195,7 @@ of this list rather than a gap in it.
 103. [x] **P2** No test for the middleware's routing decisions. The middleware does two things wound together: refresh the cookie, which needs a real request and a round trip, and decide where the request goes, which needs neither. Only the first was hard to test, so the second moved to `lib/routing.ts` and the suite walks all thirteen states. Every branch there is a way to lock somebody out of their own task manager, and the failures are asymmetric — sending a signed-in person to `/login` is annoying, but a loop between `/login` and `/` leaves the app unusable with nothing on screen to explain it. There is an assertion for exactly that loop.
 104. [x] **P2** No test that the composer's parse-then-create path produces the right task. It lived inside the component, which is why nothing could reach it — and it is the most consequential path in the app, since a mistake there loses words out of a task at the moment somebody is trying to write something down. Now `lib/compose.ts`, pure, taking `members` rather than reaching for the store. Seventeen assertions, including the one that matters: dismissing a date on « appeler Marie demain » puts the word back in the title.
 105. [x] **P2** The suites cannot run against a fresh database — they assume a seeded workspace. Both opened with `.select("id").limit(1).single()`, which throws on an empty database, so they could only be pointed at a project somebody had already used by hand. That is the wrong way round: the run worth trusting most is the one against a database with nothing in it, because that is where a missing default or an unapplied migration shows up. A workspace is borrowed if one exists and created if none does — and a created one is torn down at the end, along with a seeded admin so the last-admin guard is exercised rather than skipped for want of an admin to try removing. Same rule as every other id in those files: nothing deletes what it did not create.
-106. **P3** No visual regression testing (no browser available here).
+106. **NO** No visual regression testing (no browser available here). Still true, and the reason matters: this session has no browser, so any screenshot baseline would be generated by the same thing that would later compare against it — a test that can only ever agree with itself. `npm run verify:headers` covers what *can* be checked from outside a browser, against a real server.
 
 ## O. Smaller UI details
 
@@ -211,8 +246,8 @@ of this list rather than a gap in it.
 ## T. Data lifecycle
 
 138. **NO** Nothing ever prunes completed tasks, so the table grows for ever. Refused twice over. « No archive, no trash » is an explicit scope decision, and a job that deletes old completed tasks *is* a trash — one that destroys history silently, on a schedule, with nothing to undo it. And the arithmetic does not support it: two people finishing twenty tasks a day would add about seven thousand rows a year, which is nothing to Postgres, and the browser already refuses to load more than a week of them (3).
-139. **P3** No soft-delete window; delete is immediate with a 5s client-side undo.
-140. **P3** Removing a member leaves their tasks assigned to a non-member.
+139. **NO** No soft-delete window; delete is immediate with a 5s client-side undo. A soft-delete window is a trash, and « no archive, no trash » is explicit in the brief. The undo toast is the window, and after 46 it is on every path that can delete — including the modal, which had none at all.
+140. [x] **P3** Removing a member leaves their tasks assigned to a non-member. Their *open* tasks are unassigned on the way out; finished ones keep their name, because who did a thing is history and does not stop being true. Unassigned is the honest state — somebody has to pick them up, and the app should say so rather than point at a person who is gone.
 
 ## U. Developer experience
 

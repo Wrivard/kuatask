@@ -170,10 +170,26 @@ export async function removeMember(userId: string): Promise<ActionResult> {
   }
 
   /*
-    Removing a member touches workspace_members only. Their tasks stay and
-    simply show no assignee — deleting someone's tasks when they leave loses
-    work. This is a decision, not an oversight.
+    Their tasks stay. Deleting someone's work when they leave loses work, and
+    that has been the rule since docs/03.
+
+    What was missing is where the *open* ones go. They stayed assigned to an id
+    that is no longer a member, which means: no dot on the row, a column on the
+    board that no longer exists to drag them out of, and arrow keys that quietly
+    do nothing on those cards. Unassigned is the honest state — somebody has to
+    pick them up, and the app should say so rather than leave them pointing at a
+    person who is gone.
+
+    Finished tasks keep their assignee. Who did a thing is history and does not
+    stop being true because they left.
   */
+  await ctx.supabase
+    .from("tasks")
+    .update({ assignee_id: null })
+    .eq("workspace_id", ctx.workspaceId)
+    .eq("assignee_id", userId)
+    .neq("status", "done");
+
   const { error } = await ctx.supabase
     .from("workspace_members")
     .delete()

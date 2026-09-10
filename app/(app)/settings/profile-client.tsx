@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { ACCENTS } from "@/components/task/assignee-dot";
 import { SignOutButton } from "@/components/shell/sign-out-button";
+import { DeleteAccount } from "./delete-account";
 import { useStore } from "@/lib/store";
 import { completionTone } from "@/lib/sound";
 import { copy } from "@/lib/copy";
@@ -135,8 +136,15 @@ export function ProfileClient() {
         <p className="mt-1.5 text-[12px] text-fg-faint">{copy.settings.themeHint}</p>
       </Field>
 
-      <div className="border-t border-border pt-6">
+      <div className="flex flex-col gap-5 border-t border-border pt-6">
         <SignOutButton />
+        {/*
+          Law 25 gives a person the right to have their information erased, and
+          that does not stop applying because they are one of two owners. There
+          was no way to exercise it short of asking somebody with the service
+          role key.
+        */}
+        <DeleteAccount />
       </div>
     </div>
   );

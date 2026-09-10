@@ -32,6 +32,18 @@ export type Column = {
 /** The unassigned column, kept distinct from a real user id. */
 export const NO_ASSIGNEE = "__none__";
 
+/**
+ * How many things can be "En cours" before that stops meaning anything.
+ *
+ * Not a limit: nothing is blocked, nothing is refused, and there is no warning.
+ * Past this the count in the column header simply stops being quiet, which is
+ * the whole intervention. Two people cannot actually be working on nine things,
+ * and a status that everything sits in is a status that has stopped sorting
+ * anything — the board is telling you something and the number was the only
+ * place it could say it.
+ */
+export const WIP_COMFORTABLE = 5;
+
 const DUE_ORDER: Bucket[] = ["today", "tomorrow", "week", "month", "later", "undated"];
 
 /*
@@ -190,8 +202,23 @@ export function restackedPositions(column: Column): { id: string; position: numb
 }
 
 /** Which column a task currently sits in, so a no-op drop can be skipped. */
-export function columnOf(groupBy: GroupBy, task: Task): string {
-  if (groupBy === "person") return task.assignee_id ?? NO_ASSIGNEE;
+export function columnOf(
+  groupBy: GroupBy,
+  task: Task,
+  /**
+   * The people who still have a column. Without this, a task assigned to
+   * somebody who has left names a column that is not on the board — so
+   * `buildColumns` drops it into « Personne » while `columnOf` insists it lives
+   * elsewhere, and the arrow keys on that card silently do nothing.
+   */
+  members?: { id: string }[],
+): string {
+  if (groupBy === "person") {
+    const id = task.assignee_id;
+    if (!id) return NO_ASSIGNEE;
+    if (members && !members.some((m) => m.id === id)) return NO_ASSIGNEE;
+    return id;
+  }
   if (groupBy === "status") return task.status;
   return bucketOf(task.due_on);
 }

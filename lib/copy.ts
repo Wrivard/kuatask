@@ -79,6 +79,7 @@ export const copy = {
     done: "Terminé",
     unassigned: "Personne",
     dropHere: "Déposer ici",
+    tooMuchDoing: "Beaucoup de choses en cours en même temps.",
     collapse: "Replier la colonne",
     expand: "Déplier la colonne",
   },
@@ -194,6 +195,13 @@ export const copy = {
   settings: {
     profile: "Ton profil",
     theme: "Thème",
+    deleteAccount: "Supprimer mon compte",
+    deleteAccountBody:
+      "Ton compte, ton profil et ton accès à cet espace sont supprimés définitivement. Tes tâches restent — celles qui ne sont pas terminées passent à « Personne ».",
+    deleteAccountConfirm: (email: string) => `Tape ${email} pour confirmer`,
+    deleteAccountDo: "Supprimer définitivement",
+    deleting: "Suppression…",
+    cancel: "Annuler",
     themeHint: "Le thème est propre à cet appareil.",
     themeLight: "Clair",
     themeDark: "Sombre",

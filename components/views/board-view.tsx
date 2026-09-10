@@ -15,6 +15,7 @@ import {
   positionForDrop,
   restackedPositions,
   GROUP_OPTIONS,
+  WIP_COMFORTABLE,
   NO_ASSIGNEE,
   type GroupBy,
 } from "@/lib/grouping";
@@ -138,7 +139,7 @@ export function BoardView() {
       const task = useStore.getState().tasks.find((t) => t.id === taskId);
       if (!task) return;
 
-      const sameColumn = columnOf(groupBy, task) === columnKey;
+      const sameColumn = columnOf(groupBy, task, members) === columnKey;
       const column = columnsRef.current.find((c) => c.key === columnKey);
 
       /*
@@ -193,7 +194,7 @@ export function BoardView() {
       updateTask(taskId, { position });
       rescheduleWithToast(taskId, landing);
     },
-    [groupBy, day, updateTask, setStatus, assign, rescheduleWithToast, restack],
+    [groupBy, day, members, updateTask, setStatus, assign, rescheduleWithToast, restack],
   );
 
   const { dragId, target, index: dropIndex, grab } = useDragToTarget(drop);
@@ -210,7 +211,7 @@ export function BoardView() {
       const task = useStore.getState().tasks.find((t) => t.id === taskId);
       if (!task) return;
 
-      const from = cols.findIndex((c) => c.key === columnOf(groupBy, task));
+      const from = cols.findIndex((c) => c.key === columnOf(groupBy, task, members));
       const to = from + direction;
       if (from < 0 || to < 0 || to >= cols.length) return;
 
@@ -219,7 +220,7 @@ export function BoardView() {
         document.querySelector<HTMLElement>(`[data-card-id="${taskId}"]`)?.focus();
       });
     },
-    [drop, groupBy],
+    [drop, groupBy, members],
   );
 
   // § 8.5 — the moment belongs to the day being cleared, not to one screen
@@ -274,6 +275,10 @@ export function BoardView() {
             const isTarget = target === column.key && dragId !== null;
             const folded = isCollapsed(column.key);
             const late = column.tasks.filter((t) => isOverdue(t.due_on, t.status)).length;
+            const crowded =
+              groupBy === "status" &&
+              column.key === "doing" &&
+              column.tasks.length > WIP_COMFORTABLE;
             return (
               <section
                 key={column.key}
@@ -326,8 +331,12 @@ export function BoardView() {
                     </span>
                   )}
                   <span
+                    title={crowded ? copy.board.tooMuchDoing : undefined}
                     className={cn(
-                      "font-mono text-[12px] tabular-nums text-fg-faint",
+                      "font-mono text-[12px] tabular-nums",
+                      // not a warning and not a block: the number stops being
+                      // quiet, and that is the whole intervention
+                      crowded ? "text-fg" : "text-fg-faint",
                       folded ? "mt-auto pb-2" : "ml-auto",
                     )}
                   >

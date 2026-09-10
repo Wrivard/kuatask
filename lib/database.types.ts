@@ -89,7 +89,7 @@ export type Database = {
           completed_at: string | null
           completed_by: string | null
           created_at: string
-          created_by: string
+          created_by: string | null
           due_on: string | null
           due_time: string | null
           id: string
@@ -107,7 +107,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
-          created_by: string
+          created_by: string | null
           due_on?: string | null
           due_time?: string | null
           id?: string
@@ -125,7 +125,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           due_on?: string | null
           due_time?: string | null
           id?: string
