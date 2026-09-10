@@ -704,5 +704,57 @@ section("Sign-out — everything registered is dropped");
   check("and does not escape", threw === false);
 }
 
+/*
+  Arrow keys in the date picker. Home and End are the two that are easy to get
+  one day wrong, and one day wrong in a date picker is a task due on the wrong
+  day — the picker exists precisely for the cases where the exact date matters.
+
+  Weeks start on Monday here, and date-fns counts from Sunday, which is where
+  the off-by-one would come from.
+*/
+section("Date picker — where an arrow key lands");
+{
+  // 2026-09-10 is a Thursday
+  const thursday = "2026-09-10";
+  eq("left is the day before", time.stepInGrid(thursday, "left"), "2026-09-09");
+  eq("right is the day after", time.stepInGrid(thursday, "right"), "2026-09-11");
+  eq("up is the week before", time.stepInGrid(thursday, "up"), "2026-09-03");
+  eq("down is the week after", time.stepInGrid(thursday, "down"), "2026-09-17");
+  eq("Home is the Monday of that week", time.stepInGrid(thursday, "weekStart"),
+     "2026-09-07");
+  eq("End is the Sunday", time.stepInGrid(thursday, "weekEnd"), "2026-09-13");
+
+  // Monday is already the start; Sunday is already the end
+  eq("Home on a Monday does not move", time.stepInGrid("2026-09-07", "weekStart"),
+     "2026-09-07");
+  eq("End on a Sunday does not move", time.stepInGrid("2026-09-13", "weekEnd"),
+     "2026-09-13");
+  eq("Home on a Sunday goes back six days, not forward one",
+     time.stepInGrid("2026-09-13", "weekStart"), "2026-09-07");
+
+  // stepping off the end of a month, of a year, and across a DST boundary
+  eq("left off the first of the month", time.stepInGrid("2026-09-01", "left"),
+     "2026-08-31");
+  eq("down off the end of the year", time.stepInGrid("2026-12-28", "down"),
+     "2027-01-04");
+  eq("across the spring change", time.stepInGrid("2026-03-08", "left"), "2026-03-07");
+  eq("across the autumn change", time.stepInGrid("2026-11-01", "left"), "2026-10-31");
+  eq("and a leap day", time.stepInGrid("2028-03-01", "left"), "2028-02-29");
+
+  // every step lands somewhere the grid can actually show
+  let bad = [];
+  const base = time.toDate("2026-01-01");
+  const { addDays } = await import("date-fns");
+  for (let i = 0; i < 365; i += 1) {
+    const day = time.toDayString(addDays(base, i));
+    for (const step of ["left", "right", "up", "down", "weekStart", "weekEnd"]) {
+      const landed = time.stepInGrid(day, step);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(landed)) bad.push(day + " " + step + " -> " + landed);
+    }
+  }
+  check("2190 steps across a year all land on a real day", bad.length === 0,
+        bad.slice(0, 2).join(" | "));
+}
+
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);
 process.exit(failures ? 1 : 0);

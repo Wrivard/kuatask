@@ -378,3 +378,17 @@ reviewed. Numbering continues.
      every run. Awaited in a `finally` now, and the script checks afterwards
      that nothing is left, which is how this was found: by looking rather than
      by trusting the code that had just been written to do it.
+167. [x] **P1** The date picker (47) was forty-four tab stops. Every day was a
+     tabbable button, so opening it put 42 stops between the chip above and the
+     time field below — the keyboard path through the modal went from short to
+     unusable, in a component added the same day to *improve* the modal. A grid
+     is one control: Tab reaches it, arrows move within it, Tab leaves. Which day
+     is tabbable follows the focus, so returning lands where you left rather than
+     on the 1st. Plus `role="grid"`, `aria-selected`, `aria-current="date"` on
+     today, and a full date as each cell's label instead of a bare numeral.
+168. [x] **P2** That picker also computed `(getDay() + 6) % 7` inline — a magic
+     expression, and a violation of this file's own rule that every calendar-day
+     calculation goes through `lib/time.ts`, which is how the timezone bugs
+     started in the first place. `stepInGrid` now lives there with fifteen
+     assertions: Home and End are the two easy to get one day wrong, and one day
+     wrong in a date picker is a task due on the wrong day.

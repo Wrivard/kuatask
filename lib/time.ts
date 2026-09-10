@@ -304,6 +304,35 @@ const SEARCH_DAYS = 62;
 // ---------------------------------------------------------------------------
 
 /** Six weeks of days covering the given month, Monday-first. Always 42 cells. */
+/**
+ * Where an arrow key lands, from a day inside a Monday-start month grid.
+ *
+ * The picker had this inline as `(getDay() + 6) % 7`, which is both a magic
+ * expression and a violation of this file's own rule — every calendar-day
+ * calculation goes through here, and a component reaching for `getDay()` is
+ * exactly how the timezone bugs started. Extracted so it can be checked rather
+ * than reasoned about: Home and End are the two that are easy to get one day
+ * wrong, and one day wrong in a date picker is a task due on the wrong day.
+ */
+export type GridStep = 'left' | 'right' | 'up' | 'down' | 'weekStart' | 'weekEnd';
+
+export function stepInGrid(from: DayString, step: GridStep): DayString {
+  const date = toDate(from);
+  // date-fns counts from Sunday; these weeks start on Monday
+  const indexInWeek = (date.getDay() + 6) % 7;
+
+  const offset = {
+    left: -1,
+    right: 1,
+    up: -7,
+    down: 7,
+    weekStart: -indexInWeek,
+    weekEnd: 6 - indexInWeek,
+  }[step];
+
+  return toDayString(addDays(date, offset));
+}
+
 export function monthGrid(anchor: Date): DayString[] {
   const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
   const start = startOfWeek(first, { weekStartsOn: 1 });
