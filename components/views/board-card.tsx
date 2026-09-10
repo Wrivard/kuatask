@@ -52,40 +52,40 @@ function BoardCardImpl({
     return [formatDueLabel(task.due_on), time].filter(Boolean).join(" ");
   })();
 
+  /*
+    Same correction as the task row: a card carries a checkbox, so it cannot
+    itself be a button. The title is the button — it is what Tab reaches, what
+    Enter opens, and where the keyboard equivalents of the drag live. The card
+    around it keeps the click-anywhere convenience docs/06 asks for.
+  */
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    // dragging is a mouse gesture; these are the same move without one
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      onMove?.(task.id, -1);
+      return;
+    }
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      onMove?.(task.id, 1);
+      return;
+    }
+    if (e.key.toLowerCase() === "x") {
+      e.preventDefault();
+      toggle(task.id);
+    }
+  };
+
   return (
     <motion.div
       layout={!reduced}
       transition={spring}
       onPointerDown={(e) => onGrab(task.id, e)}
-      onClick={() => onOpen(task.id)}
-      // a card is an interactive target, so it has to be reachable and operable
-      // without a pointer; dragging has keyboard equivalents in the list (A/D/S)
-      role="button"
-      tabIndex={0}
-      data-card-id={task.id}
-      onKeyDown={(e) => {
-        if (e.metaKey || e.ctrlKey || e.altKey) return;
-
-        if (e.key === "Enter") {
-          e.preventDefault();
-          onOpen(task.id);
-          return;
-        }
-        // dragging is a mouse gesture; these are the same move without one
-        if (e.key === "ArrowLeft") {
-          e.preventDefault();
-          onMove?.(task.id, -1);
-          return;
-        }
-        if (e.key === "ArrowRight") {
-          e.preventDefault();
-          onMove?.(task.id, 1);
-          return;
-        }
-        if (e.key.toLowerCase() === "x") {
-          e.preventDefault();
-          toggle(task.id);
-        }
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest("button,input,a")) return;
+        onOpen(task.id);
       }}
       className={cn(
         "flex touch-none select-none flex-col gap-1.5 rounded-md border border-border bg-surface p-2.5",
@@ -102,7 +102,13 @@ function BoardCardImpl({
           onToggle={() => toggle(task.id)}
           label={task.title}
         />
-        <span className="relative min-w-0 flex-1 text-[13px] leading-[1.35]">
+        <button
+          type="button"
+          data-card-id={task.id}
+          onClick={() => onOpen(task.id)}
+          onKeyDown={onKeyDown}
+          className="relative min-w-0 flex-1 text-left text-[13px] leading-[1.35] outline-none focus-visible:underline focus-visible:decoration-accent focus-visible:underline-offset-4"
+        >
           {task.title}
           <motion.span
             aria-hidden
@@ -114,7 +120,7 @@ function BoardCardImpl({
             }
             transition={{ duration: COMPLETION.strikethrough / 1000, ease: "easeOut" }}
           />
-        </span>
+        </button>
       </div>
 
       {(task.label || dateText || task.important || assignee || hasNotes || task.status === "doing") && (

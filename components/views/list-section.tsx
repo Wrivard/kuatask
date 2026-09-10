@@ -38,13 +38,22 @@ export function ListSection({
   onSelectAssignee?: (id: string) => void;
 }) {
   const reduced = useReducedMotion();
+  const headingId = React.useId();
 
   if (tasks.length === 0) return null;
 
   return (
-    <motion.section id={id} layout className="mb-6 scroll-mt-6">
+    <motion.section
+      id={id}
+      aria-labelledby={headingId}
+      // 68 — layout animation is the thing the preference is actually about
+      layout={!reduced}
+      className="mb-6 scroll-mt-6"
+    >
       <header className="mb-1 flex items-baseline gap-2">
-        <h2 className="text-[13px] font-medium text-fg-muted">{title}</h2>
+        <h2 id={headingId} className="text-[13px] font-medium text-fg-muted">
+          {title}
+        </h2>
         {note}
         <span className="ml-auto font-mono text-[12px] tabular-nums text-fg-faint">
           {tasks.length}
@@ -55,7 +64,7 @@ export function ListSection({
         {tasks.map((task) => (
           <motion.div
             key={task.id}
-            layout
+            layout={!reduced}
             exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
             transition={{ ...exit, duration: COMPLETION.collapse / 1000 }}
             style={{ overflow: "hidden" }}

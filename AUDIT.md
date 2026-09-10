@@ -100,11 +100,11 @@ of this list rather than a gap in it.
 61. [x] **P1** The progress ring has no accessible text — a screen reader gets nothing.
 62. [x] **P1** The streak number has no label.
 63. [x] **P1** Board columns have no accessible name tying cards to their column.
-64. **P2** The live region announces completions only; deletions and reassignments are silent.
-65. **P2** The task row is a `div` with `role="button"`, which is a real button in disguise.
-66. **P2** No skip-to-content link.
-67. **P2** Sections are not associated with their headings via `aria-labelledby`.
-68. **P2** Under reduced motion a drag still moves the card, which is the one thing motion preference is about.
+64. [x] **P2** The live region announces completions only; deletions and reassignments are silent. Reopening, reassigning, rescheduling, un-dating and deleting all announce now, and every announcement names the task. A toast is a glance, and a glance is what a screen reader does not get — « Reprogrammée » alone says nothing about which of eleven tasks moved.
+65. [x] **P2** The task row is a `div` with `role="button"`, which is a real button in disguise. Worse than a disguise: the row contains a checkbox, and now a label chip and an assignee dot, and a button cannot contain controls — assistive technology was promised one thing and handed another. The *title* is the button now, in both the row and the board card: it is what Tab reaches, what Enter opens, and where the card's ←/→/X live. Clicking anywhere else still opens the modal, as a convenience on top of a correct structure rather than a substitute for one.
+66. [x] **P2** No skip-to-content link. First in the tab order, invisible until focused, moving focus to a real `<main>`. Without it, reaching a task by keyboard meant tabbing the sidebar's nav, the filter and the streak on every page load.
+67. [x] **P2** Sections are not associated with their headings via `aria-labelledby`.
+68. [x] **P2** Under reduced motion a drag still moves the card, which is the one thing motion preference is about. The card itself was already gated; the wrapper around it in the board and both wrappers in the list section were not, and those are the ones that animate the *reflow* — which is the movement the preference exists to stop.
 69. **P3** The command palette items have no supplementary description for a screen reader.
 70. **P3** No `aria-live` on the filter, so changing the lens is silent.
 

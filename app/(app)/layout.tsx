@@ -7,6 +7,7 @@ import { BottomBar } from "@/components/shell/bottom-bar";
 import { LiveRegion } from "@/components/shell/live-region";
 import { SetupRequired } from "@/components/shell/setup-required";
 import { instantToDay, recentCompletionCutoff } from "@/lib/time";
+import { copy } from "@/lib/copy";
 
 // per-user by definition: never prerender
 export const dynamic = "force-dynamic";
@@ -98,13 +99,29 @@ export default async function AppLayout({
           completionDays,
         }}
       />
+      {/*
+        First in the tab order, invisible until focused. Without it, reaching a
+        task by keyboard means tabbing through the sidebar's nav, the filter and
+        the streak on every single page load.
+      */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-sm focus:border focus:border-control focus:bg-surface focus:px-3 focus:py-2 focus:text-[13px] focus:text-fg"
+      >
+        {copy.a11y.skipToContent}
+      </a>
       <AppChrome />
       <LiveRegion />
       <Sidebar workspaceName={workspace.name} />
       {/* the pad clears the fixed mobile bar plus the home indicator */}
-      <div className="min-w-0 flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
+      <main
+        id="main"
+        // -1 so the skip link can move focus here; not in the tab order itself
+        tabIndex={-1}
+        className="min-w-0 flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0"
+      >
         {children}
-      </div>
+      </main>
       <BottomBar />
     </div>
   );

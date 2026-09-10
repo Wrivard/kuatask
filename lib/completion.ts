@@ -3,6 +3,7 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { useStore, type Task } from "@/lib/store";
+import { formatDueLabel } from "@/lib/time";
 import { completionTone, uncompleteTone, tick } from "@/lib/sound";
 import { announce } from "@/components/shell/live-region";
 import { copy } from "@/lib/copy";
@@ -101,6 +102,7 @@ export function useSetStatusWithFeedback() {
     if (task.status === "done") {
       // reopening should feel neutral, not punitive
       uncompleteTone();
+      announce(copy.a11y.reopened(task.title));
     }
 
     state.updateTask(id, { status: next, completed_at: null, completed_by: null });
@@ -144,6 +146,7 @@ export function useAssignWithFeedback() {
       duration: TOAST_MS,
       action: { label: copy.toast.undo, onClick: () => state.undo() },
     });
+    announce(copy.a11y.assigned(task.title, name));
   }, []);
 }
 
@@ -159,13 +162,20 @@ export function useRescheduleWithFeedback() {
       duration: TOAST_MS,
       action: { label: copy.toast.undo, onClick: () => state.undo() },
     });
+    announce(
+      dueOn === null
+        ? copy.a11y.undated(task.title)
+        : copy.a11y.rescheduled(task.title, formatDueLabel(dueOn)),
+    );
   }, []);
 }
 
 export function useDeleteWithFeedback() {
   return React.useCallback((id: string) => {
     const state = useStore.getState();
+    const title = state.tasks.find((t) => t.id === id)?.title;
     state.deleteTask(id);
+    if (title) announce(copy.a11y.deleted(title));
     toast(copy.toast.deleted, {
       duration: TOAST_MS,
       action: { label: copy.toast.undo, onClick: () => state.undo() },

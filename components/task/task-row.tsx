@@ -68,10 +68,25 @@ function TaskRowImpl({
   })();
 
   return (
+    /*
+      The row is not a button. It looked like one — role="button" and a tabIndex
+      — but it contains a checkbox and, now, a label chip and an assignee dot
+      that are themselves controls, and a button cannot hold controls. Assistive
+      technology was told to expect one thing and handed another.
+
+      What it is instead: a container whose *title* is the button. That is the
+      real "open this task" target, it is what lands under Tab, and the chip and
+      the dot are its siblings rather than illegal descendants. Clicking
+      anywhere else on the row still opens the modal, because docs/06 says the
+      whole surface is the target — that is a convenience layered on top of a
+      correct structure rather than a substitute for one.
+    */
     <div
-      role="button"
-      tabIndex={0}
-      onClick={() => onOpen(task.id)}
+      onClick={(e) => {
+        // a click that landed on a control has already been handled by it
+        if ((e.target as HTMLElement).closest("button,input,a")) return;
+        onOpen(task.id);
+      }}
       onMouseEnter={() => onFocus?.(task.id)}
       onPointerDown={onGrab && ((e) => onGrab(task.id, e))}
       data-focused={focused || undefined}
@@ -95,7 +110,11 @@ function TaskRowImpl({
         label={task.title}
       />
 
-      <span className="relative min-w-0 flex-1 truncate text-[15px] leading-[1.4] tracking-[-0.011em]">
+      <button
+        type="button"
+        onClick={() => onOpen(task.id)}
+        className="relative min-w-0 flex-1 truncate text-left text-[15px] leading-[1.4] tracking-[-0.011em] outline-none focus-visible:underline focus-visible:decoration-accent focus-visible:underline-offset-4"
+      >
         {task.title}
         {/* strikethrough draws left to right rather than switching on */}
         <motion.span
@@ -110,7 +129,7 @@ function TaskRowImpl({
           }
           transition={{ duration: COMPLETION.strikethrough / 1000, ease: "easeOut" }}
         />
-      </span>
+      </button>
 
       {/*
         Whether a task has notes was only discoverable by opening it, which is

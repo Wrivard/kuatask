@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { BoardCard } from "./board-card";
 import { TaskComposer } from "@/components/task/task-composer";
 import dynamic from "next/dynamic";
@@ -59,6 +59,7 @@ export function BoardView() {
   const rescheduleWithToast = useRescheduleWithFeedback();
 
   const day = useToday();
+  const reduced = useReducedMotion();
   const [openId, setOpenId] = React.useState<string | null>(null);
 
   // the grouping is a lens, like the assignee filter, so it persists locally
@@ -250,7 +251,7 @@ export function BoardView() {
                     {column.tasks.map((task, i) => (
                       <motion.div
                         key={task.id}
-                        layout
+                        layout={!reduced}
                         exit={{ opacity: 0 }}
                         transition={exit}
                         data-drop-index={i}

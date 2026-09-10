@@ -213,6 +213,16 @@ export const copy = {
     column: (title: string, count: number) =>
       `${title} — ${count} ${count === 1 ? "tâche" : "tâches"}`,
     skipToContent: "Aller au contenu",
+    /*
+      Announcements name the task. A toast is a glance, and a glance is exactly
+      what a screen reader does not get — "Reprogrammée" alone says nothing
+      about which of eleven tasks moved.
+    */
+    reopened: (title: string) => `${title} — rouverte`,
+    assigned: (title: string, name: string) => `${title} — assignée à ${name}`,
+    rescheduled: (title: string, when: string) => `${title} — déplacée au ${when}`,
+    undated: (title: string) => `${title} — date retirée`,
+    deleted: (title: string) => `${title} — supprimée`,
   },
 
   notFound: {
