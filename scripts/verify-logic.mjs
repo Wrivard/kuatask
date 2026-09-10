@@ -563,6 +563,35 @@ section("Positions — the gap between two cards is finite");
      [1024, 2048, 3072]);
   check("and the gaps are wide enough to subdivide again",
         grouping.positionForDrop(col(restacked.map((r) => r.position)), 1, "x") === 1536);
+
+  /*
+    The bug this caught, which was in the fix rather than the original.
+
+    The first attempt renumbered the column and then asked positionForDrop
+    again — using the same Column object, which was built during an earlier
+    render and still held the old positions. So the second question got the
+    same answer as the first, the card refused to move, and the refusal looked
+    exactly like the problem it was meant to solve.
+
+    placeInColumn answers both halves against the spread positions, so the
+    caller never has to hold a stale object between two questions.
+  */
+  const crushed = col([1, 1 + 1e-9, 1 + 2e-9]);
+
+  const roomy = grouping.placeInColumn(col([1, 3]), 1, "x");
+  eq("a column with room needs no restack", roomy.restack, null);
+  eq("and places between its neighbours", roomy.position, 2);
+
+  const tight = grouping.placeInColumn(crushed, 1, "x");
+  check("a crushed column asks for one", tight.restack !== null);
+  eq("which is the even spread", tight.restack.map((r) => r.position),
+     [1024, 2048, 3072]);
+  check("and the card still gets a real place, not the old one",
+        tight.position !== null && tight.position !== undefined &&
+        Number.isFinite(tight.position),
+        String(tight.position));
+  check("strictly between the restacked neighbours it was dropped between",
+        tight.position > 1024 && tight.position < 2048, String(tight.position));
 }
 
 /*

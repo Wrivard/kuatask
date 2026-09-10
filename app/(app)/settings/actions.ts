@@ -90,8 +90,21 @@ export async function deleteOwnAccount(): Promise<ActionResult> {
   const { error } = await adminClient().auth.admin.deleteUser(user.id);
   if (error) return { ok: false, error: copy.error.saveFailed };
 
-  // the session's cookies now point at a user that does not exist
-  await supabase.auth.signOut();
+  /*
+    The cookies now point at a user that does not exist, so this is only
+    housekeeping — and it is talking to an auth server about an account it just
+    deleted. A refusal here is expected and means nothing: the erasure already
+    happened, and throwing would tell the person it failed when it did not.
+
+    The middleware would bounce them to /login on the next request regardless;
+    clearing the cookies is what makes that immediate rather than confusing.
+  */
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    /* already gone */
+  }
+
   revalidatePath("/", "layout");
 
   return { ok: true };

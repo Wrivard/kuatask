@@ -20,6 +20,7 @@ import {
   daysFromToday,
   isOverdue,
   isOnDay,
+  recentCompletionCutoff,
   nowTz,
   toDayString,
   today,
@@ -142,6 +143,13 @@ export function ListView() {
     return ids;
   }, [tasks, holding, me?.id]);
 
+  /*
+    Recomputed with the day rather than per render: it only moves at midnight,
+    and comparing an ISO instant to a fixed string is what keeps the filter
+    above cheap.
+  */
+  const recentCutoff = React.useMemo(() => recentCompletionCutoff(), [day]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const { sections, completedToday, completedRecently } = React.useMemo(() => {
     const byBucket = new Map<Bucket, Task[]>();
     const done: Task[] = [];
@@ -158,10 +166,14 @@ export function ListView() {
         continue;
       }
 
-      // only today's completions are in the UI; yesterday's are still in the DB
-      // the browser holds a week of completions; today's are the footer's
-      // default, and the rest are one click away rather than a reload away
-      if (task.completed_at) done.push(task);
+      /*
+        The footer's second step is labelled « cette semaine », so it has to
+        actually mean that. The window cannot be inferred from "whatever is in
+        the store": searching pulls matching tasks back from outside it (17), so
+        a task finished in March can be sitting in memory, and it would have
+        been listed under a heading claiming it was finished this week.
+      */
+      if (task.completed_at && task.completed_at >= recentCutoff) done.push(task);
     }
 
     // overdue rises to the top of Aujourd'hui, then time, then creation order
@@ -188,7 +200,7 @@ export function ListView() {
       completedToday: done.filter((t) => isOnDay(t.completed_at, day)),
       completedRecently: done,
     };
-  }, [tasks, holding, day]);
+  }, [tasks, holding, day, recentCutoff]);
 
   /*
     Three states rather than two. Shut, today, and the week the browser is

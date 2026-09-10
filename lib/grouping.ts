@@ -201,6 +201,43 @@ export function restackedPositions(column: Column): { id: string; position: numb
   return column.tasks.map((task, i) => ({ id: task.id, position: (i + 1) * 1024 }));
 }
 
+/**
+ * Where a card lands, and what has to be renumbered first for it to fit.
+ *
+ * The two steps have to be decided together. Renumbering the column and then
+ * asking `positionForDrop` again looks obvious and does not work: the caller is
+ * holding a `Column` built during an earlier render, so the object still has
+ * the old positions in it and the second question gets the same answer as the
+ * first. That is exactly the bug this replaced — the card refused to move, and
+ * the fix for it silently refused in the same way.
+ *
+ * So the answer is computed against the spread positions directly, and the
+ * caller applies both: write the restack, then place the card.
+ */
+export function placeInColumn(
+  column: Column,
+  index: number,
+  movingId: string,
+): { position: number; restack: { id: string; position: number }[] | null } {
+  const direct = positionForDrop(column, index, movingId);
+  if (direct !== null) return { position: direct, restack: null };
+
+  const spread = restackedPositions(column);
+  const byId = new Map(spread.map((s) => [s.id, s.position]));
+  const rebuilt: Column = {
+    ...column,
+    tasks: column.tasks.map((t) => ({ ...t, position: byId.get(t.id) ?? t.position })),
+  };
+
+  const after = positionForDrop(rebuilt, index, movingId);
+  // 1024-wide gaps cannot be exhausted, so this is unreachable — but a
+  // fallback that moves nothing beats a NaN in a position column
+  return {
+    position: after ?? column.tasks.find((t) => t.id === movingId)?.position ?? 0,
+    restack: spread,
+  };
+}
+
 /** Which column a task currently sits in, so a no-op drop can be skipped. */
 export function columnOf(
   groupBy: GroupBy,

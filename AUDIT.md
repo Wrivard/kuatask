@@ -264,3 +264,31 @@ to check rather than assume:
 148. [x] **P2** No `<meta name="description">` or Open Graph tags.
 149. [x] **P3** `theme-color` not set, so mobile browser chrome does not match the app.
 150. [x] **P3** No `viewport-fit=cover`, which is what makes safe-area insets meaningful.
+
+---
+
+## Second pass — reviewing what this session built
+
+The 150 above are closed. What follows is the same treatment applied to the
+code that closed them, because a fix written quickly is still code nobody has
+reviewed. Numbering continues.
+
+151. [x] **P1** The fix for 10 did not work. `placeIn` renumbered the column and
+     then asked `positionForDrop` again — using the same `Column` object, which
+     the component had captured from an earlier render and which therefore still
+     held the pre-restack positions. The second question got the same answer as
+     the first, so the card refused to move: the fix failed in exactly the shape
+     of the bug it was written for, and both were silent. `placeInColumn` now
+     answers both halves at once, against the spread positions, so no caller
+     holds a stale object between two questions. Six assertions, one of which
+     (« strictly between the restacked neighbours ») the old code could not pass.
+152. [x] **P2** The footer's « Terminé cette semaine » (26) could say that about
+     a task finished in March. It filtered on *whatever completions were in the
+     store*, and search pulls matching tasks back from outside the window (17) —
+     so the two features together produced a heading that lied. Bounded on the
+     same cutoff the fetch uses.
+153. [x] **P3** `deleteOwnAccount` awaited `signOut()` after deleting the
+     account, so an auth server declining to sign out a user that no longer
+     exists would have thrown — telling somebody their erasure failed when it
+     had already succeeded. The sign-out is housekeeping and is now treated as
+     such.

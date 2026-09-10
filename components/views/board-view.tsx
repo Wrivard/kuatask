@@ -12,8 +12,7 @@ import { useDragToTarget } from "@/lib/drag";
 import {
   buildColumns,
   columnOf,
-  positionForDrop,
-  restackedPositions,
+  placeInColumn,
   GROUP_OPTIONS,
   WIP_COMFORTABLE,
   NO_ASSIGNEE,
@@ -149,16 +148,16 @@ export function BoardView() {
         and putting it back does not push an undo entry.
       */
       /*
-        A `null` back from positionForDrop means the two neighbours have been
-        squeezed together by repeated halving and there is no longer a value
-        between them. Spread the column out and ask again — the second answer
-        always fits, because the gaps are 1024 wide again.
+        `placeInColumn` answers both halves at once: where the card goes, and
+        whether the column has to be spread out first. Deciding them separately
+        does not work — this component holds a Column built during an earlier
+        render, so renumbering and then asking again gets the stale positions
+        back and the same refusal.
       */
-      const placeIn = (col: typeof column, at: number): number => {
-        const first = positionForDrop(col!, at, taskId);
-        if (first !== null) return first;
-        restack(restackedPositions(col!));
-        return positionForDrop(col!, at, taskId) ?? task.position;
+      const placeIn = (col: NonNullable<typeof column>, at: number): number => {
+        const { position, restack: spread } = placeInColumn(col, at, taskId);
+        if (spread) restack(spread);
+        return position;
       };
 
       if (sameColumn) {
