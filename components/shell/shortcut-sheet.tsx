@@ -44,6 +44,8 @@ const GROUPS: { scope: string; rows: [string, string][] }[] = [
     scope: copy.shortcuts.scopeCalendar,
     rows: [
       ["← →", "Mois"],
+      ["↑↓←→", "Déplacer le focus dans la grille"],
+      ["Entrée", "Ouvrir la journée"],
       ["M", `${copy.nav.month} / ${copy.nav.week}`],
       ["T", copy.nav.today],
       ["Glisser", "Changer la date, dans la grille ou dans le panneau du jour"],

@@ -392,3 +392,19 @@ reviewed. Numbering continues.
      started in the first place. `stepInGrid` now lives there with fifteen
      assertions: Home and End are the two easy to get one day wrong, and one day
      wrong in a date picker is a task due on the wrong day.
+169. [x] **P1** The calendar had no keyboard path at all. Not a missing
+     shortcut — no way to reach a day, no way to open one, nothing under Tab.
+     A whole view of the app was pointer-only, which the original audit's
+     keyboard section (55–60) missed entirely because it went looking for
+     shortcuts rather than for whether the view could be operated.
+
+     The month grid is one tab stop, arrows move within it, Enter opens the day.
+     Same `stepInGrid` the date picker uses, so "up is a week" has one
+     definition. Each cell carries its date and its count as a label, because a
+     screen reader handed « 12 » in a grid of numerals has been told nothing.
+170. [x] **P2** …and wiring that up put two handlers on the same keys. The
+     window-level listener that pages the month is a real listener, so the
+     grid calling `preventDefault` does not stop it: one press moved the focus
+     by a day *and* the month by one. Guarded on whether focus is inside the
+     grid. Caught by reading the file the change landed in rather than by
+     running it, which is the only way this one shows up before a user finds it.

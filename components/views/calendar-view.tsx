@@ -20,7 +20,11 @@ import {
   monthGrid,
   nowDate,
   toDayString,
+  toDate,
   isToday,
+  isSameMonth,
+  stepInGrid,
+  type GridStep,
 } from "@/lib/time";
 import { useStore, type Task } from "@/lib/store";
 import { useDragToTarget } from "@/lib/drag";
@@ -144,12 +148,85 @@ export function CalendarView() {
     [anchor, mode],
   );
 
+  /*
+    The month grid is one tab stop, the same as the date picker's.
+
+    Before this the calendar had no keyboard path at all: no way to reach a day,
+    no way to open one, nothing under Tab — a whole view of the app reachable
+    only with a pointer. Making all 42 cells tabbable would trade that for a
+    grid nobody can tab past, which is the mistake the picker shipped with.
+  */
+  const [focusedDay, setFocusedDay] = React.useState<string | null>(null);
+  const movingFocus = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!movingFocus.current || !focusedDay) return;
+    movingFocus.current = false;
+    gridRef.current
+      ?.querySelector<HTMLElement>(`[data-day="${focusedDay}"]`)
+      ?.focus();
+  }, [focusedDay]);
+
+  /** The cell Tab lands on: wherever you were, else today, else the 1st shown. */
+  const tabStop = focusedDay ?? (days.includes(today) ? today : days[0]);
+
+  const moveFocus = React.useCallback(
+    (to: string) => {
+      movingFocus.current = true;
+      setFocusedDay(to);
+      // stepping off the edge of the month brings the next one with it
+      if (!isSameMonth(to, anchor)) setAnchor(toDate(to));
+    },
+    [anchor],
+  );
+
+  const GRID_KEYS: Record<string, GridStep> = React.useMemo(
+    () => ({
+      ArrowLeft: "left",
+      ArrowRight: "right",
+      ArrowUp: "up",
+      ArrowDown: "down",
+      Home: "weekStart",
+      End: "weekEnd",
+    }),
+    [],
+  );
+
+  function onGridKeyDown(e: React.KeyboardEvent) {
+    const from = tabStop;
+    const step = GRID_KEYS[e.key];
+
+    if (step) {
+      e.preventDefault();
+      // the same helper the date picker uses; one definition of "up is a week"
+      moveFocus(stepInGrid(from, step));
+      return;
+    }
+
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setOpenDay(from);
+    }
+  }
+
+
   // arrows move by month, T returns to today
   React.useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const el = e.target as HTMLElement | null;
       if (el && /^(INPUT|TEXTAREA)$/.test(el.tagName)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      /*
+        The grid claims the arrows when focus is inside it. Both handlers are
+        real listeners, so the grid calling preventDefault does not stop this
+        one — without the guard, one press moved the focus by a day *and* the
+        month by one, which is the sort of thing that reads as the app being
+        haunted.
+      */
+      const inGrid = el?.closest('[role="grid"]');
+      const claimed = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"];
+      if (inGrid && claimed.includes(e.key)) return;
 
       if (e.key === "ArrowLeft") setAnchor((a) => addMonths(a, -1));
       else if (e.key === "ArrowRight") setAnchor((a) => addMonths(a, 1));
@@ -228,6 +305,9 @@ export function CalendarView() {
             has to stay readable within a keypress.
           */
           key={days[0]}
+          role="grid"
+          aria-label={formatMonthYear(anchor)}
+          onKeyDown={onGridKeyDown}
           initial={{ opacity: 0, y: reduced ? 0 : 3 }}
           animate={{ opacity: 1, y: 0 }}
           transition={snap}
@@ -243,6 +323,7 @@ export function CalendarView() {
               members={members}
               isDropTarget={dropDay === day && dragId !== null}
               today={today}
+              focused={day === tabStop}
               maxVisible={maxVisible}
               onOpenDay={setOpenDay}
               onGrabTask={grab}

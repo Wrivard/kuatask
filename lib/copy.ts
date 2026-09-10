@@ -66,6 +66,8 @@ export const copy = {
       untimed: "Sans heure",
     },
     more: (n: number) => `+${n} de plus`,
+    cell: (day: string, n: number) =>
+      n === 0 ? day : `${day} — ${plural(n, "tâche")}`,
     mode: "Mois ou semaine",
   },
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarCard } from "./calendar-card";
-import { isSameMonth, isToday } from "@/lib/time";
+import { formatDueLabel, isSameMonth, isToday } from "@/lib/time";
 import { copy } from "@/lib/copy";
 import type { Profile, Task } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -36,6 +36,7 @@ export function CalendarDayCell({
   members,
   isDropTarget,
   today,
+  focused,
   maxVisible,
   onOpenDay,
   onGrabTask,
@@ -47,6 +48,8 @@ export function CalendarDayCell({
   isDropTarget: boolean;
   /** Passed in rather than read here, so midnight re-renders the whole grid. */
   today: string;
+  /** True for the one cell the grid's single tab stop lands on. */
+  focused: boolean;
   /** How many cards this cell has room for, measured from the grid's height. */
   maxVisible: number;
   onOpenDay: (day: string) => void;
@@ -56,12 +59,29 @@ export function CalendarDayCell({
   const overflow = tasks.length - maxVisible;
 
   return (
+    /*
+      A grid cell, not a div with a click handler.
+
+      The month was the one view with no keyboard path at all: no way to reach a
+      day, no way to open one, nothing under Tab. Making all 42 cells tabbable
+      would be the mistake the date picker had — the grid is one stop, arrows
+      move within it, and the cell that Tab lands on follows the focus.
+
+      The label carries the date and the count, because a screen reader given
+      "12" in a grid of numerals has been told nothing.
+    */
     <div
       data-drop-target={day}
+      data-day={day}
+      role="gridcell"
+      tabIndex={focused ? 0 : -1}
+      aria-label={copy.calendar.cell(formatDueLabel(day), tasks.length)}
+      aria-current={isToday(day, today) ? "date" : undefined}
       onClick={() => onOpenDay(day)}
       className={cn(
         "group/cell flex min-h-0 cursor-pointer flex-col gap-0.5 border-b border-r border-border p-1.5",
         "hover:bg-surface-hover",
+        "focus-visible:outline focus-visible:-outline-offset-1 focus-visible:outline-accent",
         // the drop target reads as a 1px accent border, nothing heavier
         isDropTarget && "border-accent bg-surface-hover ring-1 ring-accent ring-inset",
       )}
