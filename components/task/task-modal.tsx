@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "./date-picker";
 import { useStore, type Task } from "@/lib/store";
-import { useSetStatusWithFeedback } from "@/lib/completion";
+import { useSetStatusWithFeedback, useDeleteWithFeedback } from "@/lib/completion";
 import { useAutoGrow } from "@/lib/auto-grow";
 import { labelsInUse } from "@/lib/suggest";
 import { copy } from "@/lib/copy";
@@ -80,7 +80,13 @@ export function TaskModal({
   const task = useStore((s) => s.tasks.find((t) => t.id === taskId));
   const members = useStore((s) => s.members);
   const updateTask = useStore((s) => s.updateTask);
-  const deleteTask = useStore((s) => s.deleteTask);
+  /*
+    The store's deleteTask, not the one with feedback — which is how both
+    delete paths in here ended up with no undo toast at all. Every other
+    surface in the app offers a way back from a deletion; the modal, where
+    it is a labelled red button rather than a keystroke, offered none.
+  */
+  const deleteTask = useDeleteWithFeedback();
   const setStatus = useSetStatusWithFeedback();
 
   const [title, setTitle] = React.useState("");

@@ -33,6 +33,43 @@ const WEEKDAYS = ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"];
 const MODES = ["month", "week"] as const;
 
 /**
+ * The week's tasks in bands, so 9h and 17h stop looking equally placed.
+ *
+ * Not an hour grid. This is a task list, not a meeting calendar — most tasks
+ * here have no time at all, and a 24-row axis would be almost entirely empty
+ * lines drawn around three cards. Three bands and an untimed one give the
+ * column temporal shape at the resolution the data actually has.
+ *
+ * A band is only drawn when it holds something, so a day with two afternoon
+ * tasks shows one heading rather than four.
+ */
+type Band = "morning" | "afternoon" | "evening" | "untimed";
+
+const BAND_ORDER: Band[] = ["morning", "afternoon", "evening", "untimed"];
+
+function bandOf(dueTime: string | null): Band {
+  if (!dueTime) return "untimed";
+  const hour = Number(dueTime.slice(0, 2));
+  if (hour < 12) return "morning";
+  if (hour < 17) return "afternoon";
+  return "evening";
+}
+
+function bandsFor(tasks: Task[]): { band: Band; tasks: Task[] }[] {
+  const groups = new Map<Band, Task[]>();
+  for (const task of tasks) {
+    const band = bandOf(task.due_time);
+    const list = groups.get(band) ?? [];
+    list.push(task);
+    groups.set(band, list);
+  }
+  return BAND_ORDER.filter((b) => groups.has(b)).map((band) => ({
+    band,
+    tasks: groups.get(band)!,
+  }));
+}
+
+/**
  * Hand-built with date-fns. No calendar library — a library brings a payload and
  * an opinion about styling, and this grid is not big enough to justify either.
  *
@@ -213,13 +250,20 @@ export function CalendarView() {
               >
                 {day.slice(-2)}
               </span>
-              {(byDay.get(day) ?? []).map((task) => (
-                <CalendarCard
-                  key={task.id}
-                  task={task}
-                  member={members.find((m) => m.id === task.assignee_id)}
-                  onGrab={grab}
-                />
+              {bandsFor(byDay.get(day) ?? []).map(({ band, tasks: banded }) => (
+                <React.Fragment key={band}>
+                  <span className="mt-0.5 text-[10px] uppercase tracking-[0.06em] text-fg-faint">
+                    {copy.calendar.bands[band]}
+                  </span>
+                  {banded.map((task) => (
+                    <CalendarCard
+                      key={task.id}
+                      task={task}
+                      member={members.find((m) => m.id === task.assignee_id)}
+                      onGrab={grab}
+                    />
+                  ))}
+                </React.Fragment>
               ))}
             </div>
           ))}

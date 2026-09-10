@@ -42,6 +42,12 @@ export const copy = {
   },
 
   calendar: {
+    bands: {
+      morning: "Matin",
+      afternoon: "Après-midi",
+      evening: "Soir",
+      untimed: "Sans heure",
+    },
     more: (n: number) => `+${n} de plus`,
     mode: "Mois ou semaine",
   },

@@ -62,7 +62,7 @@ of this list rather than a gap in it.
 
 36. [x] **P1** The day sheet has no drag; the calendar's own gesture stops at the cell. The sheet now carries a week strip: seven days that are both navigation — look at tomorrow without closing anything — and drop targets for its rows. Targets inside the sheet rather than on the grid behind it, because the overlay owns the pointer while the sheet is open and fighting that would cost more than it returns. `TaskRow` gained an optional `onGrab`, left off in the list where the order is the date's to decide and `touch-none` would cost the page its scroll.
 37. [x] **P2** `+N` is not obviously clickable. It always was — the whole cell opens the day — it just looked inert. Now reads « +2 de plus », underlined, darkening on cell hover.
-38. **P2** The week agenda has no time axis, so 9h and 17h look equally placed.
+38. [x] **P2** The week agenda has no time axis, so 9h and 17h look equally placed. Bands — Matin, Après-midi, Soir, Sans heure — rather than an hour grid. This is a task list, not a meeting calendar: most tasks here have no time at all, and a 24-row axis would be almost entirely empty lines drawn around three cards. A band appears only when it holds something, so a day with two afternoon tasks shows one heading rather than four.
 39. [x] **P2** No keyboard toggle between month and week. `M`, listed in the `?` sheet next to ← → and T.
 40. [x] **P2** Month navigation has no transition, so paging feels like a jump cut. The grid is keyed on the month and arrives with a 160ms opacity and 3px rise. No exit animation and no `AnimatePresence`: two grids alive at once means two sets of drop targets under the pointer, and paging must stay readable within a keypress.
 41. **P3** Cells cannot show more than three tasks even when the row is tall.
@@ -73,7 +73,7 @@ of this list rather than a gap in it.
 43. [x] **P1** Opened by keyboard, focus does not return to the originating row on close — it returns to `body`.
 44. [x] **P2** The label field is a plain input with no autocomplete, unlike the composer. Which is how one client ends up spelled three ways. A native `datalist` rather than the composer's own list: there is no token to parse here, the whole field is the value, and the browser already knows how to offer a set of them.
 45. [x] **P2** No created/updated timestamps beyond "Créé par". Which left no way to tell a task typed this morning from one that has been sitting there since March — exactly what you want to know before deciding whether it still matters.
-46. **P2** Deleting from the modal gives an undo toast, but the modal has already closed over the top of it on mobile.
+46. [x] **P2** Deleting from the modal gives an undo toast, but the modal has already closed over the top of it on mobile. Worse than reported: it gave no toast at all. Both delete paths in the modal — the red button and ⌘⌫ — called the store directly instead of the hook with the feedback, so the one surface where deletion is a labelled button rather than a keystroke was the one surface with no way back. Fixed, and toasts now clear the mobile bar as well (108).
 47. **P3** No duplicate-task action.
 48. **P3** The notes field has no markdown, by spec, but also no link detection.
 
@@ -114,7 +114,7 @@ of this list rather than a gap in it.
 72. **P2** The full task list ships in the RSC payload on every navigation between views.
 73. [x] **P2** Sidebar counts recompute on every store write. They still do, and it no longer matters: 12.9ms at 2000 tasks became 0.03ms. `bucketOf` was computing four `parseISO` calls plus `endOfWeek` and `endOfMonth` *per task*, all of it depending only on today. The boundaries are now computed once per day and the per-task test is a string comparison — a 'yyyy-MM-dd' sorts lexically exactly as it sorts chronologically, which is the one good reason to store days as strings.
 74. [x] **P2** The board rebuilds every column on any change, including one unrelated to the current grouping. It still does; the rebuild went from 19.0ms to 0.07ms at 2000 tasks, because grouping by due date was the same `bucketOf` in a loop. Grouping by person was already 0.006ms, which is how the cause was identified.
-75. **P2** No virtualisation; a column with 500 cards renders 500 cards.
+75. **NO** No virtualisation; a column with 500 cards renders 500 cards. Refused on arithmetic. This is a workspace for two people, and a column of 500 would mean 500 *open* tasks on one of them, which is a different problem than a rendering one. The cost that actually mattered at that scale was the derived work per store write, and that is now ~0.03ms at 2000 tasks (73, 74, 128). Virtualisation would also break the two things the board is for — Ctrl+F, and dragging to a column you can see — in exchange for a frame budget nothing is spending.
 76. **P2** No bundle analyzer, so regressions are invisible. Half-answered: `npm run bench` now prints what one store write costs in derived work, which is the equivalent for the CPU side and is where the real regression risk was.
 77. **P3** `tw-animate-css` may be entirely unused.
 78. **P3** Two variable font families load on every page including login.
@@ -166,7 +166,7 @@ of this list rather than a gap in it.
 
 107. [x] **P2** The composer does not clear its dismissed-chip state when the view changes. Resolved together with 131, which wanted the opposite thing: the *text* now survives a view switch and the dismissals do not. Capture is the one thing this app must never lose, and "I typed it, then I looked at the calendar, then it was gone" is the worst way to lose it — while a dismissal is a judgement about a specific reading and has no business outliving the trip.
 108. [x] **P2** Toasts can cover the mobile bottom bar. Lifted clear of it, and of the home indicator under that. An undo you cannot reach is not an undo.
-109. **P2** The settings tabs do not indicate which pane is loading on a slow navigation.
+109. [x] **P2** The settings tabs do not indicate which pane is loading on a slow navigation. These two pages fetch on the server, so a click on a cold connection does nothing visible for a moment and reads as a dead tab. This is the one place in the app that admits to waiting — everything on the task surfaces is optimistic and has nothing to wait for. A rule under the label rather than a spinner: the tab's own underline, arriving early.
 110. [x] **P2** The people page shows no email for members, only display names. Two people can pick the same display name, and an invite is sent to an address rather than to a name — so the member list could not be checked against the invite that produced it.
 111. [x] **P2** No indication anywhere of who you are signed in as, except settings — two clicks away, and the last place you would think to look after being bounced to a login screen and back. At the foot of the rail now, with the accent dot, because with two people on one board it is what decides what « Moi » means.
 112. **P3** The sidebar workspace name is not a link to anything.
@@ -210,7 +210,7 @@ of this list rather than a gap in it.
 
 ## T. Data lifecycle
 
-138. **P2** Nothing ever prunes completed tasks, so the table grows for ever.
+138. **NO** Nothing ever prunes completed tasks, so the table grows for ever. Refused twice over. « No archive, no trash » is an explicit scope decision, and a job that deletes old completed tasks *is* a trash — one that destroys history silently, on a schedule, with nothing to undo it. And the arithmetic does not support it: two people finishing twenty tasks a day would add about seven thousand rows a year, which is nothing to Postgres, and the browser already refuses to load more than a week of them (3).
 139. **P3** No soft-delete window; delete is immediate with a 5s client-side undo.
 140. **P3** Removing a member leaves their tasks assigned to a non-member.
 
