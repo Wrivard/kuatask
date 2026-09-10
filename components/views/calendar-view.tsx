@@ -3,8 +3,14 @@
 import * as React from "react";
 import { addMonths, addDays, startOfWeek } from "date-fns";
 import { CalendarDayCell } from "./calendar-day-cell";
-import { DaySheet } from "./day-sheet";
-import { TaskModal } from "@/components/task/task-modal";
+import dynamic from "next/dynamic";
+
+// both are opened rather than shown, so neither belongs in the first load
+const DaySheet = dynamic(() => import("./day-sheet").then((m) => m.DaySheet), { ssr: false });
+const TaskModal = dynamic(
+  () => import("@/components/task/task-modal").then((m) => m.TaskModal),
+  { ssr: false },
+);
 import { AssigneeDot } from "@/components/task/assignee-dot";
 import {
   formatMonthYear,
@@ -203,15 +209,17 @@ export function CalendarView() {
         </div>
       )}
 
-      <DaySheet
-        day={openDay}
-        onClose={() => setOpenDay(null)}
-        onOpenTask={(id) => {
-          setOpenDay(null);
-          setOpenTask(id);
-        }}
-      />
-      <TaskModal taskId={openTask} onClose={() => setOpenTask(null)} />
+      {openDay && (
+        <DaySheet
+          day={openDay}
+          onClose={() => setOpenDay(null)}
+          onOpenTask={(id) => {
+            setOpenDay(null);
+            setOpenTask(id);
+          }}
+        />
+      )}
+      {openTask && <TaskModal taskId={openTask} onClose={() => setOpenTask(null)} />}
     </div>
   );
 }

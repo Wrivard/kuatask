@@ -4,7 +4,10 @@ import * as React from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BoardCard } from "./board-card";
 import { TaskComposer } from "@/components/task/task-composer";
-import { TaskModal } from "@/components/task/task-modal";
+import dynamic from "next/dynamic";
+
+// opened, not shown: kept off the first load
+const TaskModal = dynamic(() => import("@/components/task/task-modal").then((m) => m.TaskModal), { ssr: false });
 import { useDragToTarget } from "@/lib/drag";
 import {
   buildColumns,
@@ -300,7 +303,7 @@ export function BoardView() {
         <TaskComposer defaultAssigneeId={groupBy === "person" ? null : filter} />
       </div>
 
-      <TaskModal taskId={openId} onClose={() => setOpenId(null)} />
+      {openId && <TaskModal taskId={openId} onClose={() => setOpenId(null)} />}
     </div>
   );
 }

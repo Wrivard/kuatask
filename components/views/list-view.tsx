@@ -4,7 +4,10 @@ import * as React from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronRight } from "lucide-react";
 import { TaskComposer } from "@/components/task/task-composer";
-import { TaskModal } from "@/components/task/task-modal";
+import dynamic from "next/dynamic";
+
+// opened, not shown: kept off the first load
+const TaskModal = dynamic(() => import("@/components/task/task-modal").then((m) => m.TaskModal), { ssr: false });
 import { TaskRow } from "@/components/task/task-row";
 import { ListSection } from "./list-section";
 import { ClearOut } from "./clear-out";
@@ -343,7 +346,7 @@ export function ListView() {
         </section>
       )}
 
-      <TaskModal taskId={openId} onClose={() => setOpenId(null)} />
+      {openId && <TaskModal taskId={openId} onClose={() => setOpenId(null)} />}
     </div>
   );
 }
