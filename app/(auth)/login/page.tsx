@@ -25,13 +25,18 @@ export default function LoginPage() {
     return () => clearTimeout(id);
   }, [cooldown]);
 
-  // /auth/callback bounces expired or reused links back here
+  /*
+    Two ways to arrive here with something to say. /auth/callback bounces an
+    expired or reused link back, and the middleware sends you back when a
+    session it was holding stops refreshing — which otherwise looks exactly like
+    never having been signed in: you are simply somewhere else, with no idea why.
+  */
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("error") === "expired") {
-      setError(copy.error.linkExpired);
-      window.history.replaceState(null, "", window.location.pathname);
-    }
+    if (params.get("error") === "expired") setError(copy.error.linkExpired);
+    else if (params.get("expired") === "1") setError(copy.error.sessionExpired);
+    else return;
+    window.history.replaceState(null, "", window.location.pathname);
   }, []);
 
   async function send(address: string) {

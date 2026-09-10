@@ -41,12 +41,23 @@ async function requireAdmin() {
   return { supabase, userId: user.id, workspaceId: membership.workspace_id };
 }
 
+/** One @, something either side, a dot in the domain, no whitespace. */
+const EMAIL = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
+
 export async function inviteMember(email: string): Promise<ActionResult> {
   const ctx = await requireAdmin();
   if (!ctx) return { ok: false, error: copy.error.inviteFailed };
 
   const address = email.trim().toLowerCase();
-  if (!address.includes("@")) return { ok: false, error: copy.error.inviteFailed };
+  /*
+    `includes("@")` accepted "@", "a@b", and a line with a space in it. Not a
+    full RFC 5322 parse — nothing sensible is — but enough that a typo is caught
+    here rather than becoming an invite row nobody can ever consume, since a
+    pending invite is matched against the address a real signup arrives with.
+  */
+  if (!EMAIL.test(address) || address.length > 254) {
+    return { ok: false, error: copy.error.inviteFailed };
+  }
 
   // already a member, or already invited
   const [{ data: existingProfile }, { data: existingInvite }] = await Promise.all([

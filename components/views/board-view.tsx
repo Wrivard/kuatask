@@ -353,9 +353,22 @@ export function BoardView() {
                     <div className="mb-1.5 h-px bg-accent" aria-hidden />
                   )}
 
-                  {column.tasks.length === 0 && (
-                    <p className="px-1 py-2 text-[12px] text-fg-faint">
-                      {copy.board.empty}
+                  {/*
+                    An empty column said "Rien ici.", six times over, which is
+                    noise rather than information — a column with nothing in it
+                    is already obviously empty. What was actually missing is a
+                    target while dragging, so the words appear only then.
+                  */}
+                  {column.tasks.length === 0 && dragId !== null && (
+                    <p
+                      className={cn(
+                        "rounded-sm border border-dashed px-2 py-3 text-center text-[12px]",
+                        isTarget
+                          ? "border-accent text-fg"
+                          : "border-border text-fg-faint",
+                      )}
+                    >
+                      {copy.board.dropHere}
                     </p>
                   )}
                 </div>

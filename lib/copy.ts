@@ -55,7 +55,7 @@ export const copy = {
     doing: "En cours",
     done: "Terminé",
     unassigned: "Personne",
-    empty: "Rien ici.",
+    dropHere: "Déposer ici",
     collapse: "Replier la colonne",
     expand: "Déplier la colonne",
   },
@@ -201,11 +201,17 @@ export const copy = {
 
   error: {
     saveFailed: "La modification n'a pas été enregistrée. Réessaie.",
+    titleLength: "Un titre fait entre 1 et 500 caractères.",
+    alreadyThere: "C'est déjà là.",
+    gone: "Cette tâche n'existe plus.",
+    missingField: "Il manque une information.",
+    notAllowed: "Tu n'as pas les droits pour ça.",
     offline: "Connexion perdue. Les modifications reprendront au retour du réseau.",
     inviteFailed: "L'invitation n'a pas pu être envoyée. Vérifie l'adresse.",
     inviteExists: "Cette personne est déjà membre ou déjà invitée.",
     lastAdmin: "Il faut au moins un admin dans l'espace.",
     loginFailed: "Le lien n'a pas pu être envoyé. Vérifie l'adresse.",
+    sessionExpired: "Ta session a expiré. Reconnecte-toi.",
     linkExpired: "Ce lien a expiré. Demandes-en un nouveau.",
     crashed: "Cette vue a planté.",
     crashedBody:

@@ -6,6 +6,7 @@ import { setErrorHandler, useStore, type Profile, type Task } from "@/lib/store"
 import { useRealtimeTasks } from "@/lib/realtime";
 import { setClockOffset } from "@/lib/time";
 import { copy } from "@/lib/copy";
+import { explain, logRefusal } from "@/lib/errors";
 
 /**
  * Installs the data the server already fetched, connects the store's error
@@ -50,9 +51,11 @@ export function StoreBoot({
   setClockOffset(initial.serverNow);
 
   React.useEffect(() => {
-    setErrorHandler((reason) =>
-      toast.error(copy.error.saveFailed, { description: reason }),
-    );
+    setErrorHandler((refusal) => {
+      // the raw message goes where whoever is debugging will look for it
+      logRefusal(refusal);
+      toast.error(copy.error.saveFailed, { description: explain(refusal) });
+    });
     useStore.getState().seed(initial);
     // seeded once per session; a later navigation must not reset live state
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

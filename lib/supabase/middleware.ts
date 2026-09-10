@@ -63,10 +63,10 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
-  const redirect = (to: string) => {
+  const redirect = (to: string, reason?: string) => {
     const url = request.nextUrl.clone();
     url.pathname = to;
-    url.search = "";
+    url.search = reason ? `?${reason}` : "";
     const response = NextResponse.redirect(url);
     // carry the refreshed auth cookies onto the redirect
     supabaseResponse.cookies.getAll().forEach((c) => response.cookies.set(c));
@@ -74,7 +74,18 @@ export async function updateSession(request: NextRequest) {
   };
 
   if (!user) {
-    return isPublic ? supabaseResponse : redirect("/login");
+    if (isPublic) return supabaseResponse;
+    /*
+      A refresh that fails looks exactly like never having been signed in: you
+      are simply somewhere else, with a login screen and no idea why. Carrying
+      the reason lets the screen say "ta session a expiré" instead of nothing,
+      and only when a session cookie was actually present — otherwise the same
+      message would greet a first-time visitor.
+    */
+    const hadSession = request.cookies
+      .getAll()
+      .some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"));
+    return redirect("/login", hadSession ? "expired=1" : undefined);
   }
 
   const { count } = await supabase

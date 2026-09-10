@@ -125,8 +125,8 @@ of this list rather than a gap in it.
 
 81. [x] **P1** No security headers at all — no CSP, no `X-Content-Type-Options`, no `Referrer-Policy`.
 82. **P2** No rate limiting on the invite action; an admin can hammer Supabase's mailer.
-83. **P2** Invite email validation is `includes("@")`.
-84. **P2** A failed session refresh is silent — the user simply finds themselves logged out.
+83. [x] **P2** Invite email validation is `includes("@")`. Which accepted `@`, `a@b`, and a line with a space in it. Not a full RFC 5322 parse — nothing sensible is — but enough that a typo is caught before it becomes an invite row nobody can ever consume, since a pending invite is matched against the address a real signup arrives with.
+84. [x] **P2** A failed session refresh is silent — the user simply finds themselves logged out. It looked exactly like never having been signed in: you are somewhere else, with a login screen and no idea why. The middleware carries the reason, and only when a session cookie was actually present — otherwise the same message would greet a first-time visitor.
 85. **P3** No audit trail for member add/remove.
 86. **P3** No account deletion path.
 87. **NO** Client-side title length validation. The database check is the real one and the error surfaces.
@@ -141,15 +141,15 @@ of this list rather than a gap in it.
 
 ## L. Copy and content
 
-93. **P2** Error toasts show the raw Postgres message as a description, which is English and technical.
-94. **P2** No copy for the board's empty state beyond "Rien ici."
+93. [x] **P2** Error toasts show the raw Postgres message as a description, which is English and technical. A failed save read « La modification n'a pas été enregistrée » followed by `new row for relation "tasks" violates check constraint "tasks_title_check"` — English, jargon, naming an object nobody using this app has heard of, and putting the schema on screen besides. The handful of refusals this app can actually provoke now get a French sentence, keyed on the SQLSTATE; everything else gets none, because a second line that cannot be understood reads as though something is broken beyond what happened. The raw message goes to the console, where whoever is debugging will look for it.
+94. [x] **P2** No copy for the board's empty state beyond "Rien ici." Deleted rather than written. Six columns each saying « Rien ici. » is noise — a column with nothing in it is already obviously empty. What was actually missing was a target while dragging, so a dashed « Déposer ici » appears then and only then.
 95. **P3** The clear-out copy rotates by day-of-month, so the same day each month repeats.
 96. **P3** No pluralisation helper; counts are bare numbers.
 
 ## M. Deployment and operations
 
 97. [x] **P1** No `robots.txt`; a private task app should not invite indexing.
-98. **P2** No `/api/health` check of the database, only of configuration.
+98. [x] **P2** No `/api/health` check of the database, only of configuration. Every variable being present says nothing about whether the project behind them is awake, reachable from this region, or still holding the keys it was given — a paused Supabase project and a rotated key both look like perfect configuration from here, and both take the app down. One anonymous count against an RLS-protected table answers it: the number comes back zero, which is the point; what matters is that it comes back. 503 rather than 200 when it does not, since a probe that answers 200 while the database is unreachable is a probe nothing can be wired to.
 99. **P2** No error reporting — a crash in production is invisible unless someone looks.
 100. **P3** No preview-environment configuration for Vercel.
 101. **P3** No database backup schedule documented.
@@ -216,7 +216,7 @@ of this list rather than a gap in it.
 
 ## U. Developer experience
 
-141. **P2** No `.env.example` documenting the four variables.
+141. [x] **P2** No `.env.example` documenting the four variables. With what each one is for, which are safe in a browser and why, and the two places `NEXT_PUBLIC_SITE_URL` has to agree — it is what the login page hands Supabase as `emailRedirectTo`, so getting it wrong is what makes a production email link point at localhost.
 142. **P2** `reference/` is stale relative to `lib/` and may mislead a future reader.
 143. **P2** No CONTRIBUTING or architecture note beyond DECISIONS.
 144. **P3** No pre-commit hook running typecheck.

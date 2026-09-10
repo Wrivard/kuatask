@@ -269,7 +269,7 @@ export const useStore = create<Store>((set, get) => {
           .from('profiles')
           .update({ sound_enabled: value })
           .eq('id', me.id);
-        if (error) toastError(error.message);
+        if (error) toastError(error);
       })();
     },
 
@@ -290,7 +290,7 @@ export const useStore = create<Store>((set, get) => {
             me: before,
             members: get().members.map((m) => (m.id === before.id ? before : m)),
           });
-          toastError(error.message);
+          toastError(error);
         }
       })();
     },
@@ -431,7 +431,7 @@ export const useStore = create<Store>((set, get) => {
 
         if (error) {
           set((s) => ({ tasks: s.tasks.filter((t) => t.id !== optimistic.id) }));
-          toastError(error.message);
+          toastError(error);
           return;
         }
         patchLocal(optimistic.id, data);
@@ -482,7 +482,7 @@ export const useStore = create<Store>((set, get) => {
         release();
         if (error) {
           patchLocal(id, before);
-          toastError(error.message);
+          toastError(error);
         }
       })();
     },
@@ -540,7 +540,7 @@ export const useStore = create<Store>((set, get) => {
             // delete of the other person's task fails. Put the row back rather
             // than leaving a ghost the server does not have.
             set((s) => ({ tasks: s.tasks.filter((t) => t.id !== before.id) }));
-            toastError(error.message);
+            toastError(error);
           }
         })();
         },
@@ -553,7 +553,7 @@ export const useStore = create<Store>((set, get) => {
         release();
         if (error) {
           set((s) => ({ tasks: [...s.tasks, before] }));
-          toastError(error.message);
+          toastError(error);
         }
       })();
     },
@@ -640,8 +640,14 @@ function pick<T extends object>(obj: T, keys: (keyof T)[]): Partial<T> {
   return Object.fromEntries(keys.map((k) => [k, obj[k]])) as Partial<T>;
 }
 
-// wire to sonner in the app; kept out of the store so it stays testable
-let toastError: (msg: string) => void = () => {};
-export function setErrorHandler(fn: (msg: string) => void) {
+/*
+  Wired to sonner in the app; kept out of the store so it stays testable.
+
+  The whole refusal is passed, not its message. The message is English jargon
+  naming a constraint nobody using this app has heard of — what the UI needs is
+  the code, so it can say something in French or say nothing at all.
+*/
+let toastError: (error: Refusal) => void = () => {};
+export function setErrorHandler(fn: (error: Refusal) => void) {
   toastError = fn;
 }
