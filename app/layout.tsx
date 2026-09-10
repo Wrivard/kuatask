@@ -58,7 +58,15 @@ export default function RootLayout({
       </head>
       <body>
         {children}
-        <Toaster position="bottom-center" />
+        {/*
+          Lifted clear of the fixed bottom bar under lg, and of the home
+          indicator under that. An undo you cannot reach is not an undo.
+        */}
+        <Toaster
+          position="bottom-center"
+          offset="calc(4rem + env(safe-area-inset-bottom, 0px))"
+          mobileOffset="calc(4.5rem + env(safe-area-inset-bottom, 0px))"
+        />
       </body>
     </html>
   );

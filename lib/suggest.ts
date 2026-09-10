@@ -37,17 +37,43 @@ export function tokenAtCursor(value: string, cursor: number): ActiveToken | null
   };
 }
 
-/** Distinct labels already in use, most frequent first. */
-export function labelsInUse(tasks: Task[]): string[] {
-  const counts = new Map<string, number>();
+/**
+ * Distinct labels already in use, most useful first.
+ *
+ * Raw frequency ranks a client you billed forty hours to last spring above the
+ * one you are working on this week, which is exactly backwards for a field you
+ * are typing into right now. Each use is worth a point that decays by half
+ * every fortnight, so a long-finished client falls away on its own without
+ * anything ever needing to be archived.
+ */
+const HALF_LIFE_DAYS = 14;
+
+export function labelsInUse(tasks: Task[], nowMs: number = Date.now()): string[] {
+  const weights = new Map<string, number>();
+
   for (const task of tasks) {
     if (!task.label) continue;
-    counts.set(task.label, (counts.get(task.label) ?? 0) + 1);
+    const stamp = Date.parse(task.updated_at ?? task.created_at ?? '');
+    const ageDays = Number.isNaN(stamp)
+      ? 0
+      : Math.max(0, (nowMs - stamp) / 86_400_000);
+    const weight = Math.pow(0.5, ageDays / HALF_LIFE_DAYS);
+    weights.set(task.label, (weights.get(task.label) ?? 0) + weight);
   }
-  return [...counts.entries()]
+
+  return [...weights.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .map(([label]) => label);
 }
+
+/**
+ * A suggestion plus the strings it can be found by.
+ *
+ * A person is matched on their display name and on the local part of their
+ * address, because that is what gets typed: `@gberther` is how one of these two
+ * is addressed all day, and it used to match nothing at all.
+ */
+type Candidate = Suggestion & { keys: string[] };
 
 export function suggestionsFor(
   token: ActiveToken,
@@ -55,20 +81,27 @@ export function suggestionsFor(
   members: Profile[],
   limit = 5,
 ): Suggestion[] {
-  const pool: Suggestion[] =
+  const pool: Candidate[] =
     token.kind === "label"
-      ? labelsInUse(tasks).map((l) => ({ value: l, label: `#${l}` }))
-      : members.map((m) => ({ value: m.display_name, label: `@${m.display_name}` }));
+      ? labelsInUse(tasks).map((l) => ({ value: l, label: `#${l}`, keys: [l.toLowerCase()] }))
+      : members.map((m) => ({
+          value: m.display_name,
+          label: `@${m.display_name}`,
+          keys: [m.display_name.toLowerCase(), (m.email ?? '').split('@')[0].toLowerCase()]
+            .filter(Boolean),
+        }));
 
-  if (token.query === "") return pool.slice(0, limit);
+  const strip = ({ value, label }: Candidate): Suggestion => ({ value, label });
+
+  if (token.query === "") return pool.slice(0, limit).map(strip);
 
   // prefix matches first, then anything containing the query
   const q = token.query;
-  const starts = pool.filter((s) => s.value.toLowerCase().startsWith(q));
+  const starts = pool.filter((s) => s.keys.some((k) => k.startsWith(q)));
   const contains = pool.filter(
-    (s) => !s.value.toLowerCase().startsWith(q) && s.value.toLowerCase().includes(q),
+    (s) => !s.keys.some((k) => k.startsWith(q)) && s.keys.some((k) => k.includes(q)),
   );
-  return [...starts, ...contains].slice(0, limit);
+  return [...starts, ...contains].slice(0, limit).map(strip);
 }
 
 /** Splices a chosen completion over the token being typed. */

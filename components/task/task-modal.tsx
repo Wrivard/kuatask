@@ -12,8 +12,16 @@ import { DatePicker } from "./date-picker";
 import { useStore, type Task } from "@/lib/store";
 import { useSetStatusWithFeedback } from "@/lib/completion";
 import { useAutoGrow } from "@/lib/auto-grow";
+import { labelsInUse } from "@/lib/suggest";
 import { copy } from "@/lib/copy";
-import { today, tomorrow, toDayString, nowTz, formatDueLabel } from "@/lib/time";
+import {
+  today,
+  tomorrow,
+  toDayString,
+  nowTz,
+  formatDueLabel,
+  instantToDay,
+} from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 /**
@@ -111,6 +119,9 @@ export function TaskModal({
   }, [notes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const creator = members.find((m) => m.id === task?.created_by);
+
+  const allTasks = useStore((s) => s.tasks);
+  const knownLabels = React.useMemo(() => labelsInUse(allTasks), [allTasks]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (!task) return;
@@ -272,12 +283,25 @@ export function TaskModal({
           </Field>
 
           <Field label={copy.task.label}>
+            {/*
+              The composer completes labels and this field did not, which is how
+              one client ends up spelled three ways. A native datalist rather
+              than the composer's own list: there is no token to parse here, the
+              whole field is the value, and the browser already knows how to
+              offer a set of them.
+            */}
             <Input
+              list="kua-labels"
               defaultValue={task.label ?? ""}
               onBlur={(e) => updateTask(task.id, { label: e.target.value.trim() || null })}
               placeholder={copy.task.label}
               className="h-8 max-w-[260px] rounded-md border-border bg-bg text-[13px] dark:bg-bg"
             />
+            <datalist id="kua-labels">
+              {knownLabels.map((l) => (
+                <option key={l} value={l} />
+              ))}
+            </datalist>
           </Field>
 
           <div className="flex items-center gap-3">
@@ -301,11 +325,16 @@ export function TaskModal({
           >
             {copy.task.delete}
           </Button>
-          {creator && (
-            <span className="text-[12px] text-fg-faint">
-              {copy.task.createdBy(creator.display_name)}
-            </span>
-          )}
+          {/*
+            "Créé par" alone left no way to tell a task typed this morning from
+            one that has been sitting there since March, which is exactly what
+            you want to know before deciding whether it still matters.
+          */}
+          <span className="text-right text-[12px] text-fg-faint">
+            {creator && copy.task.createdBy(creator.display_name)}
+            {creator && " · "}
+            {copy.task.createdOn(formatDueLabel(instantToDay(task.created_at)))}
+          </span>
         </div>
       </DialogContent>
     </Dialog>

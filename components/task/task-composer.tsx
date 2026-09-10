@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { X } from "lucide-react";
+import { RotateCcw, X } from "lucide-react";
 import { parseFr } from "@/lib/parse-fr";
 import { formatDueLabel, formatTime } from "@/lib/time";
 import { useStore } from "@/lib/store";
 import { useFocusComposer } from "@/lib/events";
+import { useDraft } from "@/lib/draft";
 import {
   applySuggestion,
   suggestionsFor,
@@ -44,7 +45,8 @@ export function TaskComposer({
     onExit: () => void;
   };
 }) {
-  const [value, setValue] = React.useState("");
+  // survives a glance at the calendar; see lib/draft.ts
+  const [value, setValue] = useDraft("composer:" + (defaultDueOn ?? "main"));
   const [dismissed, setDismissed] = React.useState<Set<string>>(new Set());
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -100,25 +102,38 @@ export function TaskComposer({
   const resolvedAssignee = React.useMemo(() => {
     if (!active.assignee) return null;
     const handle = active.assignee.toLowerCase();
+    // the same two keys the autocomplete offers, or @gberther would complete to
+    // a name that the submit path then failed to resolve back to a person
     return (
-      members.find((m) => m.display_name.toLowerCase().startsWith(handle))?.id ??
-      null
+      members.find(
+        (m) =>
+          m.display_name.toLowerCase().startsWith(handle) ||
+          (m.email ?? "").split("@")[0].toLowerCase().startsWith(handle),
+      )?.id ?? null
     );
   }, [active.assignee, members]);
 
-  function submit() {
-    /*
-      Dismissing a date or time chip means the parser was wrong and the words
-      belong to the title — "Appeler Marie demain matin" must not silently lose
-      "demain". They are re-appended rather than slotted back in place; word
-      order suffers slightly, losing the word does not. #label, @handle and !
-      are notation, not prose, so they stay stripped.
-    */
+  /*
+    The title this will actually create.
+
+    Dismissing a date or time chip means the parser was wrong and the words
+    belong to the title — "Appeler Marie demain matin" must not silently lose
+    "demain". They are re-appended rather than slotted back in place; word order
+    suffers slightly, losing the word does not. #label, @handle and ! are
+    notation, not prose, so they stay stripped.
+
+    Derived rather than computed inside submit, because the preview under the
+    box has to show exactly what Enter is about to make.
+  */
+  const finalTitle = React.useMemo(() => {
     const restored = parsed.matched
       .filter((m) => dismissed.has(m.kind) && (m.kind === "date" || m.kind === "time"))
       .map((m) => m.text);
+    return [parsed.title.trim(), ...restored].join(" ").trim();
+  }, [parsed, dismissed]);
 
-    const title = [parsed.title.trim(), ...restored].join(" ").trim();
+  function submit() {
+    const title = finalTitle;
     if (!title) return;
 
     createTask({
@@ -137,13 +152,40 @@ export function TaskComposer({
     inputRef.current?.focus();
   }
 
-  const chips: { kind: string; text: string }[] = [
-    active.date && { kind: "date", text: formatDueLabel(active.date) },
-    active.time && { kind: "time", text: formatTime(active.time) },
-    active.label && { kind: "label", text: `#${active.label}` },
-    active.assignee && { kind: "assignee", text: `@${active.assignee}` },
-    active.important && { kind: "important", text: copy.task.important },
-  ].filter(Boolean) as { kind: string; text: string }[];
+  /*
+    Every token the parser found gets a chip, switched on or off.
+
+    Dismissing one used to remove it, which made the decision one-way: get it
+    wrong and the only way back was to delete the word and type it again. An off
+    chip stays where it was, struck through, and clicking it turns the reading
+    back on.
+  */
+  const matched = new Set(parsed.matched.map((m) => m.kind));
+  const chips = (
+    [
+      matched.has("date") && parsed.dueOn
+        ? { kind: "date", text: formatDueLabel(parsed.dueOn) }
+        : null,
+      matched.has("time") && parsed.dueTime
+        ? { kind: "time", text: formatTime(parsed.dueTime) }
+        : null,
+      matched.has("label") && parsed.label
+        ? { kind: "label", text: "#" + parsed.label }
+        : null,
+      matched.has("assignee") && parsed.assigneeHandle
+        ? { kind: "assignee", text: "@" + parsed.assigneeHandle }
+        : null,
+      parsed.important ? { kind: "important", text: copy.task.important } : null,
+    ].filter(Boolean) as { kind: string; text: string }[]
+  ).map((chip) => ({ ...chip, on: !dismissed.has(chip.kind) }));
+
+  const toggleChip = (kind: string) =>
+    setDismissed((prev) => {
+      const next = new Set(prev);
+      if (next.has(kind)) next.delete(kind);
+      else next.add(kind);
+      return next;
+    });
 
   return (
     <div className="mb-4">
@@ -254,17 +296,35 @@ export function TaskComposer({
 
       {!searching && chips.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {/*
+            What the title will be, shown before what was taken out of it. Words
+            vanishing from the line you are typing is alarming when nothing says
+            where they went, and until a chip appeared nothing did.
+          */}
+          <span className="mr-0.5 max-w-full truncate text-[12px] text-fg">
+            {finalTitle || copy.composer.emptyTitle}
+          </span>
+
           {chips.map((chip) => (
             <button
               key={chip.kind}
               type="button"
-              onClick={() =>
-                setDismissed((prev) => new Set(prev).add(chip.kind))
-              }
-              className="flex items-center gap-1 rounded-sm border border-border px-1.5 py-px text-[12px] text-fg-muted hover:text-fg"
+              onClick={() => toggleChip(chip.kind)}
+              aria-pressed={chip.on}
+              title={chip.on ? copy.composer.chipOff : copy.composer.chipOn}
+              className={cn(
+                "flex items-center gap-1 rounded-sm border px-1.5 py-px text-[12px]",
+                chip.on
+                  ? "border-control text-fg-muted hover:text-fg"
+                  : "border-border text-fg-faint line-through hover:text-fg-muted",
+              )}
             >
               {chip.text}
-              <X className="size-3" strokeWidth={1.5} />
+              {chip.on ? (
+                <X className="size-3 shrink-0" strokeWidth={1.5} aria-hidden />
+              ) : (
+                <RotateCcw className="size-3 shrink-0" strokeWidth={1.5} aria-hidden />
+              )}
             </button>
           ))}
         </div>

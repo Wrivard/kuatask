@@ -37,7 +37,7 @@ of this list rather than a gap in it.
 16. [x] **P2** No count of overdue anywhere; you cannot tell at a glance whether you are behind. « 3 en retard », in danger, beside the Aujourd'hui heading. A count is not the section `docs/06` refuses: it says how far behind you are in one glance and then stops talking.
 17. [x] **P2** Search covers open tasks only — a completed task is unfindable. Two separate causes. Bucketing the results hid completions, because the sections only ever show what is open plus what was finished today — so searching is now a mode, a flat list in date order with done shown as done. And the browser only holds a week of completions, so a task finished last month was not in memory at all: while a search is open, the store asks the server for what the window left out and merges it in. No loading state; the local matches are already on screen and the rest arrive as more of the same list. The `or` filter's grammar is comma-separated and `%`/`_` are wildcards, so anything that would change the filter's shape is dropped from the term rather than escaped.
 18. [x] **P2** Search shows no result count, so an empty result and a slow filter look the same. « 7 résultats » beside the heading, singular when it is one.
-19. **P2** Dismissed composer chips cannot be restored without retyping.
+19. [x] **P2** Dismissed composer chips cannot be restored without retyping. Dismissing one used to remove it, which made the decision one-way: get it wrong and the only way back was to delete the word and type it again. An off chip stays where it was, struck through, and clicking it turns the reading back on.
 20. [x] **P2** A row does not show whether it has notes, so the modal is the only way to find out. A glyph, not a count — how many lines are in someone's notes is not information.
 21. [x] **P2** The label chip is not clickable; filtering by client means using the palette. Clicking it searches `#client`, which reuses the search box rather than adding a second kind of filter to the app. The chip is a `span` where nothing can act on it and a `button` where something can — a control that does nothing is worse than no control.
 22. [x] **P2** The assignee dot is not clickable either. It now switches the lens to that person. A 6px dot is not a target, so a negative margin gives it a 22px hit area without moving anything around it.
@@ -71,8 +71,8 @@ of this list rather than a gap in it.
 ## E. The task modal
 
 43. [x] **P1** Opened by keyboard, focus does not return to the originating row on close — it returns to `body`.
-44. **P2** The label field is a plain input with no autocomplete, unlike the composer.
-45. **P2** No created/updated timestamps beyond "Créé par".
+44. [x] **P2** The label field is a plain input with no autocomplete, unlike the composer. Which is how one client ends up spelled three ways. A native `datalist` rather than the composer's own list: there is no token to parse here, the whole field is the value, and the browser already knows how to offer a set of them.
+45. [x] **P2** No created/updated timestamps beyond "Créé par". Which left no way to tell a task typed this morning from one that has been sitting there since March — exactly what you want to know before deciding whether it still matters.
 46. **P2** Deleting from the modal gives an undo toast, but the modal has already closed over the top of it on mobile.
 47. **P3** No duplicate-task action.
 48. **P3** The notes field has no markdown, by spec, but also no link detection.
@@ -80,9 +80,9 @@ of this list rather than a gap in it.
 ## F. Composer and capture
 
 49. [x] **P1** Autocomplete missing the cursor after a click — already handled when autocomplete landed; the input tracks selectionStart on click and keyup, verified.
-50. **P2** No indication of what the parser understood until a chip appears — the title silently loses words.
-51. **P2** `@` autocomplete matches on display name only, not on the email local part.
-52. **P2** No recently-used labels ordering beyond raw frequency.
+50. [x] **P2** No indication of what the parser understood until a chip appears — the title silently loses words. The title the box is about to create is now shown next to the chips. Words vanishing from the line you are typing is alarming when nothing says where they went.
+51. [x] **P2** `@` autocomplete matches on display name only, not on the email local part. `@gberther` is how one of these two is addressed all day and it matched nothing at all. Both the suggestion list and the submit path resolve on either key — they had to move together, or a completion would have produced a handle the parser could not turn back into a person.
+52. [x] **P2** No recently-used labels ordering beyond raw frequency. Raw frequency ranks a client you billed forty hours to last spring above the one you are on this week, which is backwards for a field you are typing into right now. Each use is worth a point that halves every fortnight, so a finished client falls away on its own and nothing ever needs archiving.
 53. **P3** No support for `demain matin` / `cet après-midi` as time-of-day hints.
 54. **P3** No undo for the composer itself (Ctrl+Z inside the input is browser-native).
 
@@ -164,8 +164,8 @@ of this list rather than a gap in it.
 
 ## O. Smaller UI details
 
-107. **P2** The composer does not clear its dismissed-chip state when the view changes.
-108. **P2** Toasts can cover the mobile bottom bar.
+107. [x] **P2** The composer does not clear its dismissed-chip state when the view changes. Resolved together with 131, which wanted the opposite thing: the *text* now survives a view switch and the dismissals do not. Capture is the one thing this app must never lose, and "I typed it, then I looked at the calendar, then it was gone" is the worst way to lose it — while a dismissal is a judgement about a specific reading and has no business outliving the trip.
+108. [x] **P2** Toasts can cover the mobile bottom bar. Lifted clear of it, and of the home indicator under that. An undo you cannot reach is not an undo.
 109. **P2** The settings tabs do not indicate which pane is loading on a slow navigation.
 110. **P2** The people page shows no email for members, only display names.
 111. **P2** No indication anywhere of who you are signed in as, except settings.
@@ -197,14 +197,14 @@ of this list rather than a gap in it.
 
 129. [x] **P2** The board's grouping persists; the calendar's month/week mode does not. Both go through a new `useLocalLens`, which also documents why these live in localStorage rather than the URL or the profile: a link to the board should not carry your grouping, and the two people here use a laptop and a phone very differently.
 130. **P2** The completed-footer expanded state resets on every navigation.
-131. **P3** The composer's in-progress text is lost when switching views.
+131. [x] **P3** The composer's in-progress text is lost when switching views. Held in memory, not sessionStorage: a draft should survive a glance, not a reload — after a reload an empty box is the right thing to come back to.
 132. [x] **P3** Scroll memory covers the list but not the board's horizontal position. It does now, per grouping. The board scrolls inside an element rather than in the window, which is why the existing hook could not see it, and it is the view where losing your place costs most — column five is a journey, not a flick.
 
 ## S. Visual and layout
 
 133. **P2** The clear-out sweep is fixed height and does not cover a long list.
 134. [x] **P2** Board columns have a fixed 280px width regardless of viewport. `min(280px, calc(100vw - 4.5rem))`, so a phone shows one column and the edge of its neighbour instead of a column running off the screen.
-135. **P2** The modal is not scrollable when the notes field grows past the viewport.
+135. [x] **P2** The modal is not scrollable when the notes field grows past the viewport. Three bands now — the task, its metadata, the actions — and only the middle one scrolls, so long notes cannot push Supprimer off the bottom of the window.
 136. **NO** No max width on the board, so on an ultrawide it stretches. On review this is what a board is for: the columns are a fixed width and the row of them is as long as it is. Capping it would leave dead space beside a surface whose whole job is to be scrolled.
 137. **P3** The calendar week header is not sticky while scrolling a tall month.
 

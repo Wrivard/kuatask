@@ -197,8 +197,51 @@ const tasks = [
   { id: "1", label: "acme" }, { id: "2", label: "acme" }, { id: "3", label: "acme" },
   { id: "4", label: "beta" }, { id: "5", label: "beta" }, { id: "6", label: null },
 ];
-const members = [{ id: "u1", display_name: "wrivard" }, { id: "u2", display_name: "guillaume" }];
+const members = [
+  { id: "u1", display_name: "wrivard", email: "wrivard@kua.quebec" },
+  { id: "u2", display_name: "guillaume", email: "gberther@kua.quebec" },
+];
 eq("labels ranked by frequency", suggest.labelsInUse(tasks), ["acme", "beta"]);
+
+/*
+  Raw frequency ranks a client you billed forty hours to last spring above the
+  one you are on this week, which is backwards for a field you are typing into
+  right now. Each use decays by half every fortnight.
+*/
+{
+  const NOW = Date.parse("2026-09-10T12:00:00Z");
+  const day = (n) => new Date(NOW - n * 86400000).toISOString();
+  const aged = [
+    { id: "a", label: "ancien", updated_at: day(90) },
+    { id: "b", label: "ancien", updated_at: day(92) },
+    { id: "c", label: "ancien", updated_at: day(95) },
+    { id: "d", label: "ancien", updated_at: day(97) },
+    { id: "e", label: "courant", updated_at: day(1) },
+  ];
+  eq("one recent use outranks four old ones",
+     suggest.labelsInUse(aged, NOW), ["courant", "ancien"]);
+
+  const even = [
+    { id: "a", label: "deux", updated_at: day(2) },
+    { id: "b", label: "deux", updated_at: day(2) },
+    { id: "c", label: "un", updated_at: day(2) },
+  ];
+  eq("at equal age it is still frequency", suggest.labelsInUse(even, NOW), ["deux", "un"]);
+}
+
+/*
+  A person is addressed by the local part of their address all day. @gberther
+  used to match nothing at all, because only the display name was searched.
+*/
+{
+  const byHandle = suggest.tokenAtCursor("appeler @gber", 13);
+  eq("an address local part completes to the person",
+     suggest.suggestionsFor(byHandle, tasks, members).map((s) => s.value), ["guillaume"]);
+
+  const byName = suggest.tokenAtCursor("appeler @guil", 13);
+  eq("and the display name still does",
+     suggest.suggestionsFor(byName, tasks, members).map((s) => s.value), ["guillaume"]);
+}
 const tok = suggest.tokenAtCursor("envoyer #ac", 11);
 eq("token under the cursor", [tok.kind, tok.query], ["label", "ac"]);
 eq("matching suggestion", suggest.suggestionsFor(tok, tasks, members).map((s) => s.value), ["acme"]);

@@ -64,6 +64,9 @@ export const copy = {
     placeholder: "Ajouter une tâche…",
     searchPlaceholder: "Chercher…",
     hint: "Entrée pour ajouter",
+    emptyTitle: "Sans titre",
+    chipOff: "Ignorer cette lecture",
+    chipOn: "Reprendre cette lecture",
   },
 
   task: {
@@ -89,6 +92,7 @@ export const copy = {
     quickTomorrow: "Demain",
     quickMonday: "Lundi",
     quickNextWeek: "Dans une semaine",
+    createdOn: (when: string) => `créée ${when}`,
     pickDate: "Choisir une date",
     close: "Fermer",
   },
