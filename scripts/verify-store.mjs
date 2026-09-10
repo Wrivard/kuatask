@@ -60,7 +60,8 @@ export function createClient() {
 `;
 fs.writeFileSync(path.join(tmp, "supabase-stub.ts"), stub);
 
-for (const file of ["store.ts", "sound.ts"]) {
+// store.ts pulls in time.ts for the streak history it now carries
+for (const file of ["store.ts", "sound.ts", "time.ts"]) {
   const src = fs.readFileSync(path.join("lib", file), "utf8");
   fs.writeFileSync(
     path.join(tmp, file),
@@ -201,6 +202,21 @@ await settle();
 s().applyRemote("UPDATE", { ...t, title: "arrivée plus tard" });
 check("once settled, remote updates apply", byTitle("arrivée plus tard") !== undefined,
       titles().join(","));
+
+/*
+  A deletion is authoritative even mid-edit. Local precedence stops an echo
+  overwriting what you are typing, but the row is gone server-side, so holding
+  it only means your next write fails against something that no longer exists.
+*/
+section("Local precedence — except for a deletion, which always wins");
+reset();
+s().createTask({ title: "sera supprimée" });
+await settle();
+const doomed = byTitle("sera supprimée");
+s().updateTask(doomed.id, { title: "en train de taper" });   // in flight
+s().applyRemote("DELETE", { id: doomed.id });
+check("a remote delete applies even with a write in flight",
+      s().tasks.length === 0, titles().join(","));
 
 section("Realtime — inserts and deletes from the other person");
 reset();

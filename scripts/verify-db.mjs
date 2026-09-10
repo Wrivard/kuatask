@@ -11,8 +11,13 @@
  *
  * It creates throwaway users and tasks and deletes them afterwards, then
  * verifies the cleanup rather than assuming it: an earlier version of this
- * script reported success while leaving two rows behind. Run it against a
- * project you are willing to write to.
+ * script reported success while leaving two rows behind.
+ *
+ * SAFETY: cleanup only ever deletes ids this run created. It must never delete
+ * "whatever is left over" — during this build a leftover row was assumed to be
+ * test residue and removed, and it turned out to be a real task somebody had
+ * just typed. Counting strays is a check; deleting them is not this script's
+ * business. Run it against a project you are willing to write to.
  */
 import fs from "node:fs";
 import { createClient } from "@supabase/supabase-js";

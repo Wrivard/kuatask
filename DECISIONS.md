@@ -922,3 +922,26 @@ bare `eslint`, so `reference/` was never in my local scope and always in CI's.
 specification's own code, copied into `lib/` and adapted — and the ESLint config
 now agrees. The lesson is the general one: the command CI runs is the command
 that has to be green, not the one that happens to be convenient locally.
+
+---
+
+## A task was deleted by mistake
+
+While verifying the bounded task fetch, a cleanup step reported one row left
+over. It was assumed to be residue from the test and deleted. It was not — it
+was a real task somebody had typed into the app minutes earlier.
+
+Restored immediately from the id and title captured in the same output, with
+`created_by` set to the workspace's only member. Two fields could not be
+recovered because they were never read before the delete: if that task had a due
+date or an assignee, they are gone.
+
+The scripts were not at fault — they delete by ids they created. The mistake was
+a manual delete of "whatever is left", which is a category of action that cannot
+be made safe by care alone. The rule now written into `scripts/verify-db.mjs`:
+counting strays is a check, deleting them is not the script's business, and
+nothing deletes a row it did not create.
+
+The wider lesson is about verification against a live workspace. Reading is
+cheap and safe; writing is neither, and a throwaway-data convention only holds
+if every delete is keyed on an id the run owns.
