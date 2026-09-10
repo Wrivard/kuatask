@@ -36,6 +36,11 @@ export const copy = {
     mine: "Moi",
   },
 
+  search: {
+    title: "Résultats",
+    count: (n: number) => `${n} ${n === 1 ? "résultat" : "résultats"}`,
+  },
+
   calendar: {
     more: (n: number) => `+${n} de plus`,
     mode: "Mois ou semaine",
@@ -60,6 +65,10 @@ export const copy = {
   },
 
   task: {
+    hasNotes: "Contient des notes",
+    overdueCount: (n: number) => `${n} en retard`,
+    filterByLabel: (label: string) => `Chercher #${label}`,
+    filterByPerson: (name: string) => `Voir les tâches de ${name}`,
     titlePlaceholder: "Titre",
     notesPlaceholder: "Notes…",
     dueDate: "Échéance",

@@ -16,7 +16,7 @@
 import { create } from 'zustand';
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/database.types';
-import { instantToDay, type DayString } from '@/lib/time';
+import { instantToDay, recentCompletionCutoff, type DayString } from '@/lib/time';
 import { setSoundEnabled as applySoundEnabled } from '@/lib/sound';
 
 export type Task = Database['public']['Tables']['tasks']['Row'];
@@ -120,6 +120,17 @@ type Store = {
    */
   resync: () => Promise<void>;
 
+  /**
+   * Pulls tasks matching a search back from outside the loaded window.
+   *
+   * The browser holds a week of completions, which is right for every view
+   * except search: "what was that thing we did for them last month" is a real
+   * question in a two-person agency and it was the one question search could
+   * not answer. Fire and forget — results merge in when they arrive, with no
+   * loading state, because the local matches are already on screen.
+   */
+  searchArchive: (query: string) => void;
+
   createTask: (input: Partial<Task> & { title: string }) => void;
   updateTask: (id: string, patch: Partial<Task>) => void;
   toggleTask: (id: string) => void;
@@ -164,6 +175,9 @@ async function withRetry<T extends { error: Refusal }>(run: () => PromiseLike<T>
   return run();
 }
 const FILTER_KEY = 'kua-assignee-filter';
+
+/** Rows a search may pull back from outside the window in one go. */
+const ARCHIVE_LIMIT = 50;
 
 export const useStore = create<Store>((set, get) => {
   const supabase = createClient();
@@ -321,7 +335,14 @@ export const useStore = create<Store>((set, get) => {
       if (!wsId) return;
 
       const [{ data: rows }, { data: members }, { data: completions }] = await Promise.all([
-        supabase.from('tasks').select('*').eq('workspace_id', wsId).order('position'),
+        // the same window as the shell's first query — an unbounded refetch here
+        // silently gave back everything the bounded first load had saved
+        supabase
+          .from('tasks')
+          .select('*')
+          .eq('workspace_id', wsId)
+          .or(`status.neq.done,completed_at.gte.${recentCompletionCutoff()}`)
+          .order('position'),
         supabase.from('profiles').select('*'),
         supabase
           .from('tasks')
@@ -553,6 +574,32 @@ export const useStore = create<Store>((set, get) => {
       }
 
       set({ undoStack: [] });
+    },
+
+    searchArchive(query) {
+      const wsId = get().workspaceId;
+      const q = query.trim().replace(/^#/, '');
+      // `or` is a comma-separated grammar and % / _ are wildcards, so anything
+      // that would change the shape of the filter is dropped rather than escaped
+      const safe = q.replace(/[,()%_*\\]/g, ' ').trim();
+      if (!wsId || safe.length < 2) return;
+
+      void (async () => {
+        const { data } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('workspace_id', wsId)
+          .or(`title.ilike.%${safe}%,label.ilike.%${safe}%,notes.ilike.%${safe}%`)
+          .order('completed_at', { ascending: false, nullsFirst: false })
+          .limit(ARCHIVE_LIMIT);
+        if (!data?.length) return;
+
+        set((s) => {
+          const known = new Set(s.tasks.map((t) => t.id));
+          const extra = data.filter((row) => !known.has(row.id));
+          return extra.length ? { tasks: [...s.tasks, ...extra] } : {};
+        });
+      })();
     },
 
     applyRemote(type, row) {

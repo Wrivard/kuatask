@@ -19,7 +19,7 @@ of this list rather than a gap in it.
 1. [x] **P1** `applyRemote` skips any row with a local write in flight — including a remote DELETE. If your partner deletes a task while you are editing it, it lingers until the next resync.
 2. [x] **P1** The undo stack holds closures over task snapshots captured at push time; after a resync those snapshots can describe a row that no longer exists. Each entry now carries a precondition alongside its inverse: it fires only while the field it would reverse still holds the value your action put there. So ⌘Z will not overwrite the date your partner just changed, will not re-toggle a task they already reopened, and will not resurrect one they deleted. An entry that fails its precondition is dropped and the press continues to the next live one, because a ⌘Z that stops dead is worse than one that skips. Five new assertions in `verify:store`, each of which fails if the precondition is removed.
 3. [x] **P1** Every completed task is fetched forever. The payload grows without bound while the UI shows only today's completions.
-4. **P2** `resync` refetches the whole workspace; it could ask only for rows changed since a timestamp.
+4. [~] **P2** `resync` refetches the whole workspace; it could ask only for rows changed since a timestamp. Half done, and the half that mattered: it was refetching *every completed task ever*, silently giving back everything the bounded first load had saved. It now uses the same window. Asking only for rows changed since a timestamp is still open — it needs a server-side clock to compare against, since the client's cannot be trusted for this.
 5. [x] **P2** Components subscribe to the whole `tasks` array, so any write re-renders every view that is mounted. Measured before assuming: the re-render was never the expensive part — the *derived work inside it* was, and it is now ~200x cheaper (see 73, 74, 128). At 2000 tasks the sidebar counts, the streak and the board's columns together went from ~40ms per write to ~0.23ms. `TaskRow` is already memoized on task identity, so what is left is reconciliation of unchanged rows, which no longer registers. Adding selector machinery on top of that would be code paying for a problem that has already been removed.
 6. [x] **P2** `updateTask` sends the full patch even when a field is unchanged. The patch is now narrowed to the fields that actually differ, and an all-no-op patch is not a write at all. The modal saves on every change, so most patches were partly redundant: a round trip, a realtime echo to the other session, and an undo entry that reversed nothing — an all-no-op patch used to consume a ⌘Z press outright.
 7. [x] **P2** No retry or backoff on a transient network failure — one blip becomes a rollback and a toast. One retry after 400ms, and only when the error carries no `code`. A PostgREST error has one: that is the database refusing, and refusing twice as fast helps nobody. An error without one is the fetch failing, which on a phone changing cell towers is routine.
@@ -34,13 +34,13 @@ of this list rather than a gap in it.
 ## B. The list view
 
 15. **NO** Visually separating overdue within Aujourd'hui. On review this contradicts `docs/06-views.md`, which says overdue gets no section of its own precisely so it does not accumulate into a wall of failure people scroll past. The red date is the whole intended signal. Audit item withdrawn.
-16. **P2** No count of overdue anywhere; you cannot tell at a glance whether you are behind.
-17. **P2** Search covers open tasks only — a completed task is unfindable.
-18. **P2** Search shows no result count, so an empty result and a slow filter look the same.
+16. [x] **P2** No count of overdue anywhere; you cannot tell at a glance whether you are behind. « 3 en retard », in danger, beside the Aujourd'hui heading. A count is not the section `docs/06` refuses: it says how far behind you are in one glance and then stops talking.
+17. [x] **P2** Search covers open tasks only — a completed task is unfindable. Two separate causes. Bucketing the results hid completions, because the sections only ever show what is open plus what was finished today — so searching is now a mode, a flat list in date order with done shown as done. And the browser only holds a week of completions, so a task finished last month was not in memory at all: while a search is open, the store asks the server for what the window left out and merges it in. No loading state; the local matches are already on screen and the rest arrive as more of the same list. The `or` filter's grammar is comma-separated and `%`/`_` are wildcards, so anything that would change the filter's shape is dropped from the term rather than escaped.
+18. [x] **P2** Search shows no result count, so an empty result and a slow filter look the same. « 7 résultats » beside the heading, singular when it is one.
 19. **P2** Dismissed composer chips cannot be restored without retyping.
-20. **P2** A row does not show whether it has notes, so the modal is the only way to find out.
-21. **P2** The label chip is not clickable; filtering by client means using the palette.
-22. **P2** The assignee dot is not clickable either.
+20. [x] **P2** A row does not show whether it has notes, so the modal is the only way to find out. A glyph, not a count — how many lines are in someone's notes is not information.
+21. [x] **P2** The label chip is not clickable; filtering by client means using the palette. Clicking it searches `#client`, which reuses the search box rather than adding a second kind of filter to the app. The chip is a `span` where nothing can act on it and a `button` where something can — a control that does nothing is worse than no control.
+22. [x] **P2** The assignee dot is not clickable either. It now switches the lens to that person. A 6px dot is not a target, so a negative margin gives it a 22px hit area without moving anything around it.
 23. **P3** No drag-to-reorder in the list (the board has it; the list is date-ordered).
 24. **P3** Multi-line paste creates one task with newlines rather than several tasks.
 25. **P3** No bulk selection or bulk actions.
@@ -54,7 +54,7 @@ of this list rather than a gap in it.
 30. **P2** Columns cannot be collapsed; five date columns on a laptop is a lot of horizontal scrolling.
 31. **P2** No per-column count of what is overdue or due today.
 32. **P2** Dragging to a column that is scrolled out of view is impossible — no auto-scroll at the edges.
-33. **P2** A card does not show notes presence, same as the row.
+33. [x] **P2** A card does not show notes presence, same as the row. Same glyph.
 34. **P3** No WIP limit or "too much in En cours" signal.
 35. **P3** Cards do not show the label colour, only the text.
 

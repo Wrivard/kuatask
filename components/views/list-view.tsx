@@ -79,18 +79,50 @@ export function ListView() {
 
   const holding = useCompletionHold(allTasks);
 
-  const tasks = React.useMemo(() => {
-    const byAssignee =
-      filter === null ? allTasks : allTasks.filter((t) => t.assignee_id === filter);
+  const byAssignee = React.useMemo(
+    () => (filter === null ? allTasks : allTasks.filter((t) => t.assignee_id === filter)),
+    [allTasks, filter],
+  );
 
+  /*
+    Search is a different mode, not a filter on the sections.
+
+    Bucketing the results hid every completed task, because the buckets only
+    ever show what is open plus what was finished today — so the one thing you
+    most often search for, "what was that thing we did for them last week", was
+    the one thing search could not find. Results are a flat list in date order,
+    done included and shown as done.
+  */
+  const results = React.useMemo(() => {
     const q = searching ? normalize(query.trim()) : "";
-    if (!q) return byAssignee;
+    if (!q) return null;
 
     // accent-insensitive: nobody types "étiquette" with the accent while searching
-    return byAssignee.filter((t) =>
-      normalize([t.title, t.label ?? "", t.notes ?? ""].join(" ")).includes(q),
-    );
-  }, [allTasks, filter, searching, query]);
+    return byAssignee
+      .filter((t) =>
+        normalize(
+          [t.title, t.label ? `#${t.label}` : "", t.notes ?? ""].join(" "),
+        ).includes(q),
+      )
+      .sort((a, b) => (b.due_on ?? "").localeCompare(a.due_on ?? ""));
+  }, [byAssignee, searching, query]);
+
+  const tasks = results ?? byAssignee;
+
+  /*
+    The browser holds a week of completions, so a task finished last month is in
+    the database and not in memory. While a search is open, ask the server for
+    what the window left out and merge it in. No loading state: the local
+    matches are already on screen, and the rest arrive as more of the same list.
+  */
+  const searchArchive = useStore((s) => s.searchArchive);
+  React.useEffect(() => {
+    if (!searching) return;
+    const q = query.trim();
+    if (q.length < 2) return;
+    const id = setTimeout(() => searchArchive(q), 260);
+    return () => clearTimeout(id);
+  }, [searching, query, searchArchive]);
 
   /*
     § 8.7 — when the other person completes a task on your screen, their dot
@@ -147,6 +179,19 @@ export function ListView() {
   const visibleCount = sections.reduce((n, s) => n + s.tasks.length, 0);
 
   /*
+    docs/06 refuses overdue its own section, so that a backlog cannot grow into
+    a wall of failure people learn to scroll past. A count is not a section: it
+    says how far behind you are in one glance and then stops talking.
+  */
+  const overdueCount = React.useMemo(
+    () =>
+      (sections.find((s) => s.bucket === "today")?.tasks ?? []).filter((t) =>
+        isOverdue(t.due_on, t.status),
+      ).length,
+    [sections],
+  );
+
+  /*
     Row focus is one flat sequence across all six sections — J and K cross
     section boundaries because the list reads as one list, not six.
   */
@@ -154,6 +199,14 @@ export function ListView() {
     () => sections.flatMap((s) => s.tasks.map((t) => t.id)),
     [sections],
   );
+
+  const setFilter = useStore((s) => s.setAssigneeFilter);
+
+  // reuses the search box rather than adding a second kind of filter to the app
+  const searchLabel = React.useCallback((label: string) => {
+    setSearching(true);
+    setQuery(`#${label}`);
+  }, []);
 
   const [focusedId, setFocusedId] = React.useState<string | null>(null);
   const toggle = useToggleWithFeedback();
@@ -281,32 +334,58 @@ export function ListView() {
         }}
       />
 
-      {sections.map((s) => (
+      {results ? (
         <ListSection
-          key={s.bucket}
-          id={`section-${s.bucket}`}
-          title={s.title}
-          tasks={s.tasks}
+          title={copy.search.title}
+          tasks={results}
           onOpen={setOpenId}
-          pulseIds={pulseIds}
           focusedId={focusedId}
           onFocus={setFocusedId}
+          onSelectLabel={searchLabel}
+          onSelectAssignee={setFilter}
+          note={
+            <span className="text-[12px] text-fg-faint">
+              {copy.search.count(results.length)}
+            </span>
+          }
         />
-      ))}
+      ) : (
+        sections.map((s) => (
+          <ListSection
+            key={s.bucket}
+            id={`section-${s.bucket}`}
+            title={s.title}
+            tasks={s.tasks}
+            onOpen={setOpenId}
+            pulseIds={pulseIds}
+            focusedId={focusedId}
+            onFocus={setFocusedId}
+            onSelectLabel={searchLabel}
+            onSelectAssignee={setFilter}
+            note={
+              s.bucket === "today" && overdueCount > 0 ? (
+                <span className="text-[12px] text-danger">
+                  {copy.task.overdueCount(overdueCount)}
+                </span>
+              ) : undefined
+            }
+          />
+        ))
+      )}
 
-      {cleared ? (
+      {cleared && !results ? (
         <ClearOut
           completedToday={clearedCount}
           streak={streak}
           seed={dayOfMonth()}
         />
       ) : (
-        visibleCount === 0 && (
+        (results ? results.length === 0 : visibleCount === 0) && (
           <p className="text-[13px] text-fg-muted">{emptyMessage}</p>
         )
       )}
 
-      {completedToday.length > 0 && (
+      {!results && completedToday.length > 0 && (
         <section className="mt-2">
           <button
             type="button"

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
+import { AlignLeft } from "lucide-react";
 import { TaskCheckbox } from "@/components/task/task-checkbox";
 import { LabelChip } from "@/components/task/label-chip";
 import { StatusChip } from "@/components/task/status-chip";
@@ -41,6 +42,7 @@ function BoardCardImpl({
 
   const done = task.status === "done";
   const overdue = isOverdue(task.due_on, task.status);
+  const hasNotes = task.notes !== null && task.notes.trim() !== "";
   const assignee = members.find((m) => m.id === task.assignee_id);
 
   const dateText = (() => {
@@ -115,10 +117,18 @@ function BoardCardImpl({
         </span>
       </div>
 
-      {(task.label || dateText || task.important || assignee || task.status === "doing") && (
+      {(task.label || dateText || task.important || assignee || hasNotes || task.status === "doing") && (
         <div className="flex items-center gap-1.5 pl-[26px]">
           {task.status === "doing" && <StatusChip />}
           {task.label && <LabelChip label={task.label} />}
+          {/* same glyph as the row: whether there is more to read, nothing else */}
+          {hasNotes && (
+            <AlignLeft
+              className="size-3 shrink-0 text-fg-faint"
+              strokeWidth={1.5}
+              aria-label={copy.task.hasNotes}
+            />
+          )}
           {task.important && (
             <span className="size-1.5 shrink-0 rounded-full bg-danger" aria-label={copy.task.important} />
           )}

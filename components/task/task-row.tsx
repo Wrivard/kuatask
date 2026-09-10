@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
+import { AlignLeft } from "lucide-react";
 import { TaskCheckbox } from "./task-checkbox";
 import { LabelChip } from "./label-chip";
 import { StatusChip } from "./status-chip";
@@ -28,6 +29,8 @@ function TaskRowImpl({
   focused = false,
   onFocus,
   onGrab,
+  onSelectLabel,
+  onSelectAssignee,
 }: {
   task: Task;
   onOpen: (id: string) => void;
@@ -40,6 +43,9 @@ function TaskRowImpl({
    * date's to decide and `touch-none` would cost the page its scroll.
    */
   onGrab?: (id: string, e: React.PointerEvent) => void;
+  /** Clicking the chip or the dot narrows the list, where the view supports it. */
+  onSelectLabel?: (label: string) => void;
+  onSelectAssignee?: (id: string) => void;
 }) {
   const reduced = useReducedMotion();
   const toggle = useToggleWithFeedback();
@@ -106,9 +112,22 @@ function TaskRowImpl({
         />
       </span>
 
+      {/*
+        Whether a task has notes was only discoverable by opening it, which is
+        the one thing the row exists to avoid. A glyph, not a count: the number
+        of lines in someone's notes is not information.
+      */}
+      {task.notes && task.notes.trim() !== "" && (
+        <AlignLeft
+          className="size-3 shrink-0 text-fg-faint"
+          strokeWidth={1.5}
+          aria-label={copy.task.hasNotes}
+        />
+      )}
+
       {task.status === "doing" && <StatusChip />}
 
-      {task.label && <LabelChip label={task.label} />}
+      {task.label && <LabelChip label={task.label} onSelect={onSelectLabel} />}
 
       {task.important && (
         <span
@@ -131,7 +150,7 @@ function TaskRowImpl({
         </span>
       )}
 
-      <AssigneeDot member={assignee} pulse={pulseAssignee} />
+      <AssigneeDot member={assignee} pulse={pulseAssignee} onSelect={onSelectAssignee} />
     </div>
   );
 }

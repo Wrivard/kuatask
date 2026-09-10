@@ -6,20 +6,10 @@ import { AppChrome } from "@/components/shell/app-chrome";
 import { BottomBar } from "@/components/shell/bottom-bar";
 import { LiveRegion } from "@/components/shell/live-region";
 import { SetupRequired } from "@/components/shell/setup-required";
-import { instantToDay } from "@/lib/time";
+import { instantToDay, recentCompletionCutoff } from "@/lib/time";
 
 // per-user by definition: never prerender
 export const dynamic = "force-dynamic";
-
-/**
- * How far back completed tasks are fetched in full.
- *
- * The UI shows today's completions and holds a row for 900ms after it is
- * ticked; a few days of slack covers a tab left open over a weekend and a clock
- * that disagrees. Older completions still exist in the database and still count
- * toward the streak — they simply do not need to be rows in the browser.
- */
-const RECENT_COMPLETION_DAYS = 7;
 
 /**
  * The app shell: the store's initial data, the keyboard layer, and the frame.
@@ -62,7 +52,7 @@ export default async function AppLayout({
     footer and the hold, and the streak needs one bit per day rather than whole
     rows — so it gets its own thin query of timestamps.
   */
-  const recent = new Date(Date.now() - RECENT_COMPLETION_DAYS * 86_400_000).toISOString();
+  const recent = recentCompletionCutoff();
 
   const [{ data: workspace }, { data: tasks }, { data: members }, { data: completions }] =
     await Promise.all([

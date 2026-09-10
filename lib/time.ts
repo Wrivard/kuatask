@@ -24,6 +24,25 @@ import { fr } from 'date-fns/locale';
 
 export const TZ = 'America/Montreal';
 
+/**
+ * How far back completed tasks are held in the browser.
+ *
+ * The UI shows today's completions and holds a row for 900ms after it is
+ * ticked; a few days of slack covers a tab left open over a weekend. Older
+ * completions still exist and still count toward the streak — they simply do
+ * not need to be rows here. The shell's first query and the store's resync use
+ * the same window, so a refetch cannot quietly undo the bounded first load.
+ *
+ * It lives here because both a server component and the browser store need it,
+ * and this is the only module they share that pulls in nothing from either side.
+ */
+export const RECENT_COMPLETION_DAYS = 7;
+
+/** The instant that window starts at. */
+export function recentCompletionCutoff(): string {
+  return new Date(Date.now() - RECENT_COMPLETION_DAYS * 86_400_000).toISOString();
+}
+
 /** A calendar day, 'yyyy-MM-dd'. The app's only date type. */
 export type DayString = string;
 
