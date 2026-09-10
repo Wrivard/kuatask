@@ -67,7 +67,7 @@ export function DaySheet({
 
   return (
     <Sheet open={day !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-full border-border bg-bg sm:max-w-[420px]">
+      <SheetContent side="right" className="w-full overflow-y-auto border-border bg-bg data-[side=right]:sm:max-w-[440px]">
         <SheetHeader className="px-5 pb-0 pt-5">
           <SheetTitle className="text-[22px] font-semibold tracking-[-0.02em]">
             {current ? formatDueLabel(current) : ""}

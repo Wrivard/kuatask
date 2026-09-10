@@ -6,7 +6,7 @@ import { copy } from "@/lib/copy";
 export default function ListPage() {
   return (
     <>
-      <Header title={copy.nav.today} />
+      <Header title={copy.nav.list} />
       <ListView />
     </>
   );

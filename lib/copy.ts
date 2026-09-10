@@ -88,6 +88,9 @@ export const copy = {
     quickToday: "Aujourd'hui",
     quickTomorrow: "Demain",
     quickMonday: "Lundi",
+    quickNextWeek: "Dans une semaine",
+    pickDate: "Choisir une date",
+    close: "Fermer",
   },
 
   empty: {

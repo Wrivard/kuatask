@@ -1,17 +1,19 @@
 "use client";
 
 import * as React from "react";
+import { addDays, nextDay } from "date-fns";
+import { CalendarDays, X } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "./date-picker";
 import { useStore, type Task } from "@/lib/store";
 import { useSetStatusWithFeedback } from "@/lib/completion";
 import { useAutoGrow } from "@/lib/auto-grow";
 import { copy } from "@/lib/copy";
 import { today, tomorrow, toDayString, nowTz, formatDueLabel } from "@/lib/time";
-import { nextDay } from "date-fns";
 import { cn } from "@/lib/utils";
 
 /**
@@ -22,6 +24,10 @@ import { cn } from "@/lib/utils";
  * Text fields debounce before they write. The store pushes an undo entry per
  * mutation, and a write per keystroke would bury the 20-entry stack under one
  * sentence of typing.
+ *
+ * Layout is three bands: the task itself, then its metadata, then the actions.
+ * Only the middle one scrolls, so a task with long notes cannot push Supprimer
+ * off the bottom of the window.
  */
 const TEXT_DEBOUNCE = 400;
 
@@ -55,16 +61,14 @@ export function TaskModal({
     }
   }, [taskId]);
 
-  const restoreFocus = React.useCallback(
-    (id: string | null) => {
-      if (openedFrom.current) return; // Radix will handle it
-      const row = id
-        ? document.querySelector<HTMLElement>(`[data-task-id="${id}"]`)
-        : null;
-      row?.focus();
-    },
-    [],
-  );
+  const restoreFocus = React.useCallback((id: string | null) => {
+    if (openedFrom.current) return; // Radix will handle it
+    const row = id
+      ? document.querySelector<HTMLElement>(`[data-task-id="${id}"]`)
+      : null;
+    row?.focus();
+  }, []);
+
   const task = useStore((s) => s.tasks.find((t) => t.id === taskId));
   const members = useStore((s) => s.members);
   const updateTask = useStore((s) => s.updateTask);
@@ -73,6 +77,7 @@ export function TaskModal({
 
   const [title, setTitle] = React.useState("");
   const [notes, setNotes] = React.useState("");
+  const [picking, setPicking] = React.useState(false);
 
   // both fields size themselves to their content — docs/06-views.md
   const titleRef = useAutoGrow<HTMLTextAreaElement>(title);
@@ -83,13 +88,17 @@ export function TaskModal({
     if (!task) return;
     setTitle(task.title);
     setNotes(task.notes ?? "");
+    setPicking(false);
   }, [task?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // debounced title/notes writes
   React.useEffect(() => {
     if (!task) return;
     if (title === task.title || title.trim() === "") return;
-    const id = setTimeout(() => updateTask(task.id, { title: title.trim() }), TEXT_DEBOUNCE);
+    const id = setTimeout(
+      () => updateTask(task.id, { title: title.trim() }),
+      TEXT_DEBOUNCE,
+    );
     return () => clearTimeout(id);
   }, [title]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -118,12 +127,17 @@ export function TaskModal({
 
   if (!task) return null;
 
-  const quickDates: { label: string; value: string | null }[] = [
+  const quickDates: { label: string; value: string }[] = [
     { label: copy.task.quickToday, value: today() },
     { label: copy.task.quickTomorrow, value: tomorrow() },
     { label: copy.task.quickMonday, value: toDayString(nextDay(nowTz(), 1)) },
-    { label: copy.task.removeDate, value: null },
+    { label: copy.task.quickNextWeek, value: toDayString(addDays(nowTz(), 7)) },
   ];
+
+  const setDue = (day: string | null) => {
+    updateTask(task.id, { due_on: day, ...(day === null ? { due_time: null } : {}) });
+    setPicking(false);
+  };
 
   return (
     <Dialog
@@ -138,11 +152,12 @@ export function TaskModal({
     >
       <DialogContent
         onKeyDown={handleKeyDown}
-        className="max-w-[520px] gap-0 rounded-lg border-border bg-surface p-0"
+        className="flex max-h-[88dvh] w-[calc(100vw-2rem)] max-w-[540px] flex-col gap-0 overflow-hidden rounded-lg border-border bg-surface p-0 sm:max-w-[540px]"
       >
         <DialogTitle className="sr-only">{task.title}</DialogTitle>
 
-        <div className="flex flex-col gap-4 p-5">
+        {/* the two text fields are the task; everything below the rule is about it */}
+        <div className="shrink-0 border-b border-border px-5 pb-4 pr-12 pt-5">
           <Textarea
             ref={titleRef}
             autoFocus
@@ -150,7 +165,7 @@ export function TaskModal({
             onChange={(e) => setTitle(e.target.value)}
             placeholder={copy.task.titlePlaceholder}
             rows={1}
-            className="min-h-0 resize-none overflow-hidden border-0 bg-transparent p-0 text-[15px] leading-[1.4] tracking-[-0.011em] shadow-none focus-visible:ring-0"
+            className="min-h-0 resize-none overflow-hidden rounded-none border-0 bg-transparent p-0 text-[17px] font-medium leading-[1.35] tracking-[-0.014em] text-fg shadow-none focus-visible:ring-0 dark:bg-transparent"
           />
 
           <Textarea
@@ -159,9 +174,11 @@ export function TaskModal({
             onChange={(e) => setNotes(e.target.value)}
             placeholder={copy.task.notesPlaceholder}
             rows={1}
-            className="min-h-0 resize-none overflow-hidden border-0 bg-transparent p-0 text-[13px] text-fg-muted shadow-none focus-visible:ring-0"
+            className="mt-2 min-h-0 resize-none overflow-hidden rounded-none border-0 bg-transparent p-0 text-[13px] leading-[1.55] text-fg-muted shadow-none focus-visible:ring-0 dark:bg-transparent"
           />
+        </div>
 
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
           <Field label={copy.task.status}>
             <div className="flex flex-wrap gap-1.5">
               {STATUSES.map((option) => (
@@ -179,42 +196,60 @@ export function TaskModal({
           <Field label={copy.task.dueDate}>
             <div className="flex flex-wrap gap-1.5">
               {quickDates.map((q) => (
-                <button
+                <Chip
                   key={q.label}
-                  type="button"
-                  onClick={() =>
-                    updateTask(task.id, {
-                      due_on: q.value,
-                      ...(q.value === null ? { due_time: null } : {}),
-                    })
-                  }
-                  className={cn(
-                    "rounded-sm border border-border px-2 py-1 text-[12px] text-fg-muted hover:text-fg",
-                    task.due_on === q.value && q.value !== null && "border-accent text-fg",
-                  )}
+                  active={task.due_on === q.value}
+                  onClick={() => setDue(q.value)}
                 >
                   {q.label}
-                </button>
+                </Chip>
               ))}
+              {/*
+                The quick options cover what gets set most often, but "le 23" is
+                a real thing to want and there was no way to say it without
+                leaving for the calendar and dragging the card.
+              */}
+              <Chip
+                active={picking}
+                onClick={() => setPicking((v) => !v)}
+                aria-expanded={picking}
+              >
+                <CalendarDays className="size-3" strokeWidth={1.5} aria-hidden />
+                {copy.task.pickDate}
+              </Chip>
             </div>
-            <p className="mt-1.5 text-[12px] text-fg-faint">
-              {task.due_on ? formatDueLabel(task.due_on) : copy.task.noDate}
-            </p>
-          </Field>
 
-          {/* time only becomes meaningful once a date exists */}
-          {task.due_on && (
-            <Field label={copy.task.time}>
-              <Input
-                type="time"
-                value={task.due_time?.slice(0, 5) ?? ""}
-                onChange={(e) =>
-                  updateTask(task.id, { due_time: e.target.value || null })
-                }
-                className="h-8 w-[120px] rounded-sm text-[13px]"
-              />
-            </Field>
-          )}
+            {picking && <DatePicker value={task.due_on} onSelect={setDue} />}
+
+            <div className="mt-0.5 flex items-center gap-2">
+              <span className="text-[12px] text-fg-faint">
+                {task.due_on ? formatDueLabel(task.due_on) : copy.task.noDate}
+              </span>
+
+              {/* a time only means something once there is a day to hang it on */}
+              {task.due_on && (
+                <>
+                  <Input
+                    type="time"
+                    aria-label={copy.task.time}
+                    value={task.due_time?.slice(0, 5) ?? ""}
+                    onChange={(e) =>
+                      updateTask(task.id, { due_time: e.target.value || null })
+                    }
+                    className="h-7 w-[104px] rounded-md border-border bg-bg text-[12px] dark:bg-bg"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setDue(null)}
+                    className="ml-auto flex items-center gap-1 rounded-sm px-1.5 py-1 text-[12px] text-fg-faint hover:text-fg"
+                  >
+                    <X className="size-3" strokeWidth={1.5} aria-hidden />
+                    {copy.task.removeDate}
+                  </button>
+                </>
+              )}
+            </div>
+          </Field>
 
           <Field label={copy.task.assignee}>
             <div className="flex flex-wrap gap-1.5">
@@ -239,23 +274,22 @@ export function TaskModal({
           <Field label={copy.task.label}>
             <Input
               defaultValue={task.label ?? ""}
-              onBlur={(e) =>
-                updateTask(task.id, { label: e.target.value.trim() || null })
-              }
+              onBlur={(e) => updateTask(task.id, { label: e.target.value.trim() || null })}
               placeholder={copy.task.label}
-              className="h-8 rounded-sm text-[13px]"
+              className="h-8 max-w-[260px] rounded-md border-border bg-bg text-[13px] dark:bg-bg"
             />
           </Field>
 
-          <Field label={copy.task.important}>
+          <div className="flex items-center gap-3">
+            <FieldLabel>{copy.task.important}</FieldLabel>
             <Switch
               checked={task.important}
               onCheckedChange={(v) => updateTask(task.id, { important: v })}
             />
-          </Field>
+          </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-border px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between border-t border-border px-5 py-3">
           <Button
             type="button"
             variant="ghost"
@@ -278,10 +312,23 @@ export function TaskModal({
   );
 }
 
+/*
+  Labels are small caps rather than another 13px line. Every row used to be the
+  same size and weight as the values under it, so the eye had nothing to anchor
+  on and the whole panel read as one undifferentiated column.
+*/
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-fg-faint">
+      {children}
+    </span>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-[13px] font-medium text-fg-muted">{label}</span>
+    <div className="flex flex-col gap-2">
+      <FieldLabel>{label}</FieldLabel>
       {children}
     </div>
   );
@@ -291,19 +338,23 @@ function Chip({
   active,
   onClick,
   children,
+  ...props
 }: {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
-}) {
+} & Omit<React.ComponentProps<"button">, "onClick" | "children">) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-sm border border-border px-2 py-1 text-[12px] text-fg-muted hover:text-fg",
-        active && "border-accent text-fg",
+        "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] transition-colors",
+        active
+          ? "border-accent bg-accent/10 text-fg"
+          : "border-border text-fg-muted hover:border-control hover:text-fg",
       )}
+      {...props}
     >
       {children}
     </button>

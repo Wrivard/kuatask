@@ -12,10 +12,9 @@ const TaskModal = dynamic(
   () => import("@/components/task/task-modal").then((m) => m.TaskModal),
   { ssr: false },
 );
-import { AssigneeDot } from "@/components/task/assignee-dot";
+import { CalendarCard } from "./calendar-card";
 import {
   formatMonthYear,
-  formatTime,
   monthGrid,
   nowDate,
   toDayString,
@@ -215,23 +214,12 @@ export function CalendarView() {
                 {day.slice(-2)}
               </span>
               {(byDay.get(day) ?? []).map((task) => (
-                <div
+                <CalendarCard
                   key={task.id}
-                  onPointerDown={(e) => grab(task.id, e)}
-                  className={cn(
-                    "flex touch-none select-none flex-col rounded-sm px-1 py-px text-[12px] hover:bg-surface",
-                    task.status === "doing" && "border-l-2 border-accent pl-1",
-                    task.status === "done" && "line-through opacity-45",
-                  )}
-                >
-                  <span className="truncate">{task.title}</span>
-                  <span className="flex items-center gap-1 text-fg-faint">
-                    {formatTime(task.due_time)}
-                    <AssigneeDot
-                      member={members.find((m) => m.id === task.assignee_id)}
-                    />
-                  </span>
-                </div>
+                  task={task}
+                  member={members.find((m) => m.id === task.assignee_id)}
+                  onGrab={grab}
+                />
               ))}
             </div>
           ))}

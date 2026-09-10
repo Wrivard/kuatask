@@ -265,7 +265,7 @@ export function BoardView() {
                 data-drop-target={column.key}
                 aria-label={copy.a11y.column(column.title, column.tasks.length)}
                 className={cn(
-                  "flex h-full shrink-0 flex-col rounded-md border border-border",
+                  "flex h-full shrink-0 flex-col overflow-hidden rounded-md border border-border",
                   // never wider than the viewport leaves room for, so a phone
                   // shows one column and its neighbour's edge rather than a
                   // column running off the screen
@@ -273,18 +273,25 @@ export function BoardView() {
                   isTarget && "border-accent bg-surface-hover",
                 )}
               >
+                {/*
+                  A 2px strip in the column's colour, so the board is read by
+                  shape before it is read by word. It sits on the column rather
+                  than on the cards: it says which column, never whose task.
+                */}
+                {column.accent && (
+                  <span
+                    aria-hidden
+                    className="h-0.5 w-full shrink-0"
+                    style={{ backgroundColor: column.accent }}
+                  />
+                )}
+
                 <header
                   className={cn(
                     "flex gap-2 px-3 py-2",
                     folded ? "flex-1 flex-col items-center px-0" : "items-center",
                   )}
                 >
-                  {column.accent && (
-                    <span
-                      className="size-1.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: column.accent }}
-                    />
-                  )}
                   <button
                     type="button"
                     onClick={() => toggleCollapsed(column.key)}

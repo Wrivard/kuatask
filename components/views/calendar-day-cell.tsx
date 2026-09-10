@@ -1,6 +1,6 @@
 "use client";
 
-import { AssigneeDot } from "@/components/task/assignee-dot";
+import { CalendarCard } from "./calendar-card";
 import { isSameMonth, isToday } from "@/lib/time";
 import { copy } from "@/lib/copy";
 import type { Profile, Task } from "@/lib/store";
@@ -59,21 +59,13 @@ export function CalendarDayCell({
       </span>
 
       {tasks.slice(0, MAX_VISIBLE).map((task) => (
-        <div
+        <CalendarCard
           key={task.id}
-          onPointerDown={(e) => onGrabTask(task.id, e)}
-          className={cn(
-            "flex items-center gap-1 rounded-sm px-1 py-px text-[12px]",
-            "touch-none select-none hover:bg-surface",
-            // a cell has room for three lines, so En cours is a rule rather
-            // than the chip the list and board can afford
-            task.status === "doing" && "border-l-2 border-accent pl-1",
-            task.status === "done" && "line-through opacity-45",
-          )}
-        >
-          <span className="min-w-0 flex-1 truncate">{task.title}</span>
-          <AssigneeDot member={members.find((m) => m.id === task.assignee_id)} />
-        </div>
+          task={task}
+          member={members.find((m) => m.id === task.assignee_id)}
+          onGrab={onGrabTask}
+          compact
+        />
       ))}
 
       {/*

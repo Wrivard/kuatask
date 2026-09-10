@@ -34,6 +34,33 @@ export const NO_ASSIGNEE = "__none__";
 
 const DUE_ORDER: Bucket[] = ["today", "tomorrow", "week", "month", "later", "undated"];
 
+/*
+  A colour per column, so the board is read by shape before it is read by word.
+
+  Grouping by person already had one — the identity dot — and the other two
+  groupings had nothing, which made every column header identical and turned
+  scanning the board into reading it. These are the same six hues as the
+  identity palette, used here for a different job: they say *which column*, and
+  they only ever appear on the header, never on a card, so they cannot be
+  confused with whose task it is.
+*/
+const STATUS_ACCENTS: Record<string, string> = {
+  todo: "#4a9eff",
+  doing: "#e0a244",
+  // the accent green, which everywhere else in the app means finished
+  done: "#3ecf8e",
+};
+
+const DUE_ACCENTS: Record<Bucket, string | undefined> = {
+  today: "#ee7ab0",
+  tomorrow: "#e0a244",
+  week: "#4a9eff",
+  month: "#a978f0",
+  later: "#3ec9d6",
+  // no date is not a date, so it gets no colour either
+  undated: undefined,
+};
+
 const DUE_TITLES: Record<Bucket, string> = {
   today: copy.nav.today,
   tomorrow: copy.nav.tomorrow,
@@ -87,9 +114,9 @@ export function buildColumns(
   if (groupBy === "status") {
     // workflow order, which is not the enum's declaration order
     const columns: Column[] = [
-      { key: "todo", title: copy.board.todo, tasks: [] },
-      { key: "doing", title: copy.board.doing, tasks: [] },
-      { key: "done", title: copy.board.done, tasks: [] },
+      { key: "todo", title: copy.board.todo, accent: STATUS_ACCENTS.todo, tasks: [] },
+      { key: "doing", title: copy.board.doing, accent: STATUS_ACCENTS.doing, tasks: [] },
+      { key: "done", title: copy.board.done, accent: STATUS_ACCENTS.done, tasks: [] },
     ];
     const index = new Map(columns.map((c) => [c.key, c]));
     for (const task of tasks) {
@@ -101,6 +128,7 @@ export function buildColumns(
   const columns: Column[] = DUE_ORDER.map((b) => ({
     key: b,
     title: DUE_TITLES[b],
+    accent: DUE_ACCENTS[b],
     tasks: [],
   }));
   const index = new Map(columns.map((c) => [c.key, c]));
