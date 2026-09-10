@@ -13,7 +13,7 @@ const TaskModal = dynamic(
   { ssr: false },
 );
 import { CalendarCard } from "./calendar-card";
-import { CARD_HEIGHT, CELL_CHROME } from "./calendar-day-cell";
+import { CARD_PITCH_GUESS, CARD_ROW, CELL_CHROME } from "./calendar-day-cell";
 import { useRowsThatFit } from "@/lib/fit";
 import {
   formatMonthYear,
@@ -95,7 +95,13 @@ export function CalendarView() {
     the middle refused to put them together.
   */
   const gridRef = React.useRef<HTMLDivElement>(null);
-  const maxVisible = useRowsThatFit(gridRef, CARD_HEIGHT, CELL_CHROME);
+  const maxVisible = useRowsThatFit({
+    ref: gridRef,
+    rows: 6,
+    rowSelector: `[${CARD_ROW}]`,
+    reserved: CELL_CHROME,
+    fallbackRowHeight: CARD_PITCH_GUESS,
+  });
   const [anchor, setAnchor] = React.useState(nowDate);
   const [mode, setMode] = useLocalLens<"month" | "week">(
     "kua-calendar-mode",

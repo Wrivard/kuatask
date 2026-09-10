@@ -378,5 +378,58 @@ s().updateTask(dated.id, { due_on: "2026-09-20" });
 check("and the old time does not come back with a new date",
       byTitle("avec heure").due_time === null, String(byTitle("avec heure").due_time));
 
+/*
+  A renumber is one action, so it has to fail as one. Reporting per row meant a
+  column of twenty and a dropped connection produced twenty identical toasts and
+  rolled back nothing — leaving the board showing an order the server does not
+  have, which is worse than not renumbering at all: the next drop computes a
+  position against numbers that exist only in this browser.
+*/
+section("Restack — all of the column, or none of it");
+reset();
+for (const t of ["un", "deux", "trois"]) {
+  s().createTask({ title: t });
+  await settle();
+}
+const original = s().tasks.map((t) => t.position);
+
+s().restack(s().tasks.map((t, i) => ({ id: t.id, position: (i + 1) * 1024 })));
+check("the new positions apply straight away",
+      s().tasks.map((t) => t.position).join(",") === "1024,2048,3072",
+      s().tasks.map((t) => t.position).join(","));
+await settle();
+check("and stay when the writes land",
+      s().tasks.map((t) => t.position).join(",") === "1024,2048,3072");
+check("with nothing reported", errors.length === 0, errors.join(" | "));
+
+reset();
+for (const t of ["a", "b", "c"]) {
+  s().createTask({ title: t });
+  await settle();
+}
+const positionsBefore = s().tasks.map((t) => t.position).join(",");
+
+supa.failNext("position refused");
+s().restack(s().tasks.map((t, i) => ({ id: t.id, position: (i + 1) * 1024 })));
+await settle();
+
+check("a refusal puts every row back, not just the one that failed",
+      s().tasks.map((t) => t.position).join(",") === positionsBefore,
+      `${positionsBefore} -> ${s().tasks.map((t) => t.position).join(",")}`);
+check("and says so exactly once", errors.length === 1, `${errors.length} messages`);
+
+section("Clear — signing out empties the singleton");
+reset();
+s().createTask({ title: "reste en memoire" });
+await settle();
+check("something is there", s().tasks.length === 1);
+
+s().clear();
+check("tasks gone", s().tasks.length === 0);
+check("members gone", s().members.length === 0);
+check("me gone", s().me === null);
+check("the workspace is gone", s().workspaceId === null);
+check("and it is no longer ready, so a seed can refill it", s().ready === false);
+
 console.log(`\n${failures === 0 ? "the store behaves" : `${failures} FAILED`}`);
 process.exit(failures ? 1 : 0);

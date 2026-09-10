@@ -39,6 +39,8 @@ export function CalendarCard({
     <div
       onPointerDown={(e) => onGrab(task.id, e)}
       title={task.title}
+      // the month grid measures two of these to work out how many fit
+      data-cal-card=""
       className={cn(
         "flex touch-none select-none items-center gap-1 rounded-sm border border-border border-l-2 bg-surface",
         "hover:border-control hover:bg-surface-hover",

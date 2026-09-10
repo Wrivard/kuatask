@@ -162,6 +162,17 @@ type Store = {
    * stayed open the board was labelled with a name that no longer existed.
    */
   applyRemoteProfile: (row: Profile) => void;
+
+  /**
+   * Empties the store on the way out.
+   *
+   * It is a module singleton, so signing out leaves every task, every name and
+   * every address sitting in memory until the document is replaced. Signing out
+   * is usually followed by a client navigation to /login rather than a reload,
+   * so "until the document is replaced" can mean "while somebody else is
+   * standing there".
+   */
+  clear: () => void;
 };
 
 const UNDO_LIMIT = 20;
@@ -546,20 +557,44 @@ export const useStore = create<Store>((set, get) => {
     restack(positions) {
       if (positions.length === 0) return;
 
+      // what each row was, so a failure can put the whole column back
+      const before = new Map(
+        get()
+          .tasks.filter((t) => positions.some((p) => p.id === t.id))
+          .map((t) => [t.id, t.position]),
+      );
+
       for (const { id, position } of positions) patchLocal(id, { position });
 
       void (async () => {
         // one write per row, which is fine: this runs once in a very long while
-        await Promise.all(
+        const results = await Promise.all(
           positions.map(async ({ id, position }) => {
             const release = claim(id);
             const { error } = await withRetry(() =>
               supabase.from('tasks').update({ position }).eq('id', id),
             );
             release();
-            if (error) toastError(error);
+            return error;
           }),
         );
+
+        /*
+          A renumber is one action, so it fails as one. Reporting per row meant
+          a column of twenty and a dropped connection produced twenty identical
+          red toasts — and rolling back nothing, which left the board showing an
+          order the server does not have.
+
+          All or nothing: any refusal puts every row back and says so once.
+          Partly-renumbered is the one state worse than not renumbered, because
+          the next drop would compute a position against numbers that only exist
+          in this browser.
+        */
+        const failure = results.find(Boolean);
+        if (!failure) return;
+
+        for (const [id, position] of before) patchLocal(id, { position });
+        toastError(failure);
       })();
     },
 
@@ -654,6 +689,19 @@ export const useStore = create<Store>((set, get) => {
           return extra.length ? { tasks: [...s.tasks, ...extra] } : {};
         });
       })();
+    },
+
+    clear() {
+      set({
+        tasks: [],
+        members: [],
+        me: null,
+        workspaceId: null,
+        ready: false,
+        pending: new Map(),
+        undoStack: [],
+        completionDays: [],
+      });
     },
 
     applyRemoteProfile(row) {

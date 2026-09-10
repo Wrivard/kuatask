@@ -308,3 +308,21 @@ reviewed. Numbering continues.
      the chips actually needed: an off chip has to show what it would put back,
      and the decided value for a dismissed date is null. Six assertions pin the
      two together.
+156. [x] **P2** `restack` (10) reported per row and rolled back nothing. A
+     column of twenty and a dropped connection produced twenty identical red
+     toasts, and left the board showing an order the server does not have —
+     which is worse than not renumbering at all, because the next drop computes
+     a position against numbers that exist only in this browser. A renumber is
+     one action and now fails as one: any refusal puts every row back and says
+     so once.
+157. [x] **P2** Signing out left every task, name and address in the store, and
+     every draft in the composer's map. Both are module singletons, and signing
+     out is followed by a client navigation rather than a document load — so
+     "still in memory" can mean "while the next person is standing there".
+158. [x] **P3** `CARD_HEIGHT` carried a comment saying it had been measured from
+     the rendered card. It had not; it was an estimate, and it would have
+     drifted the moment anybody changed the card's padding — silently, because
+     one card too many or too few looks like nothing at all. `useRowsThatFit`
+     reads the real distance between two rendered cards, and the constant is
+     demoted to what it always was: a guess for the first frame, before there is
+     a card to measure.

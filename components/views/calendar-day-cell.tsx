@@ -7,14 +7,18 @@ import type { Profile, Task } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 /**
- * How tall one compact card is, including the gap under it.
+ * A guess at the card's pitch, used for exactly one frame.
  *
- * Measured from the rendered card rather than derived: 11px text at 1.35
- * leading in a `py-px` box, plus the grid's `gap-0.5`. If the card's padding
- * changes, this has to change with it — which is why it sits next to the thing
- * that renders it rather than in the hook that divides by it.
+ * `useRowsThatFit` reads the real distance between two rendered cards, so this
+ * only has to be close enough for the first paint, before any card exists to
+ * measure. An earlier version of this file called the same number "measured"
+ * and divided by it for ever; it was an estimate, and it would have drifted
+ * silently the moment the card's padding changed.
  */
-export const CARD_HEIGHT = 20;
+export const CARD_PITCH_GUESS = 20;
+
+/** Marks a card as a row the fitting measurement can take its height from. */
+export const CARD_ROW = "data-cal-card";
 
 /** The date numeral above the cards, the cell padding, and room for a « +N ». */
 export const CELL_CHROME = 40;

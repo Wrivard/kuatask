@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useStore } from "@/lib/store";
+import { clearDrafts } from "@/lib/draft";
 import { copy } from "@/lib/copy";
 import { Button } from "@/components/ui/button";
 
@@ -10,6 +12,16 @@ export function SignOutButton() {
 
   async function signOut() {
     await createClient().auth.signOut();
+
+    /*
+      The store and the draft map are module singletons, so the session's
+      cookies going away does not empty them — and signing out is followed by a
+      client navigation rather than a document load, so "still in memory" can
+      mean "while the next person is standing there".
+    */
+    useStore.getState().clear();
+    clearDrafts();
+
     router.replace("/login");
     router.refresh();
   }

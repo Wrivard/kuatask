@@ -15,6 +15,15 @@ import * as React from "react";
  */
 const drafts = new Map<string, string>();
 
+/**
+ * Forgets every draft. Called on sign-out: a half-typed task title is the
+ * user's, and the map is module-level, so without this it would still be there
+ * for whoever signs in next on the same machine.
+ */
+export function clearDrafts() {
+  drafts.clear();
+}
+
 export function useDraft(key: string): [string, (next: string) => void] {
   const [value, setValue] = React.useState(() => drafts.get(key) ?? "");
 
