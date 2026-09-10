@@ -17,6 +17,7 @@ import { CARD_PITCH_GUESS, CARD_ROW, CELL_CHROME } from "./calendar-day-cell";
 import { useRowsThatFit } from "@/lib/fit";
 import {
   formatMonthYear,
+  formatDueLabel,
   monthGrid,
   nowDate,
   toDayString,
@@ -198,6 +199,16 @@ export function CalendarView() {
 
     if (step) {
       e.preventDefault();
+
+      /*
+        Up and down are a week apart, which the week view does not have — it
+        shows seven days in a row. There they mean nothing, so they are ignored
+        rather than silently paging the view somewhere the user did not ask to
+        go. Home and End still reach Monday and Sunday, which in that mode are
+        the two ends of what is on screen.
+      */
+      if (modeRef.current === "week" && (step === "up" || step === "down")) return;
+
       // the same helper the date picker uses; one definition of "up is a week"
       moveFocus(stepInGrid(from, step));
       return;
@@ -331,14 +342,34 @@ export function CalendarView() {
           ))}
         </motion.div>
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-7">
+        /*
+          The same grid contract as the month, so switching mode does not
+          switch whether the keyboard works. One tab stop, arrows between days,
+          Enter opens. Sharing `onGridKeyDown` means the two cannot drift —
+          which was the actual risk here, not the missing keys: a view where
+          half the modes are operable is worse than one where none are, because
+          nobody can tell which they are in.
+        */
+        <div
+          ref={gridRef}
+          role="grid"
+          aria-label={formatMonthYear(anchor)}
+          onKeyDown={onGridKeyDown}
+          className="grid min-h-0 flex-1 grid-cols-7"
+        >
           {days.map((day) => (
             <div
               key={day}
               data-drop-target={day}
+              data-day={day}
+              role="gridcell"
+              tabIndex={day === tabStop ? 0 : -1}
+              aria-label={copy.calendar.cell(formatDueLabel(day), (byDay.get(day) ?? []).length)}
+              aria-current={isToday(day, today) ? "date" : undefined}
               onClick={() => setOpenDay(day)}
               className={cn(
                 "flex min-h-0 cursor-pointer flex-col gap-1 overflow-y-auto border-b border-r border-border p-1.5",
+                "focus-visible:outline focus-visible:-outline-offset-1 focus-visible:outline-accent",
                 dropDay === day && dragId !== null && "ring-1 ring-accent ring-inset",
               )}
             >

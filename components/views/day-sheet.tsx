@@ -113,7 +113,13 @@ export function DaySheet({
         </div>
 
         <div className="px-5 pb-5">
-          <TaskComposer defaultDueOn={current} />
+          {/*
+            Focused on open. The sheet is opened to add something to a
+            particular day — the alternative was tabbing past the close button
+            and seven day buttons to reach the field, in a panel whose whole
+            purpose is that field.
+          */}
+          <TaskComposer defaultDueOn={current} takeFocus />
 
           {dayTasks.length === 0 ? (
             <p className="text-[13px] text-fg-muted">{copy.empty.day}</p>

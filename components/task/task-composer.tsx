@@ -28,10 +28,17 @@ import { cn } from "@/lib/utils";
 export function TaskComposer({
   defaultDueOn = null,
   defaultAssigneeId = null,
+  takeFocus = false,
   search,
 }: {
   defaultDueOn?: string | null;
   defaultAssigneeId?: string | null;
+  /**
+   * Focus on mount. Off in the list, where the composer sits above six sections
+   * somebody may have come to read; on in the day sheet, which is opened to put
+   * something in a specific day.
+   */
+  takeFocus?: boolean;
   /**
    * When present the composer is a search box instead of a capture box.
    *
@@ -111,6 +118,10 @@ export function TaskComposer({
 
   // C and the palette focus the composer; / switches it to search first
   useFocusComposer(() => inputRef.current?.focus());
+
+  React.useEffect(() => {
+    if (takeFocus) inputRef.current?.focus();
+  }, [takeFocus]);
 
   const searching = search?.active ?? false;
   const finalTitle = composed.title;

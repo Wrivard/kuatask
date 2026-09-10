@@ -408,3 +408,14 @@ reviewed. Numbering continues.
      by a day *and* the month by one. Guarded on whether focus is inside the
      grid. Caught by reading the file the change landed in rather than by
      running it, which is the only way this one shows up before a user finds it.
+171. [x] **P2** The week mode had the same hole the month did, and fixing only
+     one would have been worse than fixing neither — a view where half the modes
+     are operable is one nobody can predict, because there is nothing on screen
+     saying which mode you are in as far as the keyboard is concerned. Both share
+     `onGridKeyDown` now, so they cannot drift. Up and down are ignored in week
+     mode rather than paging somewhere nobody asked to go: seven days in a row
+     have no week above them.
+172. [x] **P2** The day sheet cost eight tab presses before you could type — the
+     close button and seven day buttons, in a panel whose entire purpose is the
+     field at the end of them. It focuses the composer on open. Off in the list,
+     where the composer sits above six sections somebody may have come to read.
