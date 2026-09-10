@@ -47,7 +47,39 @@ const check = (name, ok, detail = "") => {
 };
 const section = (n) => console.log(`\n${n}`);
 
-const mine = { users: [], invites: [], tasks: [] };
+const mine = { users: [], invites: [], tasks: [], workspace: null };
+
+/*
+  A workspace to run against.
+
+  Both live suites used to open with `.select("id").limit(1).single()`, which
+  throws on an empty database — so they could only ever be pointed at a project
+  somebody had already used by hand. That is the wrong way round: the run worth
+  trusting most is the one against a database with nothing in it, because that
+  is where a missing default or an unapplied migration shows up.
+
+  If one exists it is borrowed and left exactly as found. If none does, one is
+  created here and torn down at the end, along with everything in it — the same
+  rule as every other id in this file: nothing deletes what it did not create.
+*/
+async function workspaceToUse() {
+  const { data: existing } = await admin
+    .from("workspaces")
+    .select("id")
+    .limit(1)
+    .maybeSingle();
+  if (existing) return { id: existing.id, ours: false };
+
+  const { data, error } = await admin
+    .from("workspaces")
+    .insert({ name: `verify-${stamp}` })
+    .select("id")
+    .single();
+  if (error) throw new Error(`could not create a workspace: ${error.message}`);
+  console.log(`  (empty database — created workspace ${data.id} for this run)`);
+  return { id: data.id, ours: true };
+}
+
 
 async function join(workspaceId, role, tag) {
   const email = `kua-inv-${tag}-${stamp}@example.com`;
@@ -72,8 +104,9 @@ async function join(workspaceId, role, tag) {
 }
 
 try {
-  const { data: ws } = await admin.from("workspaces").select("id").limit(1).single();
-  const WS = ws.id;
+  const workspace = await workspaceToUse();
+  const WS = workspace.id;
+  if (workspace.ours) mine.workspace = WS;
 
   section("Invite consumption");
   const owner = await join(WS, "admin", "own");
@@ -170,6 +203,11 @@ try {
   for (const id of mine.tasks) await admin.from("tasks").delete().eq("id", id);
   for (const id of mine.invites) await admin.from("pending_invites").delete().eq("id", id);
   for (const id of mine.users) await admin.auth.admin.deleteUser(id);
+  // only ever a workspace this run created; a borrowed one is left untouched
+  if (mine.workspace) {
+    await admin.from("workspace_members").delete().eq("workspace_id", mine.workspace);
+    await admin.from("workspaces").delete().eq("id", mine.workspace);
+  }
 
   const { data: users } = await admin.auth.admin.listUsers();
   const stray = users.users.filter((u) => u.email?.startsWith("kua-inv-"));

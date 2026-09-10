@@ -72,11 +72,54 @@ async function makeMember(workspaceId, role, tag) {
   return { id: created.user.id, email, client, inviteId: invite?.id };
 }
 
-const created = { tasks: [], users: [], invites: [] };
+const created = { tasks: [], users: [], invites: [], workspace: null };
+
+/*
+  A workspace to run against.
+
+  Both live suites used to open with `.select("id").limit(1).single()`, which
+  throws on an empty database — so they could only ever be pointed at a project
+  somebody had already used by hand. That is the wrong way round: the run worth
+  trusting most is the one against a database with nothing in it, because that
+  is where a missing default or an unapplied migration shows up.
+
+  If one exists it is borrowed and left exactly as found. If none does, one is
+  created here and torn down at the end, along with everything in it — the same
+  rule as every other id in this file: nothing deletes what it did not create.
+*/
+async function workspaceToUse() {
+  const { data: existing } = await admin
+    .from("workspaces")
+    .select("id")
+    .limit(1)
+    .maybeSingle();
+  if (existing) return { id: existing.id, ours: false };
+
+  const { data, error } = await admin
+    .from("workspaces")
+    .insert({ name: `verify-${stamp}` })
+    .select("id")
+    .single();
+  if (error) throw new Error(`could not create a workspace: ${error.message}`);
+  console.log(`  (empty database — created workspace ${data.id} for this run)`);
+  return { id: data.id, ours: true };
+}
+
 
 try {
-  const { data: ws } = await admin.from("workspaces").select("id").limit(1).single();
-  const WS = ws.id;
+  const workspace = await workspaceToUse();
+  const WS = workspace.id;
+  if (workspace.ours) created.workspace = WS;
+
+  /*
+    A workspace this run made has nobody in it, so the last-admin guard would be
+    skipped for want of an admin to try to remove. One is made here so the check
+    that matters most on a fresh database actually runs.
+  */
+  if (workspace.ours) {
+    const seedAdmin = await makeMember(WS, "admin", "seed");
+    created.users.push(seedAdmin.id);
+  }
 
   // ---------------------------------------------------------------- RLS
   section("RLS — an uninvited caller sees nothing, and sees it as an empty set");
@@ -219,6 +262,11 @@ try {
   for (const id of created.tasks) await admin.from("tasks").delete().eq("id", id);
   for (const id of created.invites) if (id) await admin.from("pending_invites").delete().eq("id", id);
   for (const id of created.users) await admin.auth.admin.deleteUser(id);
+  // only ever a workspace this run created; a borrowed one is left untouched
+  if (created.workspace) {
+    await admin.from("workspace_members").delete().eq("workspace_id", created.workspace);
+    await admin.from("workspaces").delete().eq("id", created.workspace);
+  }
 
   const { data: users } = await admin.auth.admin.listUsers();
   const stray = users.users.filter((u) => u.email?.startsWith("kua-verify-"));
