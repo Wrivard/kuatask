@@ -156,6 +156,7 @@ export const copy = {
   },
 
   auth: {
+    returning: "Ta session s'est terminée. Redemande un lien pour revenir.",
     title: "Küa Tasks",
     emailPlaceholder: "Courriel",
     send: "Envoyer le lien",
@@ -197,6 +198,8 @@ export const copy = {
   settings: {
     profile: "Ton profil",
     theme: "Thème",
+    version: "Version",
+    localBuild: "développement local",
     deleteAccount: "Supprimer mon compte",
     deleteAccountBody:
       "Ton compte, ton profil et ton accès à cet espace sont supprimés définitivement. Tes tâches restent — celles qui ne sont pas terminées passent à « Personne ».",

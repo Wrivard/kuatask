@@ -419,3 +419,16 @@ reviewed. Numbering continues.
      close button and seven day buttons, in a panel whose entire purpose is the
      field at the end of them. It focuses the composer on open. Off in the list,
      where the composer sits above six sections somebody may have come to read.
+173. [x] **P1** Nothing in the app said which build it was. Half an hour went
+     into establishing that a deploy had gone out at all — the code was live,
+     the person was looking at the login screen, and no evidence inside the app
+     distinguished those two situations. A commit and a build date in settings
+     answer it in one glance.
+174. [x] **P1** A lapsed session and a first visit look identical. The
+     middleware can only report the case where an invalid cookie is still
+     present; one the browser has already discarded leaves no trace, so somebody
+     returning after a week gets a stranger's screen and no reason to think
+     anything is wrong. That is the whole of « I am looking at the app and
+     nothing has changed » — what they were looking at was `/login`. This
+     browser having used the app before is the only evidence left, and the login
+     screen now says so.

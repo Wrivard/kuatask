@@ -9,6 +9,7 @@ import { copy } from "@/lib/copy";
 import { explain, logRefusal } from "@/lib/errors";
 import { onSignOut } from "@/lib/session-reset";
 import { clearDrafts } from "@/lib/draft";
+import { markAppSeen } from "@/lib/seen";
 import { installGlobalReporting } from "@/lib/report";
 
 /**
@@ -73,6 +74,8 @@ export function StoreBoot({
       toast.error(copy.error.saveFailed, { description: explain(refusal) });
     });
     useStore.getState().seed(initial);
+    // so the login screen can tell a lapsed session from a first visit
+    markAppSeen();
 
     // unregistered on unmount, or a remount would stack a second copy
     return forget;

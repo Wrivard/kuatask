@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { createClient } from "@/lib/supabase/client";
+import { hasSeenApp } from "@/lib/seen";
 import { copy } from "@/lib/copy";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ export default function LoginPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [sending, setSending] = React.useState(false);
   const [cooldown, setCooldown] = React.useState(0);
+  const [returning, setReturning] = React.useState(false);
 
   React.useEffect(() => {
     if (cooldown <= 0) return;
@@ -35,7 +37,17 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("error") === "expired") setError(copy.error.linkExpired);
     else if (params.get("expired") === "1") setError(copy.error.sessionExpired);
-    else return;
+    else {
+      /*
+        Neither flag. The middleware only knows about a cookie that is still
+        present but invalid — one the browser has already discarded leaves no
+        trace, so a returning person gets a screen identical to a stranger's and
+        no reason to think anything is wrong. This browser having used the app
+        before is the only evidence left, and it is enough to say so.
+      */
+      setReturning(hasSeenApp());
+      return;
+    }
     window.history.replaceState(null, "", window.location.pathname);
   }, []);
 
@@ -75,6 +87,12 @@ export default function LoginPage() {
         <h1 className="text-[22px] font-semibold tracking-[-0.02em]">
           {copy.auth.title}
         </h1>
+
+        {returning && sentTo === null && (
+          <p className="mt-2 text-[13px] leading-relaxed text-fg-muted">
+            {copy.auth.returning}
+          </p>
+        )}
 
         {sentTo === null ? (
           <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-3">
