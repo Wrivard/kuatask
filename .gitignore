@@ -42,3 +42,4 @@ next-env.d.ts
 
 # scratch dir used by scripts/verify-logic.mjs
 .verify-tmp-*
+.bench-tmp-*

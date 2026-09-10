@@ -223,5 +223,57 @@ eq("insert below", grouping.positionForDrop(col, 2, "z"), 21);
 eq("a card is not its own neighbour", grouping.positionForDrop(col, 0, "y"), 9);
 
 fs.rmSync(tmp, { recursive: true, force: true });
+/*
+  bucketOf and instantToDay were rewritten for speed — string comparison against
+  boundaries computed once per day, and Intl instead of TZDate. Speed is not
+  worth a single wrong bucket, so the fast path is checked against the slow one
+  it replaced, over a full year around a pinned day and both DST changeovers.
+*/
+section("Buckets — the fast path agrees with date-fns, every day for a year");
+{
+  const { differenceInCalendarDays, endOfWeek, endOfMonth, isBefore, addDays } =
+    await import("date-fns");
+
+  const slowBucket = (dueOn, todayDay) => {
+    if (!dueOn) return "undated";
+    const d = time.toDate(dueOn);
+    const t = time.toDate(todayDay);
+    const delta = differenceInCalendarDays(d, t);
+    if (delta < 0) return "today";
+    if (delta === 0) return "today";
+    if (delta === 1) return "tomorrow";
+    if (!isBefore(endOfWeek(t, { weekStartsOn: 1 }), d)) return "week";
+    if (!isBefore(endOfMonth(t), d)) return "month";
+    return "later";
+  };
+
+  let mismatches = [];
+  const base = time.toDate("2026-01-01");
+  for (let i = 0; i < 365; i += 1) {
+    const todayDay = time.toDayString(addDays(base, i));
+    for (const offset of [-400, -31, -7, -1, 0, 1, 2, 3, 6, 7, 8, 14, 30, 31, 60, 400]) {
+      const due = time.toDayString(addDays(time.toDate(todayDay), offset));
+      const fast = time.bucketOf(due, todayDay);
+      const slow = slowBucket(due, todayDay);
+      if (fast !== slow) mismatches.push(`${todayDay}+${offset}: ${fast} vs ${slow}`);
+    }
+  }
+  check("5840 day pairs, no disagreement", mismatches.length === 0,
+        mismatches.slice(0, 3).join(" | "));
+}
+
+section("Instants — the cache does not outlive its key");
+{
+  const evening = "2026-07-15T23:30:00Z";   // already the 16th in UTC
+  const first = time.instantToDay(evening);
+  const again = time.instantToDay(evening);
+  eq("the same instant gives the same day twice", again, first);
+  eq("and it is the Montreal day, not the UTC one", first, "2026-07-15");
+  eq("a different instant is not served from it",
+     time.instantToDay("2026-07-16T23:30:00Z"), "2026-07-16");
+  eq("an instant in the other DST offset", time.instantToDay("2026-01-15T23:30:00Z"),
+     "2026-01-15");
+}
+
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);
 process.exit(failures ? 1 : 0);

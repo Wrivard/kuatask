@@ -32,9 +32,43 @@ export function nowTz(): TZDate {
   return TZDate.tz(TZ);
 }
 
+/*
+  Instant -> Montreal day, the hot path.
+
+  Every task row asks what day something is due or was completed, and the
+  sidebar, the ring, the streak and the board all re-derive on every store
+  write. Going through TZDate and date-fns `format` for that is between five
+  and ten microseconds a call, which is invisible once and 40ms at two thousand
+  tasks — a dropped frame per keystroke, on a desktop, before anyone opens this
+  on a phone.
+
+  Intl.DateTimeFormat does the same zone arithmetic in the engine, and one
+  formatter built once is the whole optimisation. `en-CA` is not relied on to
+  produce ISO order; the parts are read by name and reassembled.
+*/
+const dayParts = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TZ,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+function dayOf(d: Date): DayString {
+  const parts = dayParts.formatToParts(d);
+  let y = '';
+  let m = '';
+  let day = '';
+  for (const part of parts) {
+    if (part.type === 'year') y = part.value;
+    else if (part.type === 'month') m = part.value;
+    else if (part.type === 'day') day = part.value;
+  }
+  return `${y}-${m}-${day}`;
+}
+
 /** Today's Montreal calendar day. */
 export function today(): DayString {
-  return format(nowTz(), 'yyyy-MM-dd');
+  return dayOf(new Date());
 }
 
 /**
@@ -74,8 +108,18 @@ export function toDayString(d: Date): DayString {
  * toward the ring, and silently prevent the clear-out from ever firing.
  */
 export function instantToDay(ts: string): DayString {
-  return format(TZDate.tz(TZ, new Date(ts)), 'yyyy-MM-dd');
+  const hit = instantCache.get(ts);
+  if (hit !== undefined) return hit;
+
+  const day = dayOf(new Date(ts));
+  // completion timestamps are stable strings that recur on every render, so the
+  // cache hits nearly always; the bound is only there so it cannot grow for ever
+  if (instantCache.size > 4096) instantCache.clear();
+  instantCache.set(ts, day);
+  return day;
 }
+
+const instantCache = new Map<string, DayString>();
 
 /** Did this instant fall on today's Montreal day? */
 export function isTodayInstant(ts: string | null): boolean {
@@ -133,19 +177,37 @@ export type Bucket = 'today' | 'tomorrow' | 'week' | 'month' | 'later' | 'undate
 export function bucketOf(dueOn: DayString | null, todayDay: DayString = today()): Bucket {
   if (!dueOn) return 'undated';
 
-  const delta = differenceInCalendarDays(toDate(dueOn), toDate(todayDay));
-  if (delta < 0) return 'today';   // overdue folds into today
-  if (delta === 0) return 'today';
-  if (delta === 1) return 'tomorrow';
+  /*
+    Every boundary here depends only on `todayDay`, which is the same for every
+    task in the loop, so they are computed once per day rather than four times
+    per task. What is left is string comparison: a 'yyyy-MM-dd' sorts
+    lexically exactly as it sorts chronologically, which is the one good reason
+    this app stores days as strings at all.
+  */
+  const f = frameFor(todayDay);
 
-  const d = toDate(dueOn);
-  const weekEnd = endOfWeek(toDate(todayDay), { weekStartsOn: 1 });   // Monday weeks
-  if (!isBefore(weekEnd, d)) return 'week';
-
-  const monthEnd = endOfMonth(toDate(todayDay));
-  if (!isBefore(monthEnd, d)) return 'month';
-
+  if (dueOn <= todayDay) return 'today';        // overdue folds into today
+  if (dueOn === f.tomorrow) return 'tomorrow';
+  if (dueOn <= f.weekEnd) return 'week';
+  if (dueOn <= f.monthEnd) return 'month';
   return 'later';
+}
+
+type Frame = { tomorrow: DayString; weekEnd: DayString; monthEnd: DayString };
+let frameKey: DayString | null = null;
+let frameValue: Frame | null = null;
+
+/** The three day boundaries around a given today, computed once per day. */
+function frameFor(todayDay: DayString): Frame {
+  if (frameKey === todayDay && frameValue) return frameValue;
+  const base = toDate(todayDay);
+  frameValue = {
+    tomorrow: toDayString(addDays(base, 1)),
+    weekEnd: toDayString(endOfWeek(base, { weekStartsOn: 1 })),   // Monday weeks
+    monthEnd: toDayString(endOfMonth(base)),
+  };
+  frameKey = todayDay;
+  return frameValue;
 }
 
 /**
