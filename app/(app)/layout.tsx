@@ -6,9 +6,20 @@ import { AppChrome } from "@/components/shell/app-chrome";
 import { BottomBar } from "@/components/shell/bottom-bar";
 import { LiveRegion } from "@/components/shell/live-region";
 import { SetupRequired } from "@/components/shell/setup-required";
+import { instantToDay } from "@/lib/time";
 
 // per-user by definition: never prerender
 export const dynamic = "force-dynamic";
+
+/**
+ * How far back completed tasks are fetched in full.
+ *
+ * The UI shows today's completions and holds a row for 900ms after it is
+ * ticked; a few days of slack covers a tab left open over a weekend and a clock
+ * that disagrees. Older completions still exist in the database and still count
+ * toward the streak — they simply do not need to be rows in the browser.
+ */
+const RECENT_COMPLETION_DAYS = 7;
 
 /**
  * The app shell: the store's initial data, the keyboard layer, and the frame.
@@ -44,19 +55,45 @@ export default async function AppLayout({
 
   if (!membership) redirect("/no-access");
 
-  const [{ data: workspace }, { data: tasks }, { data: members }] = await Promise.all([
-    supabase
-      .from("workspaces")
-      .select("name")
-      .eq("id", membership.workspace_id)
-      .maybeSingle(),
-    supabase
-      .from("tasks")
-      .select("*")
-      .eq("workspace_id", membership.workspace_id)
-      .order("position"),
-    supabase.from("profiles").select("*"),
-  ]);
+  /*
+    Completed tasks used to be fetched for ever: the UI only ever shows today's,
+    but every one ever finished still crossed the wire on each load, so the app
+    got slower the longer it was used. Only the last few days are needed for the
+    footer and the hold, and the streak needs one bit per day rather than whole
+    rows — so it gets its own thin query of timestamps.
+  */
+  const recent = new Date(Date.now() - RECENT_COMPLETION_DAYS * 86_400_000).toISOString();
+
+  const [{ data: workspace }, { data: tasks }, { data: members }, { data: completions }] =
+    await Promise.all([
+      supabase
+        .from("workspaces")
+        .select("name")
+        .eq("id", membership.workspace_id)
+        .maybeSingle(),
+      supabase
+        .from("tasks")
+        .select("*")
+        .eq("workspace_id", membership.workspace_id)
+        .or(`status.neq.done,completed_at.gte.${recent}`)
+        .order("position"),
+      supabase.from("profiles").select("*"),
+      supabase
+        .from("tasks")
+        .select("completed_at")
+        .eq("workspace_id", membership.workspace_id)
+        .not("completed_at", "is", null),
+    ]);
+
+  // distinct Montreal days, computed here so the client never sees the raw list
+  const completionDays = [
+    ...new Set(
+      (completions ?? [])
+        .map((row) => row.completed_at)
+        .filter((v): v is string => v !== null)
+        .map(instantToDay),
+    ),
+  ];
 
   if (!workspace) redirect("/no-access");
 
@@ -68,6 +105,7 @@ export default async function AppLayout({
           members: members ?? [],
           me: members?.find((m) => m.id === user.id) ?? null,
           workspaceId: membership.workspace_id,
+          completionDays,
         }}
       />
       <AppChrome />

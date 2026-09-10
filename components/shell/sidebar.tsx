@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Users } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { bucketOf, computeStreak, type Bucket } from "@/lib/time";
+import { bucketOf, instantToDay, streakFromDays, type Bucket } from "@/lib/time";
 import { useToday } from "@/lib/day";
 import { accentColor } from "@/components/task/assignee-dot";
 import { copy } from "@/lib/copy";
@@ -51,14 +51,7 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
     nagging: no notification, no warning that it is about to break, no fire
     emoji, no milestones. A streak that pressures you is one you resent.
   */
-  const streak = React.useMemo(
-    () =>
-      computeStreak(
-        tasks.map((t) => t.completed_at).filter((v): v is string => v !== null),
-        day,
-      ),
-    [tasks, day],
-  );
+  const streak = useStreak(day);
 
   return (
     <aside className="hidden w-[220px] shrink-0 flex-col border-r border-border lg:flex">
@@ -168,4 +161,22 @@ function FilterItem({
       {children}
     </button>
   );
+}
+
+/**
+ * The streak, over the server's day history plus anything completed in this
+ * session. Local completions matter because ticking the last task should move
+ * the number immediately, not after a reload.
+ */
+function useStreak(day: string): number {
+  const completionDays = useStore((s) => s.completionDays);
+  const tasks = useStore((s) => s.tasks);
+
+  return React.useMemo(() => {
+    const local = tasks
+      .map((t) => t.completed_at)
+      .filter((v): v is string => v !== null)
+      .map(instantToDay);
+    return streakFromDays([...completionDays, ...local], day);
+  }, [completionDays, tasks, day]);
 }

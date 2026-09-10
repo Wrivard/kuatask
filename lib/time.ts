@@ -233,9 +233,24 @@ export function computeStreak(
   completedAt: string[],
   todayDay: DayString = today(),
 ): number {
-  if (completedAt.length === 0) return 0;
+  return streakFromDays(completedAt.map(instantToDay), todayDay);
+}
 
-  const days = new Set(completedAt.map(instantToDay));
+/**
+ * Consecutive Montreal days ending today, or yesterday — a streak survives
+ * until the current day is over.
+ *
+ * Takes days rather than instants because the history comes from the server
+ * already reduced to one entry per day. Whole rows are not needed to know that
+ * something was finished on a Tuesday.
+ */
+export function streakFromDays(
+  dayList: DayString[],
+  todayDay: DayString = today(),
+): number {
+  if (dayList.length === 0) return 0;
+
+  const days = new Set(dayList);
 
   let streak = 0;
   let cursor = toDate(todayDay);

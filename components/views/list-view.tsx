@@ -11,7 +11,8 @@ import { ClearOut } from "./clear-out";
 import { exit } from "@/lib/motion";
 import {
   bucketOf,
-  computeStreak,
+  instantToDay,
+  streakFromDays,
   dayOfMonth,
   daysFromToday,
   isOverdue,
@@ -232,14 +233,15 @@ export function ListView() {
 
   useOpenTask(setOpenId);
 
-  const streak = React.useMemo(
-    () =>
-      computeStreak(
-        allTasks.map((t) => t.completed_at).filter((v): v is string => v !== null),
-        day,
-      ),
-    [allTasks, day],
-  );
+  const completionDays = useStore((s) => s.completionDays);
+  const streak = React.useMemo(() => {
+    // server history plus this session, so ticking the last task moves it now
+    const local = allTasks
+      .map((t) => t.completed_at)
+      .filter((v): v is string => v !== null)
+      .map(instantToDay);
+    return streakFromDays([...completionDays, ...local], day);
+  }, [completionDays, allTasks, day]);
 
   /*
     § 8.5 — fires when the last task assigned to you and due today goes done.

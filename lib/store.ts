@@ -16,6 +16,7 @@
 import { create } from 'zustand';
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/database.types';
+import { instantToDay, type DayString } from '@/lib/time';
 import { setSoundEnabled as applySoundEnabled } from '@/lib/sound';
 
 export type Task = Database['public']['Tables']['tasks']['Row'];
@@ -71,7 +72,17 @@ type Store = {
     members: Profile[];
     me: Profile | null;
     workspaceId: string;
+    completionDays: DayString[];
   }) => void;
+
+  /**
+   * Montreal days that already had a completion, from the server.
+   *
+   * The streak is the only thing that needs history, and it needs one bit per
+   * day rather than whole rows. Keeping it separate is what lets the task fetch
+   * be bounded instead of growing for ever.
+   */
+  completionDays: DayString[];
 
 
   /**
@@ -142,6 +153,7 @@ export const useStore = create<Store>((set, get) => {
     pending: new Map<string, number>(),
     undoStack: [],
     assigneeFilter: null,
+    completionDays: [],
 
     setSoundEnabled(value) {
       const me = get().me;
@@ -191,7 +203,7 @@ export const useStore = create<Store>((set, get) => {
       }
     },
 
-    seed({ tasks, members, me, workspaceId }) {
+    seed({ tasks, members, me, workspaceId, completionDays }) {
       if (get().ready) return; // a second view mounting must not reset state
 
       if (me) applySoundEnabled(me.sound_enabled);
@@ -210,6 +222,7 @@ export const useStore = create<Store>((set, get) => {
         members,
         me,
         workspaceId,
+        completionDays,
         assigneeFilter: filterIsValid ? savedFilter : null,
         ready: true,
       });
@@ -219,11 +232,26 @@ export const useStore = create<Store>((set, get) => {
       const wsId = get().workspaceId;
       if (!wsId) return;
 
-      const [{ data: rows }, { data: members }] = await Promise.all([
+      const [{ data: rows }, { data: members }, { data: completions }] = await Promise.all([
         supabase.from('tasks').select('*').eq('workspace_id', wsId).order('position'),
         supabase.from('profiles').select('*'),
+        supabase
+          .from('tasks')
+          .select('completed_at')
+          .eq('workspace_id', wsId)
+          .not('completed_at', 'is', null),
       ]);
       if (!rows) return;
+
+      // the streak's history can move while a tab sleeps, so refresh it too
+      const days = completions
+        ? [...new Set(
+            completions
+              .map((r) => r.completed_at)
+              .filter((v): v is string => v !== null)
+              .map(instantToDay),
+          )]
+        : get().completionDays;
 
       set((s) => {
         /*
@@ -246,6 +274,7 @@ export const useStore = create<Store>((set, get) => {
         return {
           tasks: [...merged, ...unsent],
           members: members ?? s.members,
+          completionDays: days,
           me,
         };
       });
@@ -398,8 +427,14 @@ export const useStore = create<Store>((set, get) => {
     },
 
     applyRemote(type, row) {
-      // local precedence: ignore the echo of our own in-flight write
-      if (get().pending.has(row.id)) return;
+      /*
+        A deletion is authoritative and always applies. Local precedence exists
+        so an echo cannot overwrite a value you are still typing — but the row
+        is gone server-side, so holding it on screen only means your next write
+        fails against a row that no longer exists. Your partner deleting a task
+        while you edit it used to leave it sitting there until a resync.
+      */
+      if (type !== 'DELETE' && get().pending.has(row.id)) return;
 
       set((s) => {
         if (type === 'DELETE') return { tasks: s.tasks.filter((t) => t.id !== row.id) };

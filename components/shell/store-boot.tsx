@@ -31,6 +31,8 @@ export function StoreBoot({
     members: Profile[];
     me: Profile | null;
     workspaceId: string;
+    /** Montreal days that already had a completion — the streak's history. */
+    completionDays: string[];
   };
 }) {
   React.useEffect(() => {
