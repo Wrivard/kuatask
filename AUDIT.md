@@ -21,9 +21,9 @@ of this list rather than a gap in it.
 3. [x] **P1** Every completed task is fetched forever. The payload grows without bound while the UI shows only today's completions.
 4. **P2** `resync` refetches the whole workspace; it could ask only for rows changed since a timestamp.
 5. **P2** Components subscribe to the whole `tasks` array, so any write re-renders every view that is mounted.
-6. **P2** `updateTask` sends the full patch even when a field is unchanged.
-7. **P2** No retry or backoff on a transient network failure — one blip becomes a rollback and a toast.
-8. **P2** `pending` entries are never cleared if a request never settles.
+6. [x] **P2** `updateTask` sends the full patch even when a field is unchanged. The patch is now narrowed to the fields that actually differ, and an all-no-op patch is not a write at all. The modal saves on every change, so most patches were partly redundant: a round trip, a realtime echo to the other session, and an undo entry that reversed nothing — an all-no-op patch used to consume a ⌘Z press outright.
+7. [x] **P2** No retry or backoff on a transient network failure — one blip becomes a rollback and a toast. One retry after 400ms, and only when the error carries no `code`. A PostgREST error has one: that is the database refusing, and refusing twice as fast helps nobody. An error without one is the fetch failing, which on a phone changing cell towers is routine.
+8. [x] **P2** `pending` entries are never cleared if a request never settles. Every write now takes a `claim` that returns an idempotent release, with a 30s timer behind it. This was worse than a leak: `pending` is what gives a local edit precedence over a realtime echo, so a stuck id meant a row frozen out of realtime for the rest of the session — your partner's changes to it would stop arriving, silently.
 9. **P3** Two tabs both seed the store independently; harmless, but they do duplicate work.
 10. **P3** `position` halving is finite in double precision; after ~50 reorders between the same pair the gap collapses.
 11. **P3** The realtime channel is keyed on `workspaceId` but never torn down if that changes mid-session.

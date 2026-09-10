@@ -131,6 +131,38 @@ type Store = {
 };
 
 const UNDO_LIMIT = 20;
+
+/**
+ * How long a write may stay unaccounted for before its id is let go.
+ *
+ * `pending` is what gives a local edit precedence over a realtime echo, so an
+ * id that never clears is a row frozen out of realtime for the rest of the
+ * session — your partner's changes to it would stop arriving, silently. A
+ * request can hang forever: a backgrounded tab, a dropped connection, a fetch
+ * that neither resolves nor rejects. Thirty seconds is far longer than any
+ * healthy round trip and far shorter than "never".
+ */
+const PENDING_TIMEOUT = 30_000;
+
+/**
+ * One retry, on what looks like a transport failure rather than a refusal.
+ *
+ * A PostgREST error carries a `code` — that is the database saying no, and
+ * saying no twice as fast helps nobody. An error with no code is the fetch
+ * itself failing, which on a phone changing cell towers is routine. Without
+ * this, a single blip turns into a rollback and a red toast for a write that
+ * would have succeeded on the second attempt.
+ */
+const RETRY_DELAY = 400;
+
+type Refusal = { message: string; code?: string | null } | null;
+
+async function withRetry<T extends { error: Refusal }>(run: () => PromiseLike<T>): Promise<T> {
+  const first = await run();
+  if (!first.error || first.error.code) return first;
+  await new Promise((r) => setTimeout(r, RETRY_DELAY));
+  return run();
+}
 const FILTER_KEY = 'kua-assignee-filter';
 
 export const useStore = create<Store>((set, get) => {
@@ -172,6 +204,28 @@ export const useStore = create<Store>((set, get) => {
       else next.delete(id);
       return { pending: next };
     });
+
+  /*
+    Claims an id as in flight and hands back the release.
+
+    The release is idempotent on purpose. A write that never settles is let go
+    by a timer, and if its response does eventually turn up it must not
+    decrement the count a second time — that would clear the flag out from
+    under a *different* write on the same row, which is exactly the flicker the
+    ref counting exists to prevent.
+  */
+  const claim = (id: string) => {
+    markPending(id, true);
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      clearTimeout(timer);
+      markPending(id, false);
+    };
+    const timer = setTimeout(release, PENDING_TIMEOUT);
+    return release;
+  };
 
   const patchLocal = (id: string, patch: Partial<Task>) =>
     set((s) => ({
@@ -340,7 +394,7 @@ export const useStore = create<Store>((set, get) => {
       } as Task;
 
       set((s) => ({ tasks: [...s.tasks, optimistic] }));
-      markPending(optimistic.id, true);
+      const releaseNew = claim(optimistic.id);
       pushUndo({
         // nothing to take back if it is already gone
         applies: () => get().tasks.some((t) => t.id === optimistic.id),
@@ -348,13 +402,11 @@ export const useStore = create<Store>((set, get) => {
       });
 
       void (async () => {
-        const { data, error } = await supabase
-          .from('tasks')
-          .insert(optimistic)
-          .select()
-          .single();
+        const { data, error } = await withRetry(() =>
+          supabase.from('tasks').insert(optimistic).select().single(),
+        );
 
-        markPending(optimistic.id, false);
+        releaseNew();
 
         if (error) {
           set((s) => ({ tasks: s.tasks.filter((t) => t.id !== optimistic.id) }));
@@ -369,17 +421,33 @@ export const useStore = create<Store>((set, get) => {
       const before = get().tasks.find((t) => t.id === id);
       if (!before) return;
 
-      patchLocal(id, patch);
-      markPending(id, true);
+      /*
+        The modal saves on every change, so most patches that arrive here are
+        partly or wholly a no-op: the title field re-sends the label, changing
+        the date re-sends the title. Sending a field back at its current value
+        costs a round trip, a realtime echo to every other session, and an undo
+        entry that reverses nothing — and an all-no-op patch used to consume a
+        ⌘Z press outright.
+      */
+      const changed = pick(
+        patch,
+        (Object.keys(patch) as (keyof Task)[]).filter((k) => before[k] !== patch[k]),
+      ) as Partial<Task>;
+      if (Object.keys(changed).length === 0) return;
+
+      patchLocal(id, changed);
+      const release = claim(id);
       pushUndo({
-        applies: () => stillHolds(id, patch),
+        applies: () => stillHolds(id, changed),
         apply: () =>
-          get().updateTask(id, pick(before, Object.keys(patch) as (keyof Task)[])),
+          get().updateTask(id, pick(before, Object.keys(changed) as (keyof Task)[])),
       });
 
       void (async () => {
-        const { error } = await supabase.from('tasks').update(patch).eq('id', id);
-        markPending(id, false);
+        const { error } = await withRetry(() =>
+          supabase.from('tasks').update(changed).eq('id', id),
+        );
+        release();
         if (error) {
           patchLocal(id, before);
           toastError(error.message);
@@ -425,16 +493,16 @@ export const useStore = create<Store>((set, get) => {
       if (!before) return;
 
       set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) }));
-      markPending(id, true);
+      const release = claim(id);
       pushUndo({
         // if it is back, somebody already restored it
         applies: () => !get().tasks.some((t) => t.id === id),
         apply: () => {
         set((s) => ({ tasks: [...s.tasks, before] }));
-        markPending(before.id, true);
+        const releaseUndo = claim(before.id);
         void (async () => {
-          const { error } = await supabase.from('tasks').insert(before);
-          markPending(before.id, false);
+          const { error } = await withRetry(() => supabase.from('tasks').insert(before));
+          releaseUndo();
           if (error) {
             // the insert policy requires created_by = auth.uid(), so undoing a
             // delete of the other person's task fails. Put the row back rather
@@ -447,8 +515,10 @@ export const useStore = create<Store>((set, get) => {
       });
 
       void (async () => {
-        const { error } = await supabase.from('tasks').delete().eq('id', id);
-        markPending(id, false);
+        const { error } = await withRetry(() =>
+          supabase.from('tasks').delete().eq('id', id),
+        );
+        release();
         if (error) {
           set((s) => ({ tasks: [...s.tasks, before] }));
           toastError(error.message);

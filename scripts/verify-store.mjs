@@ -20,14 +20,28 @@ import { pathToFileURL } from "node:url";
 const tmp = fs.mkdtempSync(".verify-tmp-");
 process.on("exit", () => fs.rmSync(tmp, { recursive: true, force: true }));
 
-/** Scripted replies: set `nextError` to make the following write fail. */
+/**
+ * Scripted replies.
+ *
+ * `failNext` is a *refusal*: it carries a code, the way a PostgREST error does,
+ * and the store must not retry it. `failNextTransport` is the fetch itself
+ * failing — no code — which the store retries once. The difference matters,
+ * because retrying a refusal helps nobody and not retrying a blip turns a
+ * change of cell tower into a rollback and a red toast.
+ */
 const stub = `
 export let nextError = null;
-export function failNext(message) { nextError = { message }; }
+export let failCount = 0;
+export function failNext(message) { nextError = { message, code: "23514" }; }
+export function failNextTransport(message, times = 1) {
+  nextError = { message, code: null };
+  failCount = times;
+}
 
 const reply = () => {
   const err = nextError;
-  nextError = null;
+  if (failCount > 1) failCount -= 1;
+  else nextError = null;
   return { data: null, error: err };
 };
 
@@ -306,6 +320,46 @@ await settle();
 check("one press reaches past the dead entry", !titles().includes("morte"),
       titles().join(","));
 check("and the earlier task is untouched", titles().includes("vivante"));
+
+const slow = () => new Promise((r) => setTimeout(r, 700));
+
+section("Retry — a transport blip does not become a rollback");
+reset();
+supa.failNextTransport("Failed to fetch");
+s().createTask({ title: "survit au reseau" });
+await slow();
+check("the task is still there after the retry lands",
+      titles().includes("survit au reseau"), titles().join(","));
+check("and nothing was shouted at the user", errors.length === 0, errors.join(" | "));
+
+section("Retry — a refusal is not retried, it is rolled back");
+reset();
+supa.failNext("new row violates check constraint");
+s().createTask({ title: "refusee" });
+await slow();
+check("the task is gone", !titles().includes("refusee"), titles().join(","));
+check("and the refusal was reported once", errors.length === 1, errors.join(" | "));
+
+section("Patches — a field sent back at its current value is not a write");
+reset();
+s().createTask({ title: "inchangee" });
+await settle();
+const same = byTitle("inchangee");
+const before = s().undoStack.length;
+s().updateTask(same.id, { title: "inchangee", label: null });
+await settle();
+check("no undo entry for a no-op patch", s().undoStack.length === before,
+      `${before} -> ${s().undoStack.length}`);
+check("nothing was marked in flight", s().pending.size === 0);
+
+s().updateTask(same.id, { title: "inchangee", label: "client" });
+await settle();
+check("a patch with one real change still applies", byTitle("inchangee").label === "client");
+s().undo();
+await settle();
+check("and its undo reverses only that field",
+      byTitle("inchangee").label === null && byTitle("inchangee").title === "inchangee",
+      `${byTitle("inchangee").title} / ${byTitle("inchangee").label}`);
 
 console.log(`\n${failures === 0 ? "the store behaves" : `${failures} FAILED`}`);
 process.exit(failures ? 1 : 0);
