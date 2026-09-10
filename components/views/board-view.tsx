@@ -23,6 +23,9 @@ import {
 } from "@/lib/completion";
 import { useOpenTask } from "@/lib/events";
 import { useCompletionHold } from "@/lib/hold";
+import { useClearedToday } from "@/lib/clear-out";
+import { ClearOut } from "./clear-out";
+import { streakFromDays, instantToDay, dayOfMonth } from "@/lib/time";
 import { useToday } from "@/lib/day";
 import { firstDayOfBucket, isOnDay, type Bucket } from "@/lib/time";
 import { exit } from "@/lib/motion";
@@ -153,6 +156,19 @@ export function BoardView() {
 
   const { dragId, target, index: dropIndex, grab } = useDragToTarget(drop);
 
+  // § 8.5 — the moment belongs to the day being cleared, not to one screen
+  const { cleared, done: clearedCount } = useClearedToday(day, holding.size);
+  const completionDays = useStore((s) => s.completionDays);
+  const streak = React.useMemo(() => {
+    const local = allTasks
+      .map((t) => t.completed_at)
+      .filter((v): v is string => v !== null)
+      .map(instantToDay);
+    return streakFromDays([...completionDays, ...local], day);
+  }, [completionDays, allTasks, day]);
+
+  const isEmpty = columns.every((c) => c.tasks.length === 0);
+
   if (!ready) return <div className="px-6 py-6" />;
 
   return (
@@ -173,6 +189,18 @@ export function BoardView() {
           </button>
         ))}
       </div>
+
+      {cleared && (
+        <div className="px-6">
+          <ClearOut completedToday={clearedCount} streak={streak} seed={dayOfMonth()} />
+        </div>
+      )}
+
+      {isEmpty && !cleared && (
+        <p className="px-6 py-6 text-[13px] text-fg-muted">
+          {allTasks.length === 0 ? copy.empty.firstRun : copy.empty.today}
+        </p>
+      )}
 
       <div className="min-h-0 flex-1 overflow-x-auto px-6 pb-6">
         <div className="flex h-full min-w-max gap-3">

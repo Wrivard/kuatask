@@ -33,7 +33,7 @@ of this list rather than a gap in it.
 
 ## B. The list view
 
-15. **P1** Overdue tasks sort to the top of Aujourd'hui but are not visually separated, so a wall of red reads as one undifferentiated block.
+15. **NO** Visually separating overdue within Aujourd'hui. On review this contradicts `docs/06-views.md`, which says overdue gets no section of its own precisely so it does not accumulate into a wall of failure people scroll past. The red date is the whole intended signal. Audit item withdrawn.
 16. **P2** No count of overdue anywhere; you cannot tell at a glance whether you are behind.
 17. **P2** Search covers open tasks only — a completed task is unfindable.
 18. **P2** Search shows no result count, so an empty result and a slow filter look the same.
@@ -49,8 +49,8 @@ of this list rather than a gap in it.
 
 ## C. The board
 
-28. **P1** No empty state when every column is empty — the board looks broken rather than clear.
-29. **P1** The clear-out moment exists only on the list, so finishing your last task on the board is silent.
+28. [x] **P1** No empty state when every column is empty — the board looks broken rather than clear.
+29. [x] **P1** The clear-out moment exists only on the list, so finishing your last task on the board is silent.
 30. **P2** Columns cannot be collapsed; five date columns on a laptop is a lot of horizontal scrolling.
 31. **P2** No per-column count of what is overdue or due today.
 32. **P2** Dragging to a column that is scrolled out of view is impossible — no auto-scroll at the edges.
@@ -70,7 +70,7 @@ of this list rather than a gap in it.
 
 ## E. The task modal
 
-43. **P1** Opened by keyboard, focus does not return to the originating row on close — it returns to `body`.
+43. [x] **P1** Opened by keyboard, focus does not return to the originating row on close — it returns to `body`.
 44. **P2** The label field is a plain input with no autocomplete, unlike the composer.
 45. **P2** No created/updated timestamps beyond "Créé par".
 46. **P2** Deleting from the modal gives an undo toast, but the modal has already closed over the top of it on mobile.
@@ -79,7 +79,7 @@ of this list rather than a gap in it.
 
 ## F. Composer and capture
 
-49. **P1** Autocomplete does not fire for a token typed in the middle of an existing line if the cursor moves by click rather than keyboard.
+49. [x] **P1** Autocomplete missing the cursor after a click — already handled when autocomplete landed; the input tracks selectionStart on click and keyup, verified.
 50. **P2** No indication of what the parser understood until a chip appears — the title silently loses words.
 51. **P2** `@` autocomplete matches on display name only, not on the email local part.
 52. **P2** No recently-used labels ordering beyond raw frequency.

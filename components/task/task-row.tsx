@@ -62,6 +62,7 @@ function TaskRowImpl({
       onClick={() => onOpen(task.id)}
       onMouseEnter={() => onFocus?.(task.id)}
       data-focused={focused || undefined}
+      data-task-id={task.id}
       className={cn(
         "flex h-11 items-center gap-3 rounded-md border-b border-border px-3 text-left transition-colors",
         "hover:bg-surface-hover",

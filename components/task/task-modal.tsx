@@ -39,6 +39,32 @@ export function TaskModal({
   taskId: string | null;
   onClose: () => void;
 }) {
+  /*
+    Radix returns focus to whatever held it when the dialog opened. Clicking a
+    row that is the row; opening with E from the keyboard it is <body>, so focus
+    fell to the top of the document and J/K started from the beginning again.
+    The row carries data-task-id, so it can be found and focused directly.
+  */
+  const openedFrom = React.useRef<HTMLElement | null>(null);
+
+  React.useEffect(() => {
+    if (taskId) {
+      const active = document.activeElement;
+      openedFrom.current =
+        active instanceof HTMLElement && active !== document.body ? active : null;
+    }
+  }, [taskId]);
+
+  const restoreFocus = React.useCallback(
+    (id: string | null) => {
+      if (openedFrom.current) return; // Radix will handle it
+      const row = id
+        ? document.querySelector<HTMLElement>(`[data-task-id="${id}"]`)
+        : null;
+      row?.focus();
+    },
+    [],
+  );
   const task = useStore((s) => s.tasks.find((t) => t.id === taskId));
   const members = useStore((s) => s.members);
   const updateTask = useStore((s) => s.updateTask);
@@ -100,7 +126,16 @@ export function TaskModal({
   ];
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (open) return;
+        const id = task.id;
+        onClose();
+        // after the dialog has released the focus trap
+        requestAnimationFrame(() => restoreFocus(id));
+      }}
+    >
       <DialogContent
         onKeyDown={handleKeyDown}
         className="max-w-[520px] gap-0 rounded-lg border-border bg-surface p-0"

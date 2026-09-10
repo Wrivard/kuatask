@@ -32,6 +32,7 @@ import {
 import { useHotkeys } from "@/lib/hotkeys";
 import { useCompletionHold } from "@/lib/hold";
 import { useScrollMemory } from "@/lib/scroll-memory";
+import { useClearedToday } from "@/lib/clear-out";
 import { useToday } from "@/lib/day";
 import { useOpenTask, useStartSearch, focusComposer } from "@/lib/events";
 import { nextDay } from "date-fns";
@@ -243,24 +244,8 @@ export function ListView() {
     return streakFromDays([...completionDays, ...local], day);
   }, [completionDays, allTasks, day]);
 
-  /*
-    § 8.5 — fires when the last task assigned to you and due today goes done.
-    Mounting ClearOut is the trigger, so the sweep plays exactly once, on the
-    transition, and never on a reload of an already-clear day.
-  */
-  const myToday = React.useMemo(() => {
-    if (!me) return { open: 0, done: 0 };
-    let open = 0;
-    let doneCount = 0;
-    for (const task of allTasks) {
-      if (task.assignee_id !== me.id) continue;
-      if (task.status !== "done" && task.due_on !== null && task.due_on <= day) open += 1;
-      if (task.status === "done" && isOnDay(task.completed_at, day)) doneCount += 1;
-    }
-    return { open, done: doneCount };
-  }, [allTasks, me, day]);
+  const { cleared, done: clearedCount } = useClearedToday(day, holding.size);
 
-  const cleared = myToday.open === 0 && myToday.done > 0 && holding.size === 0;
 
   const emptyMessage = (() => {
     if (searching && query.trim() !== "") return copy.empty.search;
@@ -308,7 +293,7 @@ export function ListView() {
 
       {cleared ? (
         <ClearOut
-          completedToday={myToday.done}
+          completedToday={clearedCount}
           streak={streak}
           seed={dayOfMonth()}
         />
