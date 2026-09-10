@@ -8,6 +8,17 @@
  * buttons. Errors name what failed and what to do about it — they never
  * apologize and they are never vague.
  */
+/**
+ * French plural agreement, which is simpler than English but not free.
+ *
+ * Four places had grown their own inline ternary, and a fifth would have been
+ * written the same way. The rule here is only the regular one — add an s — so
+ * anything irregular passes its own second form.
+ */
+export function plural(n: number, one: string, many = `${one}s`): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
 export const copy = {
   app: {
     name: "Küa Tasks",
@@ -38,7 +49,7 @@ export const copy = {
 
   search: {
     title: "Résultats",
-    count: (n: number) => `${n} ${n === 1 ? "résultat" : "résultats"}`,
+    count: (n: number) => plural(n, "résultat"),
   },
 
   calendar: {
@@ -71,7 +82,7 @@ export const copy = {
     searchPlaceholder: "Chercher…",
     hint: "Entrée pour ajouter",
     emptyTitle: "Sans titre",
-    pasted: (n: number) => `${n} tâches ajoutées`,
+    pasted: (n: number) => `${plural(n, "tâche")} ${n === 1 ? "ajoutée" : "ajoutées"}`,
     chipOff: "Ignorer cette lecture",
     chipOn: "Reprendre cette lecture",
   },
@@ -231,11 +242,10 @@ export const copy = {
   a11y: {
     progress: (done: number, total: number) =>
       `Progression : ${done} sur ${total} tâches terminées aujourd'hui`,
-    streak: (days: number) =>
-      days === 1 ? "1 jour d'affilée" : `${days} jours d'affilée`,
-    column: (title: string, count: number) =>
-      `${title} — ${count} ${count === 1 ? "tâche" : "tâches"}`,
+    streak: (days: number) => `${plural(days, "jour")} d'affilée`,
+    column: (title: string, count: number) => `${title} — ${plural(count, "tâche")}`,
     skipToContent: "Aller au contenu",
+    lens: (name: string) => `Filtre : ${name}`,
     /*
       Announcements name the task. A toast is a glance, and a glance is exactly
       what a screen reader does not get — "Reprogrammée" alone says nothing

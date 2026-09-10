@@ -28,7 +28,7 @@ import { useOpenTask } from "@/lib/events";
 import { useCompletionHold } from "@/lib/hold";
 import { useClearedToday } from "@/lib/clear-out";
 import { ClearOut } from "./clear-out";
-import { streakFromDays, instantToDay, dayOfMonth } from "@/lib/time";
+import { streakFromDays, instantToDay, dayNumber } from "@/lib/time";
 import { useToday } from "@/lib/day";
 import { useLocalLens } from "@/lib/lens";
 import { firstDayOfBucket, isOnDay, isOverdue, type Bucket } from "@/lib/time";
@@ -243,7 +243,7 @@ export function BoardView() {
 
       {cleared && (
         <div className="px-6">
-          <ClearOut completedToday={clearedCount} streak={streak} seed={dayOfMonth()} />
+          <ClearOut completedToday={clearedCount} streak={streak} seed={dayNumber()} />
         </div>
       )}
 

@@ -100,6 +100,20 @@ export function CommandPalette({
               <CommandItem
                 key={task.id}
                 value={`${task.title} ${task.label ?? ""}`}
+                /*
+                  The row shows the title, then its bucket and whose it is, in
+                  two spans with no separator between them — read aloud that
+                  becomes "envoyer la facture Demain Guillaume". The label says
+                  it as a sentence; `value` stays what it was, since that is
+                  what cmdk matches typing against.
+                */
+                aria-label={[
+                  task.title,
+                  BUCKET_LABEL[bucketOf(task.due_on)],
+                  assignee?.display_name,
+                ]
+                  .filter(Boolean)
+                  .join(" — ")}
                 onSelect={() => open_(() => onOpenTask(task.id))}
               >
                 <span className="min-w-0 flex-1 truncate">{task.title}</span>

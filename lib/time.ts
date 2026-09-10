@@ -121,9 +121,16 @@ export function nowDate(): Date {
   return new Date(nowTz());
 }
 
-/** Montreal day of the month, used to rotate the clear-out copy per day. */
-export function dayOfMonth(): number {
-  return parseInt(today().slice(-2), 10);
+/**
+ * A number that advances by one each Montreal day and never repeats.
+ *
+ * The clear-out copy used the day of the month, which meant a fixed cycle: the
+ * 3rd always got the same line, and with a list shorter than 28 entries some
+ * lines were never seen at all. Days since the epoch has no period, so the
+ * rotation drifts across the list instead of landing on it.
+ */
+export function dayNumber(): number {
+  return Math.floor(toDate(today()).getTime() / 86_400_000);
 }
 
 export function tomorrow(): DayString {

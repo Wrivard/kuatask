@@ -92,7 +92,7 @@ of this list rather than a gap in it.
 56. [x] **P2** `?` sheet does not list the board or calendar drag gestures.
 57. [x] **P2** No `Escape` handling to close the day sheet from the keyboard. Wrong on inspection — the sheet is a Radix dialog and has always closed on Escape. Nothing to change; recorded so it is not re-opened.
 58. [~] **P2** Row focus is lost when the list re-renders from a realtime event. Read the path rather than assuming it. Row focus is an id, not a DOM reference, and it is only cleared when that id leaves the list — a realtime event that reorders or edits other rows does not touch it. DOM focus now lands on the row's title button, whose React key is the task id, so a re-render keeps it too. What remains true is the narrower case the item did not name: if your partner *deletes* the row you have focused, the focus goes with it and there is nothing under J/K until you press it again. That is arguably correct and definitely not worth machinery.
-59. **P3** No `G` then `S` for settings.
+59. [x] **P3** No `G` then `S` for settings. `S` alone cycles a row's status; behind `G` there is no collision. Listed in the `?` sheet.
 60. **P3** No repeat-count prefixes (`3j` to move down three).
 
 ## H. Accessibility
@@ -105,8 +105,8 @@ of this list rather than a gap in it.
 66. [x] **P2** No skip-to-content link. First in the tab order, invisible until focused, moving focus to a real `<main>`. Without it, reaching a task by keyboard meant tabbing the sidebar's nav, the filter and the streak on every page load.
 67. [x] **P2** Sections are not associated with their headings via `aria-labelledby`.
 68. [x] **P2** Under reduced motion a drag still moves the card, which is the one thing motion preference is about. The card itself was already gated; the wrapper around it in the board and both wrappers in the list section were not, and those are the ones that animate the *reflow* — which is the movement the preference exists to stop.
-69. **P3** The command palette items have no supplementary description for a screen reader.
-70. **P3** No `aria-live` on the filter, so changing the lens is silent.
+69. [x] **P3** The command palette items have no supplementary description for a screen reader. A row is a title and then two spans with no separator, which read aloud is « envoyer la facture Demain Guillaume ». An `aria-label` says it as a sentence; `value` is left alone, since that is what cmdk matches typing against.
+70. [x] **P3** No `aria-live` on the filter, so changing the lens is silent. It is the largest change any single click in this app makes — the whole list is rewritten — and a screen reader was told nothing at all. It announces through the same live region completions use.
 
 ## I. Performance
 
@@ -143,8 +143,8 @@ of this list rather than a gap in it.
 
 93. [x] **P2** Error toasts show the raw Postgres message as a description, which is English and technical. A failed save read « La modification n'a pas été enregistrée » followed by `new row for relation "tasks" violates check constraint "tasks_title_check"` — English, jargon, naming an object nobody using this app has heard of, and putting the schema on screen besides. The handful of refusals this app can actually provoke now get a French sentence, keyed on the SQLSTATE; everything else gets none, because a second line that cannot be understood reads as though something is broken beyond what happened. The raw message goes to the console, where whoever is debugging will look for it.
 94. [x] **P2** No copy for the board's empty state beyond "Rien ici." Deleted rather than written. Six columns each saying « Rien ici. » is noise — a column with nothing in it is already obviously empty. What was actually missing was a target while dragging, so a dashed « Déposer ici » appears then and only then.
-95. **P3** The clear-out copy rotates by day-of-month, so the same day each month repeats.
-96. **P3** No pluralisation helper; counts are bare numbers.
+95. [x] **P3** The clear-out copy rotates by day-of-month, so the same day each month repeats. Worse than a repeat: with a list shorter than 28 entries some lines were never reachable at all. Days since the epoch has no period, so the rotation drifts across the list instead of landing on the same spot.
+96. [x] **P3** No pluralisation helper; counts are bare numbers. Four places had grown their own inline ternary and a fifth would have been written the same way. `plural(n, one)` handles the regular rule; anything irregular passes its own second form.
 
 ## M. Deployment and operations
 
@@ -169,10 +169,10 @@ of this list rather than a gap in it.
 109. [x] **P2** The settings tabs do not indicate which pane is loading on a slow navigation. These two pages fetch on the server, so a click on a cold connection does nothing visible for a moment and reads as a dead tab. This is the one place in the app that admits to waiting — everything on the task surfaces is optimistic and has nothing to wait for. A rule under the label rather than a spinner: the tab's own underline, arriving early.
 110. [x] **P2** The people page shows no email for members, only display names. Two people can pick the same display name, and an invite is sent to an address rather than to a name — so the member list could not be checked against the invite that produced it.
 111. [x] **P2** No indication anywhere of who you are signed in as, except settings — two clicks away, and the last place you would think to look after being bounced to a login screen and back. At the foot of the rail now, with the accent dot, because with two people on one board it is what decides what « Moi » means.
-112. **P3** The sidebar workspace name is not a link to anything.
-113. **P3** Bucket anchors scroll the section to the very top, hiding the header under the app header.
-114. **P3** The board's group-by control loses its scroll position on re-render.
-115. **P3** No focus styling difference between row focus and DOM focus.
+112. [x] **P3** The sidebar workspace name is not a link to anything. Settings is the only place it can be renamed, so that is where it goes.
+113. **NO** Bucket anchors scroll the section to the very top, hiding the header under the app header. Checked rather than assumed: nothing in the shell is `sticky` or `fixed` above the list — the page header scrolls away with the content — so there is nothing for a section to hide under. The `scroll-mt-6` on each section is breathing room, not a fix for an overlap that does not exist.
+114. **NO** The board's group-by control loses its scroll position on re-render. Not reproducible. The scrolling element is a stable `div` that React reuses across renders; only its children change, and a browser does not reset `scrollLeft` for that. The board's *horizontal* scroll position was the real one, and that is fixed under 132.
+115. [x] **P3** No focus styling difference between row focus and DOM focus. Resolved by the `role="button"` correction (65). Row focus, which J and K move, is a 1px accent ring around the whole row; DOM focus now lands on the title button and draws an accent underline under the title alone. Two different things, two different marks.
 
 ## P. Things the brief forbids
 

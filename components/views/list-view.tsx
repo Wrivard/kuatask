@@ -16,7 +16,7 @@ import {
   bucketOf,
   instantToDay,
   streakFromDays,
-  dayOfMonth,
+  dayNumber,
   daysFromToday,
   isOverdue,
   isOnDay,
@@ -381,7 +381,7 @@ export function ListView() {
         <ClearOut
           completedToday={clearedCount}
           streak={streak}
-          seed={dayOfMonth()}
+          seed={dayNumber()}
         />
       ) : (
         (results ? results.length === 0 : visibleCount === 0) && (

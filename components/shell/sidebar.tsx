@@ -11,6 +11,7 @@ import { bucketOf, instantToDay, streakFromDays, type Bucket } from "@/lib/time"
 import { useToday } from "@/lib/day";
 import { prefersReducedMotion } from "@/lib/motion";
 import { copy } from "@/lib/copy";
+import { announce } from "./live-region";
 import { cn } from "@/lib/utils";
 
 const BUCKETS: { bucket: Bucket; label: string }[] = [
@@ -85,11 +86,25 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
   */
   const streak = useStreak(day);
 
+  /*
+    The lens rewrites the whole list, and it did so in silence — a sighted
+    person sees every row change at once, and a screen reader was told nothing
+    at all. It is the largest change any single click in this app makes.
+  */
+  function chooseFilter(id: string | null, name: string) {
+    setFilter(id);
+    announce(copy.a11y.lens(name));
+  }
+
   return (
     <aside className="hidden w-[220px] shrink-0 flex-col border-r border-border lg:flex">
-      <div className="px-4 py-4">
-        <span className="text-[13px] font-medium text-fg">{workspaceName}</span>
-      </div>
+      {/* the only place the workspace can be renamed is settings, so send it there */}
+      <Link
+        href="/settings"
+        className="block px-4 py-4 text-[13px] font-medium text-fg hover:text-fg"
+      >
+        {workspaceName}
+      </Link>
 
       <nav className="flex flex-col gap-px px-2" aria-label={copy.nav.list}>
         {VIEWS.map(({ href, icon: Icon, label }) => {
@@ -152,14 +167,14 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
 
       {/* the assignee lens */}
       <div className="flex flex-col gap-px px-2">
-        <FilterItem active={filter === null} onClick={() => setFilter(null)}>
+        <FilterItem active={filter === null} onClick={() => chooseFilter(null, copy.filter.all)}>
           {copy.filter.all}
         </FilterItem>
 
         {me && (
           <FilterItem
             active={filter === me.id}
-            onClick={() => setFilter(me.id)}
+            onClick={() => chooseFilter(me.id, copy.filter.mine)}
             color={accentColor(me.accent)}
           >
             {copy.filter.mine}
@@ -169,7 +184,7 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
         {partner && (
           <FilterItem
             active={filter === partner.id}
-            onClick={() => setFilter(partner.id)}
+            onClick={() => chooseFilter(partner.id, partner.display_name)}
             color={accentColor(partner.accent)}
           >
             {partner.display_name}
