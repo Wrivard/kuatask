@@ -17,7 +17,7 @@ of this list rather than a gap in it.
 ## A. Store, data flow and reactivity
 
 1. [x] **P1** `applyRemote` skips any row with a local write in flight — including a remote DELETE. If your partner deletes a task while you are editing it, it lingers until the next resync.
-2. **P1** The undo stack holds closures over task snapshots captured at push time; after a resync those snapshots can describe a row that no longer exists.
+2. [x] **P1** The undo stack holds closures over task snapshots captured at push time; after a resync those snapshots can describe a row that no longer exists. Each entry now carries a precondition alongside its inverse: it fires only while the field it would reverse still holds the value your action put there. So ⌘Z will not overwrite the date your partner just changed, will not re-toggle a task they already reopened, and will not resurrect one they deleted. An entry that fails its precondition is dropped and the press continues to the next live one, because a ⌘Z that stops dead is worse than one that skips. Five new assertions in `verify:store`, each of which fails if the precondition is removed.
 3. [x] **P1** Every completed task is fetched forever. The payload grows without bound while the UI shows only today's completions.
 4. **P2** `resync` refetches the whole workspace; it could ask only for rows changed since a timestamp.
 5. **P2** Components subscribe to the whole `tasks` array, so any write re-renders every view that is mounted.

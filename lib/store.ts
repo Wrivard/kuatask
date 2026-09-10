@@ -22,7 +22,32 @@ import { setSoundEnabled as applySoundEnabled } from '@/lib/sound';
 export type Task = Database['public']['Tables']['tasks']['Row'];
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 
-type Inverse = () => void;
+/**
+ * One reversible action.
+ *
+ * `apply` is the inverse. `applies` is the precondition: what must still be
+ * true for replaying the inverse to actually *be* an undo. The stack holds
+ * snapshots taken when the action happened, and in a two-person app the row
+ * can move on underneath one — your partner reopens the task you completed,
+ * or reschedules the one you just moved, or deletes it outright. Replaying a
+ * stale inverse then is not an undo, it is a fresh write wearing an undo's
+ * clothes, and it silently overwrites what the other person did.
+ *
+ * So an entry only fires while the field it would reverse still holds the
+ * value your action put there.
+ */
+type Inverse = {
+  applies: () => boolean;
+  apply: () => void;
+};
+
+/**
+ * Columns a trigger owns. `completed_at` is set optimistically so the streak
+ * and the day footer can render without a round trip, then rewritten with the
+ * server's instant — so it can never be used to decide whether a local change
+ * is still the current state. `status` can, which is the one that matters.
+ */
+const SERVER_OWNED: readonly (keyof Task)[] = ['completed_at', 'completed_by', 'updated_at'];
 
 type Store = {
   tasks: Task[];
@@ -125,9 +150,18 @@ export const useStore = create<Store>((set, get) => {
   */
   let replaying = false;
 
-  const pushUndo = (fn: Inverse) => {
+  const pushUndo = (entry: Inverse) => {
     if (replaying) return;
-    set((s) => ({ undoStack: [...s.undoStack, fn].slice(-UNDO_LIMIT) }));
+    set((s) => ({ undoStack: [...s.undoStack, entry].slice(-UNDO_LIMIT) }));
+  };
+
+  /** True while every client-owned field of `patch` is still the row's value. */
+  const stillHolds = (id: string, patch: Partial<Task>) => {
+    const row = get().tasks.find((t) => t.id === id);
+    if (!row) return false;
+    return (Object.keys(patch) as (keyof Task)[])
+      .filter((k) => !SERVER_OWNED.includes(k))
+      .every((k) => row[k] === patch[k]);
   };
 
   const markPending = (id: string, on: boolean) =>
@@ -307,7 +341,11 @@ export const useStore = create<Store>((set, get) => {
 
       set((s) => ({ tasks: [...s.tasks, optimistic] }));
       markPending(optimistic.id, true);
-      pushUndo(() => get().deleteTask(optimistic.id));
+      pushUndo({
+        // nothing to take back if it is already gone
+        applies: () => get().tasks.some((t) => t.id === optimistic.id),
+        apply: () => get().deleteTask(optimistic.id),
+      });
 
       void (async () => {
         const { data, error } = await supabase
@@ -333,7 +371,11 @@ export const useStore = create<Store>((set, get) => {
 
       patchLocal(id, patch);
       markPending(id, true);
-      pushUndo(() => get().updateTask(id, pick(before, Object.keys(patch) as (keyof Task)[])));
+      pushUndo({
+        applies: () => stillHolds(id, patch),
+        apply: () =>
+          get().updateTask(id, pick(before, Object.keys(patch) as (keyof Task)[])),
+      });
 
       void (async () => {
         const { error } = await supabase.from('tasks').update(patch).eq('id', id);
@@ -384,7 +426,10 @@ export const useStore = create<Store>((set, get) => {
 
       set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) }));
       markPending(id, true);
-      pushUndo(() => {
+      pushUndo({
+        // if it is back, somebody already restored it
+        applies: () => !get().tasks.some((t) => t.id === id),
+        apply: () => {
         set((s) => ({ tasks: [...s.tasks, before] }));
         markPending(before.id, true);
         void (async () => {
@@ -398,6 +443,7 @@ export const useStore = create<Store>((set, get) => {
             toastError(error.message);
           }
         })();
+        },
       });
 
       void (async () => {
@@ -410,20 +456,33 @@ export const useStore = create<Store>((set, get) => {
       })();
     },
 
+    /*
+      Walks back to the most recent entry that can still honestly reverse
+      itself, dropping the ones that cannot on the way. Dropping rather than
+      stopping is deliberate: an entry whose row your partner has since changed
+      is dead, and if ⌘Z stopped there it would be a key that does nothing for
+      the rest of the session.
+    */
     undo() {
-      const stack = get().undoStack;
-      const fn = stack[stack.length - 1];
-      if (!fn) return;
+      let stack = get().undoStack;
 
-      set({ undoStack: stack.slice(0, -1) });
+      while (stack.length) {
+        const entry = stack[stack.length - 1];
+        stack = stack.slice(0, -1);
+        if (!entry.applies()) continue;
 
-      replaying = true;
-      try {
-        fn();
-      } finally {
-        // the flag must clear even if the inverse throws, or undo dies silently
-        replaying = false;
+        set({ undoStack: stack });
+        replaying = true;
+        try {
+          entry.apply();
+        } finally {
+          // the flag must clear even if the inverse throws, or undo dies silently
+          replaying = false;
+        }
+        return;
       }
+
+      set({ undoStack: [] });
     },
 
     applyRemote(type, row) {

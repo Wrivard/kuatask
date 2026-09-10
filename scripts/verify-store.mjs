@@ -240,5 +240,72 @@ s().toggleTask(doingId);
 check("and reopens to todo", byTitle("en cours").status === "todo");
 check("reopening clears the completion stamp", byTitle("en cours").completed_at === null);
 
+/*
+  The stack holds snapshots taken when the action happened. In a two-person app
+  the row moves on underneath them, and replaying a stale inverse is not an undo
+  — it is a fresh write that silently overwrites what the other person did.
+*/
+section("Undo — an entry whose row moved on is dropped, not replayed");
+reset();
+s().createTask({ title: "reprogrammee" });
+await settle();
+const moved = byTitle("reprogrammee");
+s().updateTask(moved.id, { due_on: "2026-09-11" });
+await settle();
+s().applyRemote("UPDATE", { ...byTitle("reprogrammee"), due_on: "2026-09-14" });
+check("the other person's date is in place", byTitle("reprogrammee").due_on === "2026-09-14",
+      String(byTitle("reprogrammee").due_on));
+
+s().undo();
+await settle();
+check("undo does not overwrite it with the pre-edit date",
+      byTitle("reprogrammee") === undefined || byTitle("reprogrammee").due_on === "2026-09-14",
+      String(byTitle("reprogrammee")?.due_on));
+check("and the press fell through to the entry behind it",
+      s().tasks.length === 0, titles().join(","));
+
+section("Undo — a completion the other person already reopened");
+reset();
+s().createTask({ title: "deja rouverte" });
+await settle();
+const reopened = byTitle("deja rouverte");
+s().toggleTask(reopened.id);
+await settle();
+s().applyRemote("UPDATE", { ...byTitle("deja rouverte"), status: "todo", completed_at: null });
+s().undo();
+await settle();
+check("the stale completion inverse is dropped, so the press removes the task",
+      s().tasks.length === 0, s().tasks.map((t) => t.status).join(","));
+
+section("Undo — a deleted row does not resurrect through an edit's inverse");
+reset();
+s().createTask({ title: "supprimee par lautre" });
+await settle();
+const gone = byTitle("supprimee par lautre");
+s().updateTask(gone.id, { title: "renommee" });
+await settle();
+s().applyRemote("DELETE", { id: gone.id });
+check("it is gone", s().tasks.length === 0);
+s().undo();
+await settle();
+check("undo leaves it gone", s().tasks.length === 0, titles().join(","));
+
+section("Undo — a live entry still works after a dead one is dropped");
+reset();
+s().createTask({ title: "vivante" });
+await settle();
+s().createTask({ title: "morte" });
+await settle();
+const dead = byTitle("morte");
+s().updateTask(dead.id, { label: "client" });
+await settle();
+s().applyRemote("UPDATE", { ...byTitle("morte"), label: "autre client" });
+
+s().undo();
+await settle();
+check("one press reaches past the dead entry", !titles().includes("morte"),
+      titles().join(","));
+check("and the earlier task is untouched", titles().includes("vivante"));
+
 console.log(`\n${failures === 0 ? "the store behaves" : `${failures} FAILED`}`);
 process.exit(failures ? 1 : 0);
