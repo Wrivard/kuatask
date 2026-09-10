@@ -452,3 +452,15 @@ reviewed. Numbering continues.
      paused project never reaches this, because auth fails first. What it covers
      is auth answering while PostgREST does not, which they can do
      independently.
+177. [x] **P1** The project will pause, and a well-explained failure is still a
+     failure. 175 made the Monday-morning message honest; this stops the Monday
+     happening. A daily Vercel cron hits `/api/health`, which makes a real
+     PostgREST query — anonymous, against a table behind RLS — and that is
+     genuine activity, which is what resets Supabase's seven-day clock. A route
+     that only read environment variables would keep Vercel busy and let the
+     database fall asleep anyway. 12:00 UTC, before either of these two opens the
+     app; the hour does not matter, only that seven days never pass between two
+     runs. No `CRON_SECRET`: the endpoint is public by design, takes no input,
+     and reveals only whether things are up. `docs/keeping-it-awake.md` records
+     what it does not cover — a manual pause, a disabled cron, and backups,
+     which it has nothing to do with.

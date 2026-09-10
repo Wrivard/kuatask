@@ -39,7 +39,10 @@ The organisation is on Supabase's **free plan**, which means:
 - **No automated backups.** None. Not daily, not nightly.
 - **No point-in-time recovery.** A bad `delete` is permanent.
 - **The project pauses after a week without activity** and has to be restored
-  from the dashboard before the app works again.
+  from the dashboard before the app works again. A daily Vercel cron hits
+  `/api/health`, which makes a real query and resets that clock — see
+  `docs/keeping-it-awake.md`. That prevents the common case; it does not
+  survive the cron being disabled or the project being paused by hand.
 
 That is a reasonable trade for what this costs, and an unreasonable thing not to
 know. So:
