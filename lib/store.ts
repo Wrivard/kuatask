@@ -658,16 +658,29 @@ export const useStore = create<Store>((set, get) => {
 
     applyRemoteProfile(row) {
       /*
-        `members` only. `me` is deliberately left alone: your own profile is
-        edited optimistically in settings, and a late echo of your own write
-        would overwrite the field you are still typing in — the same reason
-        applyRemote defers to a local write in flight.
+        Updates somebody already here; never adds anybody.
+
+        The subscription carries no filter, because `profiles` has no workspace
+        column — RLS decides what arrives, and its rule is "people you share a
+        workspace with". For one workspace that is the same set. For somebody in
+        two, it is not: their session would receive profile changes from both,
+        and appending an unknown id here would put a phantom person in the
+        assignee lens and a phantom column on the board.
+
+        A genuinely new member arrives through `resync`, which asks for the
+        workspace's own list and therefore knows which workspace it is asking
+        about. This only ever refreshes a name or a colour.
+
+        `me` is left alone as well: your own profile is edited optimistically in
+        settings, and a late echo of your own write would overwrite the field
+        you are still typing in — the same reason `applyRemote` defers to a
+        local write in flight.
       */
-      set((s) => ({
-        members: s.members.some((m) => m.id === row.id)
-          ? s.members.map((m) => (m.id === row.id ? row : m))
-          : [...s.members, row],
-      }));
+      set((s) =>
+        s.members.some((m) => m.id === row.id)
+          ? { members: s.members.map((m) => (m.id === row.id ? row : m)) }
+          : {},
+      );
     },
 
     applyRemote(type, row) {

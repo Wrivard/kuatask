@@ -292,3 +292,19 @@ reviewed. Numbering continues.
      exists would have thrown — telling somebody their erasure failed when it
      had already succeeded. The sign-out is housekeeping and is now treated as
      such.
+154. [x] **P2** The profile subscription (12) could recruit somebody into the
+     member list. It carries no filter, because `profiles` has no workspace
+     column — RLS decides what arrives, and its rule is « people you share a
+     workspace with ». For one workspace that is the same set; for anybody in
+     two it is not, and an unknown id appended to `members` would put a phantom
+     person in the assignee lens and a phantom column on the board. It updates
+     someone already present and never adds anyone; a genuinely new member
+     arrives through `resync`, which knows which workspace it is asking about.
+155. [x] **P3** The composer parsed every keystroke twice. `composeTask` ran
+     `parseFr`, then the chips ran it again on the same string — not only twice
+     the work but two answers that could in principle disagree, so the chips
+     could offer to switch off a reading the submit path had never made.
+     `composeTask` reports its `readings` alongside its decisions, which is what
+     the chips actually needed: an off chip has to show what it would put back,
+     and the decided value for a dismissed date is null. Six assertions pin the
+     two together.

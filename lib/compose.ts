@@ -22,6 +22,22 @@ export type Composed = {
   assignee_id: string | null;
   /** Which readings the parser made, so the chips know what to offer. */
   matched: Set<string>;
+  /**
+   * What the parser read, before the person's overrides were applied.
+   *
+   * The chips need this rather than the decided values: a chip that has been
+   * switched off still has to show what it would put back, and the decided
+   * value for a dismissed date is null. The composer used to get this by
+   * running `parseFr` a second time on the same string — twice the work per
+   * keystroke, and two answers that could disagree.
+   */
+  readings: {
+    dueOn: string | null;
+    dueTime: string | null;
+    label: string | null;
+    assigneeHandle: string | null;
+    important: boolean;
+  };
 };
 
 export function composeTask({
@@ -75,6 +91,13 @@ export function composeTask({
     .map((m) => m.text);
 
   return {
+    readings: {
+      dueOn: parsed.dueOn,
+      dueTime: parsed.dueTime,
+      label: parsed.label,
+      assigneeHandle: parsed.assigneeHandle,
+      important: parsed.important,
+    },
     title: [parsed.title.trim(), ...restored].join(' ').trim(),
     due_on: dueOn ?? defaultDueOn,
     due_time: dueTime,

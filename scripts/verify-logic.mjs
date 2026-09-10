@@ -478,6 +478,27 @@ section("Composing — what a typed line becomes");
   check("and carries none of the readings twice",
         onlyNotation.label === null && onlyNotation.assignee_id === null &&
         onlyNotation.important === false);
+
+  /*
+    The chips render from `readings`, not from the decided values — a chip that
+    has been switched off still has to show what it would put back, and the
+    decided value for a dismissed date is null. The composer used to get this by
+    parsing the same string a second time, which was two answers that could in
+    principle disagree.
+  */
+  const overridden = make("appeler Marie demain #acme", new Set(["date", "label"]));
+  eq("the decided date is gone", overridden.due_on, null);
+  check("but the reading is still reported", overridden.readings.dueOn !== null,
+        String(overridden.readings.dueOn));
+  eq("the decided label is gone", overridden.label, null);
+  eq("and its reading survives for the chip", overridden.readings.label, "acme");
+  check("matched still names both", overridden.matched.has("date") &&
+        overridden.matched.has("label"));
+
+  const untouched = make("appeler Marie demain #acme");
+  eq("with nothing dismissed the two agree on the label",
+     [untouched.label, untouched.readings.label], ["acme", "acme"]);
+  eq("and on the date", untouched.due_on, untouched.readings.dueOn);
 }
 
 /*

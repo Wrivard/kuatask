@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { RotateCcw, X } from "lucide-react";
-import { parseFr } from "@/lib/parse-fr";
 import { composeTask } from "@/lib/compose";
 import { toast } from "sonner";
 import { formatDueLabel, formatTime } from "@/lib/time";
@@ -55,12 +54,15 @@ export function TaskComposer({
   const createTask = useStore((s) => s.createTask);
   const members = useStore((s) => s.members);
 
-  const parsed = React.useMemo(() => parseFr(value), [value]);
-
   /*
     Everything a submit would produce, derived rather than computed inside the
     handler — the preview under the box has to show exactly what Enter is about
     to make, and there is only one place that can be decided.
+
+    The chips read from here too. They used to run `parseFr` a second time on
+    the same string, which is not only twice the work per keystroke but two
+    answers that could in principle disagree: the chips would offer to switch
+    off a reading the submit path had never made.
   */
   const composed = React.useMemo(
     () =>
@@ -183,22 +185,22 @@ export function TaskComposer({
     chip stays where it was, struck through, and clicking it turns the reading
     back on.
   */
-  const matched = new Set(parsed.matched.map((m) => m.kind));
+  const { matched, readings } = composed;
   const chips = (
     [
-      matched.has("date") && parsed.dueOn
-        ? { kind: "date", text: formatDueLabel(parsed.dueOn) }
+      matched.has("date") && readings.dueOn
+        ? { kind: "date", text: formatDueLabel(readings.dueOn) }
         : null,
-      matched.has("time") && parsed.dueTime
-        ? { kind: "time", text: formatTime(parsed.dueTime) }
+      matched.has("time") && readings.dueTime
+        ? { kind: "time", text: formatTime(readings.dueTime) }
         : null,
-      matched.has("label") && parsed.label
-        ? { kind: "label", text: "#" + parsed.label }
+      matched.has("label") && readings.label
+        ? { kind: "label", text: "#" + readings.label }
         : null,
-      matched.has("assignee") && parsed.assigneeHandle
-        ? { kind: "assignee", text: "@" + parsed.assigneeHandle }
+      matched.has("assignee") && readings.assigneeHandle
+        ? { kind: "assignee", text: "@" + readings.assigneeHandle }
         : null,
-      parsed.important ? { kind: "important", text: copy.task.important } : null,
+      readings.important ? { kind: "important", text: copy.task.important } : null,
     ].filter(Boolean) as { kind: string; text: string }[]
   ).map((chip) => ({ ...chip, on: !dismissed.has(chip.kind) }));
 
