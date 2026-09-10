@@ -6,6 +6,7 @@ import { AppChrome } from "@/components/shell/app-chrome";
 import { BottomBar } from "@/components/shell/bottom-bar";
 import { LiveRegion } from "@/components/shell/live-region";
 import { SetupRequired } from "@/components/shell/setup-required";
+import { PreviewBanner } from "@/components/shell/preview-banner";
 import { instantToDay, recentCompletionCutoff } from "@/lib/time";
 import { copy } from "@/lib/copy";
 
@@ -57,24 +58,24 @@ export default async function AppLayout({
 
   const [{ data: workspace }, { data: tasks }, { data: members }, { data: completions }] =
     await Promise.all([
-      supabase
-        .from("workspaces")
-        .select("name")
-        .eq("id", membership.workspace_id)
-        .maybeSingle(),
-      supabase
-        .from("tasks")
-        .select("*")
-        .eq("workspace_id", membership.workspace_id)
-        .or(`status.neq.done,completed_at.gte.${recent}`)
-        .order("position"),
-      supabase.from("profiles").select("*"),
-      supabase
-        .from("tasks")
-        .select("completed_at")
-        .eq("workspace_id", membership.workspace_id)
-        .not("completed_at", "is", null),
-    ]);
+    supabase
+      .from("workspaces")
+      .select("name")
+      .eq("id", membership.workspace_id)
+      .maybeSingle(),
+    supabase
+      .from("tasks")
+      .select("*")
+      .eq("workspace_id", membership.workspace_id)
+      .or(`status.neq.done,completed_at.gte.${recent}`)
+      .order("position"),
+    supabase.from("profiles").select("*"),
+    supabase
+      .from("tasks")
+      .select("completed_at")
+      .eq("workspace_id", membership.workspace_id)
+      .not("completed_at", "is", null),
+  ]);
 
   // distinct Montreal days, computed here so the client never sees the raw list
   const completionDays = [
@@ -89,41 +90,49 @@ export default async function AppLayout({
   if (!workspace) redirect("/no-access");
 
   return (
-    <div className="flex min-h-dvh">
-      <StoreBoot
-        initial={{
-          tasks: tasks ?? [],
-          members: members ?? [],
-          me: members?.find((m) => m.id === user.id) ?? null,
-          workspaceId: membership.workspace_id,
-          completionDays,
-          serverNow: new Date().toISOString(),
-        }}
-      />
-      {/*
+    /*
+      The banner is a row above the app rather than an overlay inside it: a
+      preview writes to the real database, and that is a fact about the whole
+      window, not a notice to dismiss. It renders to nothing in production.
+    */
+    <div className="flex min-h-dvh flex-col">
+      <PreviewBanner />
+      <div className="flex min-h-0 flex-1">
+        <StoreBoot
+          initial={{
+            tasks: tasks ?? [],
+            members: members ?? [],
+            me: members?.find((m) => m.id === user.id) ?? null,
+            workspaceId: membership.workspace_id,
+            completionDays,
+            serverNow: new Date().toISOString(),
+          }}
+        />
+        {/*
         First in the tab order, invisible until focused. Without it, reaching a
         task by keyboard means tabbing through the sidebar's nav, the filter and
         the streak on every single page load.
       */}
-      <a
-        href="#main"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-sm focus:border focus:border-control focus:bg-surface focus:px-3 focus:py-2 focus:text-[13px] focus:text-fg"
-      >
-        {copy.a11y.skipToContent}
-      </a>
-      <AppChrome />
-      <LiveRegion />
-      <Sidebar workspaceName={workspace.name} />
-      {/* the pad clears the fixed mobile bar plus the home indicator */}
-      <main
-        id="main"
-        // -1 so the skip link can move focus here; not in the tab order itself
-        tabIndex={-1}
-        className="min-w-0 flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0"
-      >
-        {children}
-      </main>
-      <BottomBar />
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-sm focus:border focus:border-control focus:bg-surface focus:px-3 focus:py-2 focus:text-[13px] focus:text-fg"
+        >
+          {copy.a11y.skipToContent}
+        </a>
+        <AppChrome />
+        <LiveRegion />
+        <Sidebar workspaceName={workspace.name} />
+        {/* the pad clears the fixed mobile bar plus the home indicator */}
+        <main
+          id="main"
+          // -1 so the skip link can move focus here; not in the tab order itself
+          tabIndex={-1}
+          className="min-w-0 flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0"
+        >
+          {children}
+        </main>
+        <BottomBar />
+      </div>
     </div>
   );
 }

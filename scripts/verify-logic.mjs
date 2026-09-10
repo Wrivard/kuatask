@@ -24,6 +24,7 @@ const NEEDED = [
   "suggest.ts",
   "compose.ts",
   "routing.ts",
+  "links.ts",
 ];
 
 // inside the project, so node resolves date-fns from the local node_modules
@@ -45,6 +46,7 @@ const { parseFr } = await load("parse-fr.ts");
 const suggest = await load("suggest.ts");
 const { composeTask } = await load("compose.ts");
 const routing = await load("routing.ts");
+const { extractLinks } = await load("links.ts");
 
 let failures = 0;
 const check = (name, ok, detail = "") => {
@@ -561,6 +563,53 @@ section("Positions — the gap between two cards is finite");
      [1024, 2048, 3072]);
   check("and the gaps are wide enough to subdivide again",
         grouping.positionForDrop(col(restacked.map((r) => r.position)), 1, "x") === 1536);
+}
+
+/*
+  Notes are where a staging URL, a Figma file or a ticket ends up, and a
+  textarea cannot hold a link. These are listed under the field instead — which
+  means an href built from somebody else's text, so the scheme matters more than
+  the convenience does.
+*/
+section("Links in notes");
+{
+  const hrefs = (text) => extractLinks(text).map((l) => l.href);
+  const labels = (text) => extractLinks(text).map((l) => l.label);
+
+  eq("nothing in, nothing out", extractLinks(null), []);
+  eq("plain text has no links", hrefs("rappeler le client"), []);
+
+  eq("an https url is found", hrefs("voir https://figma.com/file/xY7f"),
+     ["https://figma.com/file/xY7f"]);
+  eq("http too", hrefs("http://staging.kua.quebec"), ["http://staging.kua.quebec"]);
+
+  eq("a sentence's full stop is not part of the url",
+     hrefs("le devis est sur https://kua.quebec/devis."), ["https://kua.quebec/devis"]);
+  eq("nor a closing bracket",
+     hrefs("(https://kua.quebec/a) et la suite"), ["https://kua.quebec/a"]);
+
+  eq("the same link twice is listed once",
+     hrefs("https://kua.quebec et encore https://kua.quebec").length, 1);
+  eq("two different ones are both listed",
+     hrefs("https://a.quebec et https://b.quebec").length, 2);
+
+  /*
+    An href is a thing a colleague clicks. javascript: and data: in someone
+    else's notes are a way to run something in your session, so neither is ever
+    turned into a link.
+  */
+  eq("javascript: is never a link", hrefs("javascript:alert(1)"), []);
+  eq("data: is never a link", hrefs("data:text/html,<script>x</script>"), []);
+  eq("nor file:", hrefs("file:///etc/passwd"), []);
+  eq("and one hidden mid-sentence is still refused",
+     hrefs("clique ici javascript:alert(document.cookie) merci"), []);
+
+  eq("the label is the host and the last segment",
+     labels("https://www.figma.com/file/xY7f"), ["figma.com/xY7f"]);
+  eq("a bare host is just the host", labels("https://kua.quebec"), ["kua.quebec"]);
+  check("a long identifier is cut",
+        labels("https://kua.quebec/" + "a".repeat(60))[0].endsWith("…"),
+        labels("https://kua.quebec/" + "a".repeat(60))[0]);
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);

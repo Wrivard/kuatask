@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { addDays, nextDay } from "date-fns";
-import { CalendarDays, X } from "lucide-react";
+import { CalendarDays, Link as LinkIcon, X } from "lucide-react";
+import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { useStore, type Task } from "@/lib/store";
 import { useSetStatusWithFeedback, useDeleteWithFeedback } from "@/lib/completion";
 import { useAutoGrow } from "@/lib/auto-grow";
 import { labelsInUse } from "@/lib/suggest";
+import { extractLinks } from "@/lib/links";
 import { copy } from "@/lib/copy";
 import {
   today,
@@ -87,6 +89,7 @@ export function TaskModal({
     it is a labelled red button rather than a keystroke, offered none.
   */
   const deleteTask = useDeleteWithFeedback();
+  const createTask = useStore((s) => s.createTask);
   const setStatus = useSetStatusWithFeedback();
 
   const [title, setTitle] = React.useState("");
@@ -128,6 +131,7 @@ export function TaskModal({
 
   const allTasks = useStore((s) => s.tasks);
   const knownLabels = React.useMemo(() => labelsInUse(allTasks), [allTasks]);
+  const links = React.useMemo(() => extractLinks(notes), [notes]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (!task) return;
@@ -193,6 +197,32 @@ export function TaskModal({
             rows={1}
             className="mt-2 min-h-0 resize-none overflow-hidden rounded-none border-0 bg-transparent p-0 text-[13px] leading-[1.55] text-fg-muted shadow-none focus-visible:ring-0 dark:bg-transparent"
           />
+
+          {/*
+            A textarea cannot hold a link, so a staging URL or a Figma file
+            pasted into notes was text to select and copy by hand every time —
+            which in an agency is most of what ends up in there. Not markdown:
+            the text is untouched and nothing is parsed, the links are simply
+            also listed here, where they can be clicked.
+          */}
+          {links.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              <span className="sr-only">{copy.task.links}</span>
+              {links.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={link.href}
+                  className="flex max-w-full items-center gap-1 truncate rounded-sm border border-border px-1.5 py-px text-[12px] text-fg-muted hover:border-control hover:text-fg"
+                >
+                  <LinkIcon className="size-3 shrink-0" strokeWidth={1.5} aria-hidden />
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
@@ -320,17 +350,47 @@ export function TaskModal({
         </div>
 
         <div className="flex shrink-0 items-center justify-between border-t border-border px-5 py-3">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => {
-              deleteTask(task.id);
-              onClose();
-            }}
-            className="h-8 rounded-sm px-2 text-[13px] text-danger hover:text-danger"
-          >
-            {copy.task.delete}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                deleteTask(task.id);
+                onClose();
+              }}
+              className="h-8 rounded-sm px-2 text-[13px] text-danger hover:text-danger"
+            >
+              {copy.task.delete}
+            </Button>
+
+            {/*
+              Not a back door to recurring tasks, which the brief rules out —
+              this makes one copy, once, when you ask. The same checklist for
+              the next client is a real thing to want, and retyping six fields
+              to get it is the kind of friction that stops people using the app
+              for the small things it exists for.
+            */}
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                createTask({
+                  title: task.title,
+                  notes: task.notes,
+                  label: task.label,
+                  important: task.important,
+                  due_on: task.due_on,
+                  due_time: task.due_time,
+                  assignee_id: task.assignee_id,
+                });
+                toast(copy.task.duplicated);
+                onClose();
+              }}
+              className="h-8 rounded-sm px-2 text-[13px] text-fg-muted hover:text-fg"
+            >
+              {copy.task.duplicate}
+            </Button>
+          </div>
           {/*
             "Créé par" alone left no way to tell a task typed this morning from
             one that has been sitting there since March, which is exactly what

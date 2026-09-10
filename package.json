@@ -14,7 +14,9 @@
     "verify:store": "node --experimental-strip-types scripts/verify-store.mjs",
     "verify:invites": "node scripts/verify-invites.mjs",
     "bench": "node scripts/bench-derive.mjs",
-    "size": "node scripts/bundle-size.mjs"
+    "size": "node scripts/bundle-size.mjs",
+    "backup": "node scripts/backup.mjs",
+    "hooks": "git config core.hooksPath .githooks"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",

@@ -47,6 +47,10 @@ export const copy = {
     mine: "Moi",
   },
 
+  preview: {
+    warning: "Aperçu — les modifications touchent les vraies données.",
+  },
+
   search: {
     title: "Résultats",
     count: (n: number) => plural(n, "résultat"),
@@ -89,6 +93,9 @@ export const copy = {
 
   task: {
     hasNotes: "Contient des notes",
+    duplicate: "Dupliquer",
+    duplicated: "Copie créée",
+    links: "Liens",
     overdueCount: (n: number) => `${n} en retard`,
     filterByLabel: (label: string) => `Chercher #${label}`,
     filterByPerson: (name: string) => `Voir les tâches de ${name}`,

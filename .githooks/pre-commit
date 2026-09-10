@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# Typecheck before a commit, because a broken build is easier to catch here than
+# in CI four minutes later.
+#
+# Install with `npm run hooks` — this is not automatic. There is no husky and no
+# postinstall step: a package that silently rewrites your git configuration on
+# install is a worse trade than one command, run once.
+#
+# Skip a single commit with `git commit --no-verify`. Nothing here is a gate,
+# only a reminder. Lint and the suites stay in CI, where they belong — a hook
+# that takes twenty seconds is a hook people turn off.
+
+if [ -f package.json ] && grep -q '"typecheck"' package.json; then
+  echo "pre-commit: typecheck"
+  if ! npm run --silent typecheck; then
+    echo ""
+    echo "typecheck failed. Fix it, or commit with --no-verify if you meant to."
+    exit 1
+  fi
+fi
