@@ -97,13 +97,14 @@ try {
   check("a plain member cannot create an invite", Boolean(memberInvite.error),
         `status ${memberInvite.status}`);
 
-  const memberRemove = await plain.client
-    .from("workspace_members").delete().eq("user_id", owner.id);
+  // RLS makes a refused delete look like a no-op to the caller, so the check
+  // is whether the row survived rather than whether an error came back
+  await plain.client.from("workspace_members").delete().eq("user_id", owner.id);
   const { data: ownerStill } = await admin
     .from("workspace_members").select("user_id").eq("user_id", owner.id);
   check("a plain member cannot remove anyone", ownerStill?.length === 1);
 
-  const memberPromote = await plain.client
+  await plain.client
     .from("workspace_members").update({ role: "admin" }).eq("user_id", plain.id);
   const { data: plainRole } = await admin
     .from("workspace_members").select("role").eq("user_id", plain.id);
