@@ -352,3 +352,16 @@ reviewed. Numbering continues.
      `Content-Security-Policy` has it overwritten before Next reads either. The
      response only ever carries the policy; `x-nonce` is request-side and never
      leaves the server.
+164. [x] **P1** 157's fix put the whole store on `/no-access`. The sign-out
+     button called `useStore` and `clearDrafts` directly, and that button also
+     renders on the page a stranger with no workspace sees — 215 kB became
+     232 kB, seventeen kilobytes of task machinery downloaded to render one line
+     of copy and a way out. Caught by `npm run build` printing a per-route number
+     next to the one before it, which is exactly what 76 exists for.
+
+     The dependency runs the other way now: whatever holds session state
+     registers how to drop it, and the button asks without knowing who answered.
+     `StoreBoot` mounts only inside the app, so `/no-access` registers nothing,
+     imports nothing, and has nothing to clear. Back to 217 kB. Four assertions,
+     including that one handler throwing does not leave the rest holding the
+     previous person's data.

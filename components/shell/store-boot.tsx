@@ -7,6 +7,8 @@ import { useRealtimeTasks } from "@/lib/realtime";
 import { setClockOffset } from "@/lib/time";
 import { copy } from "@/lib/copy";
 import { explain, logRefusal } from "@/lib/errors";
+import { onSignOut } from "@/lib/session-reset";
+import { clearDrafts } from "@/lib/draft";
 import { installGlobalReporting } from "@/lib/report";
 
 /**
@@ -55,12 +57,25 @@ export function StoreBoot({
     // a rejected promise nobody awaited never reaches a React boundary, and
     // every write in the store is exactly that shape
     installGlobalReporting();
+
+    /*
+      Registered from inside the app, so the sign-out button can drop this
+      without importing it — and so /no-access, which renders the same button
+      and has nothing to drop, imports none of it.
+    */
+    const forget = onSignOut(() => {
+      useStore.getState().clear();
+      clearDrafts();
+    });
     setErrorHandler((refusal) => {
       // the raw message goes where whoever is debugging will look for it
       logRefusal(refusal);
       toast.error(copy.error.saveFailed, { description: explain(refusal) });
     });
     useStore.getState().seed(initial);
+
+    // unregistered on unmount, or a remount would stack a second copy
+    return forget;
     // seeded once per session; a later navigation must not reset live state
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

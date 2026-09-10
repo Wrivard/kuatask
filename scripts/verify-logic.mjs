@@ -25,6 +25,7 @@ const NEEDED = [
   "compose.ts",
   "routing.ts",
   "links.ts",
+  "session-reset.ts",
 ];
 
 // inside the project, so node resolves date-fns from the local node_modules
@@ -47,6 +48,7 @@ const suggest = await load("suggest.ts");
 const { composeTask } = await load("compose.ts");
 const routing = await load("routing.ts");
 const { extractLinks } = await load("links.ts");
+const reset = await load("session-reset.ts");
 
 let failures = 0;
 const check = (name, ok, detail = "") => {
@@ -660,6 +662,46 @@ section("Links in notes");
   check("a long identifier is cut",
         labels("https://kua.quebec/" + "a".repeat(60))[0].endsWith("…"),
         labels("https://kua.quebec/" + "a".repeat(60))[0]);
+}
+
+/*
+  Whatever holds session state registers how to drop it, and the sign-out button
+  asks without knowing who answered. That inversion exists for a reason worth
+  keeping: the button also renders on /no-access, and importing the store from
+  it put seventeen kilobytes of task machinery on a page whose whole job is one
+  line of copy and a way out.
+*/
+section("Sign-out — everything registered is dropped");
+{
+  const dropped = [];
+
+  const forgetA = reset.onSignOut(() => dropped.push("store"));
+  reset.onSignOut(() => dropped.push("drafts"));
+
+  reset.resetSession();
+  eq("both ran", dropped.sort(), ["drafts", "store"]);
+
+  dropped.length = 0;
+  forgetA();
+  reset.resetSession();
+  eq("an unregistered one does not", dropped, ["drafts"]);
+
+  /*
+    One throwing must not leave the rest holding the previous person's data, and
+    none of them is worth failing a sign-out for.
+  */
+  dropped.length = 0;
+  reset.onSignOut(() => { throw new Error("boom"); });
+  reset.onSignOut(() => dropped.push("after the thrower"));
+  let threw = false;
+  try {
+    reset.resetSession();
+  } catch {
+    threw = true;
+  }
+  check("a thrower does not stop the others", dropped.includes("after the thrower"),
+        dropped.join(","));
+  check("and does not escape", threw === false);
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);
