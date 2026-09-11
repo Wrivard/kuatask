@@ -33,10 +33,20 @@ export function Avatar({
   member,
   size = "md",
   className,
+  onBroken,
 }: {
   member: Pick<Profile, "display_name" | "accent" | "avatar_url"> | undefined;
   size?: keyof typeof SIZES;
   className?: string;
+  /**
+   * Told when the image refuses to load.
+   *
+   * Falling back to initials is right in a task row — a torn-page icon beside
+   * somebody's work helps nobody. It is wrong in the settings field where the
+   * URL was just typed, because there silence is the only feedback and it looks
+   * identical to having typed nothing.
+   */
+  onBroken?: () => void;
 }) {
   const [broken, setBroken] = React.useState(false);
 
@@ -68,7 +78,10 @@ export function Avatar({
         src={url}
         alt={member.display_name}
         title={member.display_name}
-        onError={() => setBroken(true)}
+        onError={() => {
+          setBroken(true);
+          onBroken?.();
+        }}
         className={cn("shrink-0 rounded-full object-cover", SIZES[size], className)}
         style={{ boxShadow: `0 0 0 1px ${colour}` }}
       />

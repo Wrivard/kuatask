@@ -61,7 +61,23 @@ export function buildCsp(nonce: string, supabaseUrl: string | undefined): string
     "style-src": ["'self'", `'nonce-${nonce}'`],
     // the narrow one: style="" attributes, which motion and the accent dots need
     "style-src-attr": ["'unsafe-inline'"],
-    "img-src": ["'self'", "data:", "blob:"],
+    /*
+      `https:` rather than `'self'`, because an avatar is a URL somebody pastes
+      and it lives wherever their photo already is.
+
+      This was shipped broken: the avatar field went in while this line still
+      said `'self'`, so every external image was refused, `onError` caught it,
+      and the app fell back to initials without a word. Somebody would paste a
+      URL, watch nothing happen, and have nothing to go on.
+
+      What it costs: loading an image tells that host the viewer's IP and that
+      they opened this app. For two people choosing their own avatars that is
+      their call to make, and it is the reason the field says where the image
+      comes from rather than pretending it is uploaded. What it does not cost is
+      execution — an image cannot run anything, which is why `script-src` is
+      still the narrow one and stays that way.
+    */
+    "img-src": ["'self'", "https:", "data:", "blob:"],
     "font-src": ["'self'"],
     /*
       'self' covers a same-origin websocket in current browsers, but not in

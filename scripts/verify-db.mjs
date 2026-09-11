@@ -72,7 +72,15 @@ async function makeMember(workspaceId, role, tag) {
   return { id: created.user.id, email, client, inviteId: invite?.id };
 }
 
-const created = { tasks: [], users: [], invites: [], workspace: null };
+/*
+  `tasks` is what still needs deleting and shrinks as sections clean up after
+  themselves. `taskIdsEver` never shrinks: every task this run created left
+  activity entries behind, including the ones it deleted itself, and those
+  entries outlive the task by design. Using `tasks` for the log left three rows
+  in the owner's history on every run — the realtime section removes its id from
+  `tasks` at line 249, so the log cleanup never saw it.
+*/
+const created = { tasks: [], taskIdsEver: [], users: [], invites: [], workspace: null };
 
 /*
   A workspace to run against.
@@ -163,7 +171,7 @@ try {
     .select()
     .single();
   check("member can insert a task", !insErr, insErr?.message ?? "ok");
-  if (task) created.tasks.push(task.id);
+  if (task) created.tasks.push(task.id), created.taskIdsEver.push(task.id);
 
   check("due_on round-trips as a bare calendar day", task?.due_on === "2026-09-08", String(task?.due_on));
 
@@ -239,6 +247,7 @@ try {
       .insert({ workspace_id: WS, title: "realtime probe", created_by: member.id })
       .select().single();
     created.tasks.push(rt.id);
+    created.taskIdsEver.push(rt.id);
     await new Promise((r) => setTimeout(r, 3500));
 
     await admin.from("tasks").update({ status: "done" }).eq("id", rt.id);
@@ -290,6 +299,80 @@ try {
           profileSeen.join(", ") || "nothing arrived — is profiles in the publication?");
   }
   await profileChannel.unsubscribe();
+
+  /*
+    The activity log, which is written entirely by a trigger. Nothing in the app
+    would fail if it stopped working — the page would simply show less than
+    happened, which is the failure mode you only notice on the day you needed the
+    entry that was never written.
+
+    Three behaviours from migrations 0013 and 0014, all of which were wrong at
+    some point today and none of which the app can assert about itself.
+  */
+  section("Activity log — the trigger records what happened, once");
+  const { data: logged } = await member.client
+    .from("tasks")
+    .insert({ workspace_id: WS, title: "activity probe", created_by: member.id })
+    .select()
+    .single();
+  created.tasks.push(logged.id);
+  created.taskIdsEver.push(logged.id);
+
+  const logOf = async () =>
+    (
+      await admin
+        .from("activity")
+        .select("seq, action, changed, snapshot")
+        .eq("task_id", logged.id)
+        .order("seq", { ascending: true })
+    ).data ?? [];
+
+  check("an insert is logged as created", (await logOf())[0]?.action === "created");
+
+  // a typing session: the modal debounces at 400ms, so this is its real shape
+  for (const notes of ["a", "ab", "abc"]) {
+    await member.client.from("tasks").update({ notes }).eq("id", logged.id);
+  }
+  await member.client.from("tasks").update({ label: "probe" }).eq("id", logged.id);
+
+  let log = await logOf();
+  const edits = log.filter((e) => e.action === "updated");
+  check("four edits inside the window collapse to one entry", edits.length === 1,
+        `${edits.length} entries`);
+  check("and it names every column they touched",
+        edits[0]?.changed?.join(",") === "label,notes", String(edits[0]?.changed));
+
+  // a write that changes nothing is not an event
+  const before = (await logOf()).length;
+  await member.client.from("tasks").update({ label: "probe" }).eq("id", logged.id);
+  check("a no-op write is not logged", (await logOf()).length === before);
+
+  await member.client.from("tasks").update({ status: "done" }).eq("id", logged.id);
+  await member.client.from("tasks").update({ notes: "after" }).eq("id", logged.id);
+
+  log = await logOf();
+  const order = log.map((e) => e.action).join(" ");
+  check("a completion interrupts the run rather than absorbing it",
+        order === "created updated completed updated", order);
+  check("seq strictly increases, so the page can order by it",
+        log.every((e, i) => i === 0 || e.seq > log[i - 1].seq),
+        log.map((e) => e.seq).join(","));
+
+  /*
+    Only a deletion has anything to restore, and only a deletion's snapshot is
+    ever read (`app/(app)/activity/actions.ts` refuses the rest). 0012 stored one
+    on every action — ~500 bytes per write, for nothing.
+  */
+  check("no snapshot is kept for an action that cannot be restored",
+        log.every((e) => e.snapshot === null), "see migration 0013");
+
+  await admin.from("tasks").delete().eq("id", logged.id);
+  const afterDelete = await logOf();
+  const deletion = afterDelete.find((e) => e.action === "deleted");
+  check("a deletion is logged", Boolean(deletion));
+  check("and it keeps the whole row, so a restore can be honest",
+        deletion?.snapshot?.title === "activity probe" && "notes" in (deletion?.snapshot ?? {}),
+        Object.keys(deletion?.snapshot ?? {}).length + " columns");
 } catch (err) {
   console.log(`\n  ERROR  ${err.message}`);
   failures += 1;
@@ -304,6 +387,15 @@ try {
     await admin.from("workspaces").delete().eq("id", created.workspace);
   }
 
+  /*
+    The probes above leave activity entries, because deleting a task logs the
+    deletion — that is the feature working. But a verify run must not put "probe"
+    rows in front of somebody reading their own history, so the entries for the
+    tasks this run created go too. Same rule as everything else here: only ids
+    this run created, never "whatever is left over".
+  */
+  for (const id of created.taskIdsEver) await admin.from("activity").delete().eq("task_id", id);
+
   const { data: users } = await admin.auth.admin.listUsers();
   const stray = users.users.filter((u) => u.email?.startsWith("kua-verify-"));
   const { data: strayTasks } = await admin.from("tasks").select("id,title").ilike("title", "%probe%");
@@ -311,6 +403,9 @@ try {
 
   check("no throwaway users left behind", stray.length === 0, stray.map((u) => u.email).join(", "));
   check("no probe tasks left behind", (strayTasks?.length ?? 0) === 0);
+  const { data: strayLog } = await admin.from("activity").select("title").ilike("title", "%probe%");
+  check("no probe entries left in the activity log", (strayLog?.length ?? 0) === 0,
+        (strayLog ?? []).map((e) => e.title).join(", "));
   check("no throwaway invites left behind", (strayInvites?.length ?? 0) === 0);
 
   console.log(`\n${failures === 0 ? "all invariants hold" : `${failures} FAILED`}`);

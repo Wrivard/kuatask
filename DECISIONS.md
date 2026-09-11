@@ -1048,3 +1048,54 @@ and fades, 420ms, on completion only. It is deliberately one thing rather than a
 burst — it reads as the tick having *happened* rather than the box having
 changed state, which is the same distinction § 8.1 draws when it insists the
 checkmark be drawn and not faded. Skipped entirely under reduced motion.
+
+## `img-src` allows `https:`, so an avatar can load
+
+An avatar is a URL somebody pastes, pointing at wherever their photo already
+lives. `img-src 'self'` refuses it, and because the component falls back to
+initials on error, it refuses it invisibly — which is how the field shipped
+non-functional.
+
+The cost is that loading an image tells that host the viewer's IP and that they
+opened this app. For two people choosing their own avatars that is theirs to
+decide, and it is why the field says the image comes from elsewhere rather than
+implying an upload. An image cannot execute anything, so `script-src` stays
+narrow; `verify:headers` asserts both halves together.
+
+Storage-backed uploads would avoid the leak entirely. That needs a bucket and a
+policy, and the point of the field today is that two people stop being two words
+in a list.
+
+## The activity log orders by `seq`, not `created_at`
+
+`created_at` is `now()`, which in Postgres is transaction start time and
+identical for every row a single transaction writes. `restack()` rewrites every
+position in one statement, so those entries tie, and ties made two things wrong:
+the page rendered them in planner order, and the edit-coalescing in 0013 could
+merge a change into an entry that preceded a completion — reordering the log.
+
+A random v4 `id` is no tiebreak. `bigserial seq` is monotonic per insert
+regardless of transaction boundaries or clock adjustments, so the log stays
+correct across both. A coalesce claims a fresh `seq` along with its new
+timestamp, so a merged entry rises to the top rather than keeping the position of
+its first keystroke.
+
+## Consecutive edits collapse into one log entry
+
+The modal debounces text at 400 ms, so one note produces five to fifteen writes.
+Logged individually they bury the deletions and creations the page exists to
+show. Edits by the same person on the same task inside two minutes merge, keeping
+the union of the columns touched. Two minutes covers typing with thinking pauses
+and still makes picking a task back up after lunch its own entry.
+
+A completion or a reopen always breaks the run, so the order of events survives.
+
+## Snapshots are kept only for deletions
+
+`restoreTask` refuses any entry that is not a deletion, and the page never
+selects the column. Storing a snapshot on every action wrote ~500 bytes per task
+write that nothing could read.
+
+Worth noting for anyone adding version history later: the column 0012 stored was
+`row_after`, the state after the change. Undoing an edit needs `row_before`. The
+snapshot being kept was never the useful one.

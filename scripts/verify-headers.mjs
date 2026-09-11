@@ -132,6 +132,19 @@ try {
           csp.includes(new URL(URL_).origin) && csp.includes(`wss://${new URL(URL_).host}`));
     check("frame-ancestors is none", /frame-ancestors 'none'/.test(csp));
     check("object-src is none", /object-src 'none'/.test(csp));
+    /*
+      The pair that has to move together. An avatar is a URL somebody pastes, so
+      img-src has to reach the whole web; script-src must not, and the two live
+      four lines apart in the same object where widening one while meaning the
+      other is a plausible slip.
+
+      This check exists because the opposite already happened: the avatar field
+      shipped while img-src still said 'self', so every external image was
+      refused and the component's onError fallback hid it perfectly. Nothing
+      failed, nothing logged, and the feature simply did not work.
+    */
+    check("img-src allows a pasted avatar", /img-src[^;]*https:/.test(csp));
+    check("...without script-src following it", !/script-src[^;]*https:(?!\/)/.test(csp));
 
     // the static ones from next.config.ts, which travel on the same responses
     check("nosniff", r.headers.get("x-content-type-options") === "nosniff");

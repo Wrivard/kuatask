@@ -28,6 +28,14 @@ export function ProfileClient() {
 
   const [name, setName] = React.useState("");
   const [theme, setTheme] = React.useState<"light" | "dark">("dark");
+  /*
+    Whether the avatar URL currently in the field actually loads.
+
+    Reset on every edit rather than derived, because the only thing that knows
+    is the browser trying to fetch it — there is no way to ask ahead of time, and
+    guessing from the shape of the URL would be wrong in both directions.
+  */
+  const [avatarBroken, setAvatarBroken] = React.useState(false);
 
   React.useEffect(() => {
     if (me) setName(me.display_name);
@@ -79,7 +87,7 @@ export function ProfileClient() {
       */}
       <Field label={copy.settings.avatar}>
         <div className="flex items-center gap-3">
-          <Avatar member={me} size="lg" />
+          <Avatar member={me} size="lg" onBroken={() => setAvatarBroken(true)} />
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <Input
               type="url"
@@ -88,11 +96,14 @@ export function ProfileClient() {
               placeholder={copy.settings.avatarPlaceholder}
               onBlur={(e) => {
                 const next = e.target.value.trim() || null;
+                setAvatarBroken(false);
                 if (next !== (me.avatar_url ?? null)) updateProfile({ avatar_url: next });
               }}
               className="h-8 rounded-md border-border bg-bg text-[13px] dark:bg-bg"
             />
-            <p className="text-[12px] text-fg-faint">{copy.settings.avatarHint}</p>
+            <p className={cn("text-[12px]", avatarBroken ? "text-danger" : "text-fg-faint")}>
+              {avatarBroken ? copy.settings.avatarBroken : copy.settings.avatarHint}
+            </p>
           </div>
         </div>
       </Field>

@@ -21,6 +21,7 @@ export type Database = {
           changed: string[] | null
           created_at: string
           id: string
+          seq: number
           snapshot: Json | null
           task_id: string
           title: string
@@ -32,6 +33,7 @@ export type Database = {
           changed?: string[] | null
           created_at?: string
           id?: string
+          seq?: number
           snapshot?: Json | null
           task_id: string
           title: string
@@ -43,6 +45,7 @@ export type Database = {
           changed?: string[] | null
           created_at?: string
           id?: string
+          seq?: number
           snapshot?: Json | null
           task_id?: string
           title?: string

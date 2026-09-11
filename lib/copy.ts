@@ -242,6 +242,7 @@ export const copy = {
       "Colle l'adresse d'une image. Sans photo, tes initiales sur ta couleur.",
     avatarPlaceholder: "https://…",
     avatarRemove: "Retirer",
+    avatarBroken: "Cette image ne se charge pas. Tes initiales restent affichées.",
     version: "Version",
     localBuild: "développement local",
     deleteAccount: "Supprimer mon compte",

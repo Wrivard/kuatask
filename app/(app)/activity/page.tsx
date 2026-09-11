@@ -32,7 +32,14 @@ export default async function ActivityPage() {
     supabase
       .from("activity")
       .select("id, task_id, actor_id, action, title, changed, created_at")
-      .order("created_at", { ascending: false })
+      /*
+        By `seq`, not `created_at`. `created_at` is `now()`, which is transaction
+        start time, so every row a single statement writes shares one — and
+        `restack()` rewrites every position in one statement. Ordering those by
+        time leaves them in whatever order the planner returns. `seq` is a
+        sequence, so it always goes up. See migration 0014.
+      */
+      .order("seq", { ascending: false })
       .limit(PAGE_SIZE),
     supabase.from("profiles").select("id, display_name, accent"),
   ]);

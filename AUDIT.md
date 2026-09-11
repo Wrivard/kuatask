@@ -554,3 +554,76 @@ reviewed. Numbering continues.
      and there is no `any` in committed code. Both re-checked against the
      deployed bundle rather than the local build, because the gate says « grep
      the production bundle to confirm — do not assume ».
+189. [x] **P0** The avatar field shipped broken by my own hand. `lib/csp.ts` sets
+     `img-src 'self' data: blob:`, added hours earlier; the avatar field takes a
+     URL to somebody's photo, which lives on another host. Every external image
+     was refused, the component's `onError` fallback caught it, and the app showed
+     initials — correctly, silently, and identically to having typed nothing. The
+     feature could not work and nothing said so. `img-src` now allows `https:`,
+     with the privacy cost written down in the file: loading an image tells that
+     host the viewer's IP, which is why the field says the image comes from
+     wherever it already lives rather than pretending it is uploaded. `script-src`
+     stays narrow. `verify:headers` now asserts the pair, because the reason this
+     shipped is that nothing checked `img-src` at all.
+190. [x] **P2** And when a URL genuinely does not load, the settings field now
+     says so. Falling back to initials is right in a task row — a torn-page icon
+     beside somebody's work helps nobody — but wrong where the URL was just
+     typed, because there silence is the only feedback you get.
+191. [x] **P1** Measured the activity trigger rather than assuming it: 0.42 ms
+     per row warm (2.113 ms for five calls under `explain analyze`), against
+     0.009 ms for `tasks_touch`. Forty-five times the other trigger and still
+     invisible next to a Montreal→`ca-central-1` round trip, which the optimistic
+     store does not make anybody wait for. No change; the number is recorded so
+     the next person does not have to guess either.
+192. [x] **P1** The log stored a full row snapshot on every action and reads one
+     only for a deletion — `activity/actions.ts` refuses anything else, and the
+     page's select does not fetch the column. Four fifths of what it wrote could
+     not be reached by any code path, at ~500 bytes per write, growing forever.
+     Migration 0013 keeps the snapshot only for deletions and nulls the rest.
+     Noted there that if per-edit history is ever wanted this was never the
+     column for it: 0012 stored `row_after`, and undoing an edit needs
+     `row_before`. The snapshot kept was not the one that would have helped.
+193. [x] **P1** Worse than the bytes: the modal debounces text at 400 ms, so
+     writing a few sentences of notes flushed a write per typing pause and each
+     became its own `updated` entry. Five to fifteen identical "modified the
+     notes" rows for one note — in a page the owner asked for so they could see
+     when something was deleted or created, which those rows bury. Consecutive
+     edits by one person on one task now merge into a single entry carrying the
+     union of the columns touched, inside a two-minute window: long enough to
+     cover thinking pauses, short enough that picking a task back up after lunch
+     is its own entry. Verified: four edits collapse to one, `{label,notes}`.
+194. [x] **P0** Which is where the coalesce found a real ordering bug. It looked
+     up "the newest entry for this task" by `created_at desc`, and `created_at`
+     is `now()` — transaction start time, identical for every row one transaction
+     writes. On a tie the pick is arbitrary, and testing caught an edit merging
+     into an `updated` entry that *preceded* a `completed` one, moving a change
+     to before the completion it actually followed. The page ordered by
+     `created_at` too, and `restack()` rewrites every position in one statement,
+     so those rows already rendered in whatever order the planner returned. `id`
+     cannot break the tie — a random v4 uuid is noise. Migration 0014 adds a
+     `bigserial seq`; the trigger, the coalesce and the page all order by it, and
+     a merge claims a fresh `seq` so it rises with its new timestamp. Now:
+     `created updated completed updated`, strictly increasing.
+195. [x] **P1** None of that was tested, in a subsystem written entirely by a
+     trigger where a failure shows up as a log that is quietly shorter than what
+     happened. `verify-db` now covers all nine behaviours end to end: the insert,
+     the collapse and its column union, a no-op write producing nothing, a
+     completion interrupting a run instead of absorbing it, `seq` increasing, no
+     snapshot where none can be restored, and a deletion keeping all sixteen
+     columns so a restore can be honest.
+196. [x] **P1** That suite was also polluting the thing it verifies. Every run
+     left probe entries in the real activity log, because deleting a task logs
+     the deletion — the feature working correctly. Nineteen had accumulated in
+     the live table; the new check caught them. Cleaned by hand after confirming
+     all nineteen were mine: both titles are literal strings in `verify-db.mjs`,
+     none of their tasks still existed, all were written inside the hour I spent
+     running it. The script now clears entries for ids it created and counts
+     strays without deleting them — same rule as everywhere else in that file,
+     which exists because a leftover row was once assumed to be residue and
+     turned out to be a task somebody had just typed.
+197. [x] **P2** And the first version of that cleanup silently did nothing for
+     one of the three probes: the realtime section removes its id from
+     `created.tasks` once it has deleted the task itself, so the log cleanup never
+     saw it. Three rows survived every run. `taskIdsEver` never shrinks, because
+     activity entries outlive the task they describe — that is the whole point of
+     the table, and it is exactly what the cleanup had failed to account for.
