@@ -20,14 +20,20 @@ export const CARD_PITCH_GUESS = 20;
 /** Marks a card as a row the fitting measurement can take its height from. */
 export const CARD_ROW = "data-cal-card";
 
-/** The date numeral above the cards, the cell padding, and room for a « +N ». */
-export const CELL_CHROME = 40;
+/**
+ * The date above the cards, the cell padding, and room for a « +N ».
+ *
+ * 44 rather than 40 since the date became a 20px chip instead of a 16px line of
+ * text. Undercounting here does not fail loudly — the grid simply fits one card
+ * too many and clips the last one against the cell's bottom edge.
+ */
+export const CELL_CHROME = 44;
 
 /**
  * One month cell. Numerals are Geist Mono with tabular figures — mono is a data
- * treatment here, not a style choice. Today's numeral gets the accent; days
- * outside the month drop to fg-faint. Weekends get no special treatment: these
- * people work weekends.
+ * treatment here, not a style choice. Today is a filled accent chip; days
+ * outside the month drop to fg-faint and sit on the page background rather than
+ * on a surface. Weekends get no special treatment: these people work weekends.
  */
 export function CalendarDayCell({
   day,
@@ -82,17 +88,35 @@ export function CalendarDayCell({
       onClick={() => onOpenDay(day)}
       className={cn(
         "group/cell flex min-h-0 cursor-pointer flex-col gap-0.5 border-b border-r border-border p-1.5",
-        "hover:bg-surface-hover",
         "focus-visible:outline focus-visible:-outline-offset-1 focus-visible:outline-accent",
+        /*
+          The grid used to be hairlines on the page background — every cell the
+          same near-black, structure carried entirely by 1px lines. At a month's
+          size that reads as a void with faint scratches in it, which is tiring
+          to scan and was the owner's complaint.
+
+          A day in this month is a surface; a day outside it is not. One step
+          apart (#0a0a0a to #111111 in the dark theme), so the month reads as a
+          block at a glance without any cell shouting.
+        */
+        outside ? "bg-bg hover:bg-surface" : "bg-surface hover:bg-surface-hover",
         // the drop target reads as a 1px accent border, nothing heavier
         isDropTarget && "border-accent bg-surface-hover ring-1 ring-accent ring-inset",
       )}
     >
+      {/*
+        Today is a filled chip rather than a coloured numeral. Accent-on-dark at
+        12px is the kind of difference you have to look for, and today is the one
+        cell in forty-two that should find you instead.
+      */}
       <span
         className={cn(
-          "font-mono text-[12px] tabular-nums",
-          outside ? "text-fg-faint" : "text-fg-muted",
-          isToday(day, today) && "text-accent",
+          "grid size-5 shrink-0 place-items-center rounded-full font-mono text-[12px] tabular-nums",
+          isToday(day, today)
+            ? "bg-accent font-medium text-bg"
+            : outside
+              ? "text-fg-faint"
+              : "text-fg-muted",
         )}
       >
         {day.slice(-2)}

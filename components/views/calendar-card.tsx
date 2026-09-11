@@ -50,6 +50,11 @@ export function CalendarCard({
   const done = task.status === "done";
   const doing = task.status === "doing";
   const time = formatTime(task.due_time);
+  const colour = doing
+    ? "var(--color-accent)"
+    : member
+      ? accentColor(member.accent)
+      : "var(--color-border)";
 
   return (
     <div
@@ -63,17 +68,33 @@ export function CalendarCard({
       // the month grid measures two of these to work out how many fit
       data-cal-card=""
       className={cn(
-        "flex cursor-pointer touch-none select-none items-center gap-1 rounded-sm border border-border border-l-2 bg-surface",
-        "hover:border-control hover:bg-surface-hover",
+        /*
+          One step above the cell it sits in, so the card has edges of its own.
+          It used to be `bg-surface` inside a transparent cell; now that an
+          in-month cell *is* `bg-surface`, a card painted the same colour would
+          be a border floating on nothing.
+        */
+        "flex cursor-pointer touch-none select-none items-center gap-1 rounded-sm border border-border border-l-2",
+        "hover:border-control hover:brightness-125",
         compact ? "px-1 py-px" : "px-1.5 py-1",
         done && "opacity-45",
       )}
+      /*
+        The left rule carries the colour, and a wash of the same colour carries
+        it across the card. 10% of an accent over the card's own background is
+        enough to tell two people's tasks apart across a whole month without any
+        card becoming a block of colour — the cell has forty-one neighbours and
+        every one of them is competing for the same glance.
+      */
       style={{
-        borderLeftColor: doing
-          ? "var(--color-accent)"
-          : member
-            ? accentColor(member.accent)
-            : "var(--color-border)",
+        borderLeftColor: colour,
+        /*
+          `color-mix` rather than an alpha suffix on the hex, because `colour` is
+          only sometimes a hex: En cours and the unowned case are CSS variables,
+          and `var(--color-accent)1a` is not a colour. Mixing works for all three
+          and follows the theme, which a baked hex would not.
+        */
+        backgroundColor: `color-mix(in srgb, ${colour} 10%, var(--color-surface-hover))`,
       }}
     >
       <span
