@@ -5,7 +5,7 @@ import { PenLine, RotateCcw, X } from "lucide-react";
 import { composeTask } from "@/lib/compose";
 import { toast } from "sonner";
 import { formatDueLabel, formatTime } from "@/lib/time";
-import { useStore } from "@/lib/store";
+import { useStore, type Task } from "@/lib/store";
 import { useFocusComposer } from "@/lib/events";
 import { useDraft } from "@/lib/draft";
 import {
@@ -29,11 +29,25 @@ import { cn } from "@/lib/utils";
 export function TaskComposer({
   defaultDueOn = null,
   defaultAssigneeId = null,
+  extra,
   takeFocus = false,
+  onDone,
   search,
 }: {
   defaultDueOn?: string | null;
   defaultAssigneeId?: string | null;
+  /**
+   * Fields the surface knows that the typed text cannot say.
+   *
+   * A board column grouped by status means "this is En cours"; one grouped by
+   * date means a day; and every column means a place in an order. None of that
+   * is expressible in the one line somebody types, and all of it is implied by
+   * where they clicked. Anything the text *does* parse wins — typing "demain"
+   * into a column for today is a correction, not a conflict.
+   */
+  extra?: Partial<Task>;
+  /** Called after a task is created, for surfaces that close afterwards. */
+  onDone?: () => void;
   /**
    * Focus on mount. Off in the list, where the composer sits above six sections
    * somebody may have come to read; on in the day sheet, which is opened to put
@@ -196,18 +210,21 @@ export function TaskComposer({
 
     // matched is for the chips; the store has no use for it
     const id = createTask({
+      ...extra,
       title: composed.title,
-      due_on: composed.due_on,
+      due_on: composed.due_on ?? extra?.due_on ?? null,
       due_time: composed.due_time,
       label: composed.label,
       important: composed.important,
-      assignee_id: composed.assignee_id,
+      assignee_id: composed.assignee_id ?? extra?.assignee_id ?? null,
     });
 
     // clear on the same frame — never await the write
     setValue("");
     setCursor(0);
     setDismissed(new Set());
+
+    onDone?.();
 
     if (andOpen && id) {
       openTask(id);

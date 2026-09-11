@@ -33,7 +33,7 @@ import { Avatar } from "@/components/task/avatar";
 import { streakFromDays, instantToDay, dayNumber } from "@/lib/time";
 import { useToday } from "@/lib/day";
 import { useLocalLens } from "@/lib/lens";
-import { firstDayOfBucket, isOnDay, isOverdue, type Bucket } from "@/lib/time";
+import { firstDayOfBucket, isOnDay, isOverdue, now, today, tomorrow, type Bucket } from "@/lib/time";
 import { useElementScrollMemory } from "@/lib/scroll-memory";
 import { exit } from "@/lib/motion";
 import { copy } from "@/lib/copy";
@@ -132,6 +132,67 @@ export function BoardView() {
 
   const columnsRef = React.useRef(columns);
   columnsRef.current = columns;
+
+  /*
+    Which column is currently taking a new task.
+
+    Clicking the empty space under a column's cards opens a composer there. The
+    board had exactly one composer, at the bottom of the page, and it could only
+    guess at the column you meant — so adding "this belongs to Guillaume, En
+    cours" meant typing it, then dragging it twice. The empty space was already
+    the obvious place to click and it did nothing.
+  */
+  const [adding, setAdding] = React.useState<string | null>(null);
+
+  // close it when the board is regrouped; the column it belonged to is gone
+  React.useEffect(() => setAdding(null), [groupBy]);
+
+  /**
+   * What a column means, as fields on a new task.
+   *
+   * Everything the column implies but the typed line cannot say. The position
+   * puts it at the end of the column somebody clicked into, rather than at the
+   * end of whatever the default ordering would have chosen.
+   */
+  const defaultsFor = React.useCallback(
+    (columnKey: string): Partial<Task> => {
+      const column = columnsRef.current.find((c) => c.key === columnKey);
+
+      /*
+        The end of the column, computed directly rather than through
+        `placeInColumn`.
+
+        That function answers the general question — where does a card go, and
+        does the column need spreading out first — and can hand back a restack to
+        apply. This runs during render, where applying one would be a write in
+        the middle of a render. It does not need to: appending is the one case
+        that can never exhaust anything, because it adds 1 to the last position
+        instead of halving a gap between two.
+      */
+      const last = column?.tasks[column.tasks.length - 1];
+      const position = last ? last.position + 1 : now() / 1000;
+
+      if (groupBy === "person") {
+        return {
+          position,
+          assignee_id: columnKey === NO_ASSIGNEE ? null : columnKey,
+        };
+      }
+      if (groupBy === "status") {
+        return { position, status: columnKey as Task["status"] };
+      }
+      /*
+        Grouping by date. Only two of the buckets name a day — « cette semaine »
+        and « plus tard » are ranges, and inventing a Thursday for them would be
+        the app deciding something the person did not. Those columns create an
+        undated task, which is what the composer would have done anyway.
+      */
+      if (columnKey === "today") return { position, due_on: today() };
+      if (columnKey === "tomorrow") return { position, due_on: tomorrow() };
+      return { position };
+    },
+    [groupBy],
+  );
 
   const drop = React.useCallback(
     (taskId: string, columnKey: string, index: number | null) => {
@@ -392,6 +453,44 @@ export function BoardView() {
                     is already obviously empty. What was actually missing is a
                     target while dragging, so the words appear only then.
                   */}
+                  {/*
+                    The rest of the column. It is a button because that is what
+                    it is — clicking it adds a task here — and being a button is
+                    what puts it in the tab order and lets a keyboard reach it.
+
+                    `flex-1` so it claims whatever height is left: the target is
+                    the empty space somebody would actually click at, not a strip
+                    under the last card. It keeps a minimum so a full column can
+                    still be clicked into.
+                  */}
+                  {adding === column.key ? (
+                    <div className="pb-1.5">
+                      <TaskComposer
+                        extra={defaultsFor(column.key)}
+                        takeFocus
+                        onDone={() => setAdding(null)}
+                      />
+                    </div>
+                  ) : (
+                    dragId === null && (
+                      <button
+                        type="button"
+                        onClick={() => setAdding(column.key)}
+                        title={copy.board.addHere}
+                        className={cn(
+                          "min-h-9 flex-1 rounded-sm border border-dashed border-transparent",
+                          "text-left text-[12px] text-transparent transition-colors",
+                          "hover:border-border hover:text-fg-faint",
+                          "focus-visible:border-border focus-visible:text-fg-faint focus-visible:outline-none",
+                          // a finger cannot hover, so the invitation is always legible
+                          "[@media(pointer:coarse)]:border-border [@media(pointer:coarse)]:text-fg-faint",
+                        )}
+                      >
+                        <span className="px-2">{copy.board.addHere}</span>
+                      </button>
+                    )
+                  )}
+
                   {column.tasks.length === 0 && dragId !== null && (
                     <p
                       className={cn(

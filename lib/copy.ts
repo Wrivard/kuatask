@@ -110,6 +110,7 @@ export const copy = {
     done: "Terminé",
     unassigned: "Personne",
     dropHere: "Déposer ici",
+    addHere: "Ajouter ici",
     tooMuchDoing: "Beaucoup de choses en cours en même temps.",
     collapse: "Replier la colonne",
     expand: "Déplier la colonne",

@@ -150,6 +150,52 @@ check("msUntilNextDay is inside a day and never zero",
       time.msUntilNextDay() > 0 && time.msUntilNextDay() <= 86_401_000,
       String(time.msUntilNextDay()));
 
+/*
+  The day's work clears at midnight.
+
+  The board and the list footer both show a completed task only while
+  `isOnDay(completed_at, today)` holds, so "everything done today, then a clean
+  slate tomorrow" is entirely this predicate plus `useToday` moving the day. The
+  rows are never deleted — they stay in the database and in the activity log —
+  they simply stop being today's work.
+
+  The instants below are UTC, which is the point: `completed_at` is a
+  timestamptz and Montreal is four or five hours behind, so an evening here is
+  already tomorrow in UTC. Comparing the raw instant to a calendar day is the
+  single most common way this app breaks.
+*/
+{
+  const day = "2026-06-16";       // a Tuesday in EDT, UTC-4
+  const next = "2026-06-17";
+
+  // 20:00 Montreal on the 16th is 00:00 UTC on the 17th
+  const evening = "2026-06-17T00:00:00Z";
+  check("a task finished this evening is part of today",
+        time.isOnDay(evening, day) === true, evening);
+  check("and is gone from today the moment the day turns",
+        time.isOnDay(evening, next) === false, evening);
+
+  // 23:59:59 Montreal, the last second that still counts as today
+  const lastSecond = "2026-06-17T03:59:59Z";
+  check("the last second before midnight still counts as today",
+        time.isOnDay(lastSecond, day) === true, lastSecond);
+
+  // 00:00:00 Montreal the next morning
+  const firstSecond = "2026-06-17T04:00:00Z";
+  check("the first second after it does not",
+        time.isOnDay(firstSecond, day) === false, firstSecond);
+  check("it belongs to the new day instead",
+        time.isOnDay(firstSecond, next) === true, firstSecond);
+
+  /*
+    The fetch window is deliberately wider than the display window. The views
+    show one day; the store keeps a week, so undoing yesterday's completion and
+    restoring a deleted task still have rows to work with.
+  */
+  check("the store's window is wider than the day the views show",
+        time.RECENT_COMPLETION_DAYS >= 2, String(time.RECENT_COMPLETION_DAYS));
+}
+
 // ------------------------------------------------------------- instants
 section("Instants — the Montreal day, not the UTC one");
 const cases = [
