@@ -208,6 +208,55 @@ export async function resendInvite(inviteId: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/**
+ * Promotes or demotes a member.
+ *
+ * `docs/03` says plainly that an admin « can invite, remove, and change roles »,
+ * and the third of those was never built — the policy allowed it and the
+ * database enforced the last-admin rule, but nothing in the app could ask.
+ * Which made the role a thing you were assigned once, by a seed, for ever.
+ *
+ * The last-admin check here races: two admins looking at the same page can both
+ * press demote. It is a message, not a guarantee — the trigger from migration
+ * 0004 is what actually keeps a workspace from losing its last admin, and when
+ * it fires the person should read something about admins rather than a Postgres
+ * error.
+ */
+export async function setRole(
+  userId: string,
+  role: "admin" | "member",
+): Promise<ActionResult> {
+  const ctx = await requireAdmin();
+  if (!ctx) return { ok: false, error: copy.error.saveFailed };
+
+  if (role === "member") {
+    const { data: admins } = await ctx.supabase
+      .from("workspace_members")
+      .select("user_id")
+      .eq("workspace_id", ctx.workspaceId)
+      .eq("role", "admin");
+
+    const demotingAnAdmin = (admins ?? []).some((a) => a.user_id === userId);
+    if (demotingAnAdmin && (admins ?? []).length <= 1) {
+      return { ok: false, error: copy.error.lastAdmin };
+    }
+  }
+
+  const { error } = await ctx.supabase
+    .from("workspace_members")
+    .update({ role })
+    .eq("workspace_id", ctx.workspaceId)
+    .eq("user_id", userId);
+
+  if (error) {
+    // the trigger refusing is the real guard, and it means the same thing
+    return { ok: false, error: copy.error.lastAdmin };
+  }
+
+  revalidatePath("/settings/people");
+  return { ok: true };
+}
+
 export async function removeMember(userId: string): Promise<ActionResult> {
   const ctx = await requireAdmin();
   if (!ctx) return { ok: false, error: copy.error.saveFailed };

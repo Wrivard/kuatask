@@ -476,3 +476,15 @@ reviewed. Numbering continues.
      and the role — so it is safe to press twice, and it is under the same hourly
      ceiling as a new invitation, since a button that can be pressed repeatedly
      is more likely to be.
+179. [x] **P1** `docs/03` says an admin « can invite, remove, and change roles ».
+     The third was never built. The policy allowed it and the trigger from 0004
+     enforced the last-admin rule, but nothing in the app could ask — so a role
+     was something you were given once, by a seed, permanently. An unimplemented
+     line of the specification rather than a missing nicety, and it was invisible
+     because the two people here were both seeded as admin and would never have
+     had occasion to notice.
+180. [x] **P2** A pending invite never said what it granted. `role` was fetched
+     and not rendered, so an invitation carrying admin looked exactly like one
+     carrying member — and this workspace's own seeded invite grants admin, which
+     is a decision nobody in it made on purpose. Who can remove whom is worth
+     knowing before somebody arrives rather than after.

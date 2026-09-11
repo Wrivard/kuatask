@@ -6,7 +6,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { accentColor } from "@/components/task/assignee-dot";
-import { inviteMember, removeMember, resendInvite, revokeInvite } from "./actions";
+import {
+  inviteMember,
+  removeMember,
+  resendInvite,
+  revokeInvite,
+  setRole,
+} from "./actions";
 import { formatDueLabel, instantToDay } from "@/lib/time";
 import { copy } from "@/lib/copy";
 
@@ -91,6 +97,29 @@ export function PeopleClient({
               <span className="shrink-0 text-[12px] text-fg-faint">
                 {m.role === "admin" ? copy.people.roleAdmin : copy.people.roleMember}
               </span>
+
+              {/*
+                docs/03: an admin « can invite, remove, and change roles ». The
+                third was never built — the policy allowed it and the trigger
+                enforced the last-admin rule, but nothing could ask — so a role
+                was something you were given once, by a seed, for ever.
+              */}
+              {isAdmin && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() =>
+                    void run(
+                      () => setRole(m.userId, m.role === "admin" ? "member" : "admin"),
+                      copy.people.roleChanged,
+                    )
+                  }
+                  className="h-7 shrink-0 rounded-sm px-2 text-[12px] text-fg-muted hover:text-fg"
+                >
+                  {m.role === "admin" ? copy.people.demote : copy.people.promote}
+                </Button>
+              )}
               {isAdmin && (
                 <Button
                   type="button"
@@ -131,6 +160,17 @@ export function PeopleClient({
                     {copy.people.invitedOn(formatDueLabel(instantToDay(i.created_at)))}
                   </span>
                 </span>
+                {/*
+                  What the invitation grants. It was fetched and never shown, so
+                  an invite carrying admin looked exactly like one carrying
+                  member — and this workspace's seeded invite grants admin,
+                  which is a decision nobody in it made on purpose. Who can
+                  remove whom is worth knowing before they arrive, not after.
+                */}
+                <span className="shrink-0 text-[12px] text-fg-faint">
+                  {i.role === "admin" ? copy.people.roleAdmin : copy.people.roleMember}
+                </span>
+
                 {isAdmin && (
                   <>
                     <Button

@@ -214,6 +214,38 @@ try {
   check("as is the author", survived?.[0]?.created_by === null,
         String(survived?.[0]?.created_by));
 
+  /*
+    Changing a role is a thing docs/03 always said an admin could do and nothing
+    in the app could ask for until now. The rules that matter are enforced by
+    the policy and the trigger, not by the action, so they are what gets checked:
+    a plain member cannot promote anybody, an admin can, and the last admin
+    cannot be demoted however politely the request is phrased.
+  */
+  section("Roles — who may change them, and who may not be changed");
+  const climber = await join(WS, "member", "climb");
+  mine.invites = mine.invites.filter((i) => i !== climber.inviteId);
+
+  const selfPromote = await climber.client
+    .from("workspace_members").update({ role: "admin" }).eq("user_id", climber.id);
+  const { data: stillMember } = await admin
+    .from("workspace_members").select("role").eq("user_id", climber.id);
+  check("a member cannot promote themselves", stillMember?.[0]?.role === "member",
+        stillMember?.[0]?.role ?? String(selfPromote.error?.message));
+
+  const promoted = await owner.client
+    .from("workspace_members").update({ role: "admin" }).eq("user_id", climber.id);
+  const { data: nowAdmin } = await admin
+    .from("workspace_members").select("role").eq("user_id", climber.id);
+  check("an admin can promote a member", nowAdmin?.[0]?.role === "admin",
+        promoted.error?.message ?? String(nowAdmin?.[0]?.role));
+
+  const demoted = await owner.client
+    .from("workspace_members").update({ role: "member" }).eq("user_id", climber.id);
+  const { data: backToMember } = await admin
+    .from("workspace_members").select("role").eq("user_id", climber.id);
+  check("and demote them again", backToMember?.[0]?.role === "member",
+        demoted.error?.message ?? String(backToMember?.[0]?.role));
+
   section("The last admin");
   const { data: admins } = await admin
     .from("workspace_members").select("user_id").eq("workspace_id", WS).eq("role", "admin");
