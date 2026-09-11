@@ -26,6 +26,7 @@ const NEEDED = [
   "routing.ts",
   "links.ts",
   "session-reset.ts",
+  "sound.ts",
 ];
 
 // inside the project, so node resolves date-fns from the local node_modules
@@ -49,6 +50,7 @@ const { composeTask } = await load("compose.ts");
 const routing = await load("routing.ts");
 const { extractLinks } = await load("links.ts");
 const reset = await load("session-reset.ts");
+const sound = await load("sound.ts");
 
 let failures = 0;
 const check = (name, ok, detail = "") => {
@@ -754,6 +756,38 @@ section("Date picker — where an arrow key lands");
   }
   check("2190 steps across a year all land on a real day", bad.length === 0,
         bad.slice(0, 2).join(" | "));
+}
+
+/*
+  § 8.2 asks for the uncheck tone to be « a fifth below the root, never part of
+  the run », which is one sentence making two claims. The implementation was -5
+  semitones and satisfied neither: a fifth below is seven, and -5 lands on G,
+  which is degree 7 of the scale the run climbs — so the tone meant to sound
+  unlike a completion was a completion note an octave down.
+
+  It is consonant either way, which is why nothing ever sounded wrong. Checkable
+  without audio, though, because both claims are arithmetic.
+*/
+section("Sound — the uncheck tone is outside the run");
+{
+  const { SCALE, UNCHECK_SEMITONES } = sound;
+
+  eq("a fifth below the root is seven semitones", UNCHECK_SEMITONES, -7);
+
+  // pitch classes, so an octave down does not disguise a scale note
+  const inScale = new Set(SCALE.map((n) => ((n % 12) + 12) % 12));
+  const uncheck = ((UNCHECK_SEMITONES % 12) + 12) % 12;
+  check("and its pitch class is not one the run uses", !inScale.has(uncheck),
+        `uncheck ${uncheck}, scale {${[...inScale].sort((a, b) => a - b)}}`);
+
+  // the old value, kept as a test so the mistake cannot come back quietly
+  const oldUncheck = ((-5 % 12) + 12) % 12;
+  check("the previous value was in the scale, which is the bug",
+        inScale.has(oldUncheck), `-5 -> pitch class ${oldUncheck}`);
+
+  check("the run itself is pentatonic — five pitch classes", inScale.size === 5,
+        `${inScale.size}`);
+  eq("and it climbs ten notes before it stops", SCALE.length, 10);
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);

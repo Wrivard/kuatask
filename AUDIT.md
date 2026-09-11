@@ -502,3 +502,16 @@ reviewed. Numbering continues.
      forbidding the trade in the same breath. `DECISIONS.md` carries the
      arithmetic and what was deliberately not done about it. The script stays so
      the number moving is visible even though the absolute value will not pass.
+182. [x] **P1** The uncheck tone was a completion note in disguise. § 8.2 asks
+     for « a fifth below the root, never part of the run » — one sentence making
+     two claims, and the implementation satisfied neither. A fifth below C5 is
+     F4, seven semitones down; the code had -5, which is G4, a *fourth* below —
+     and G is degree 7 of the very scale the run climbs, so the tone whose job
+     is to sound unlike a completion was a completion note moved down an octave.
+
+     Consonant either way, which is exactly why it never sounded wrong and never
+     got noticed. F is the one degree major pentatonic leaves out, which is why
+     the specification named it. Inherited from `reference/sound.ts`, which the
+     brief said to copy as-is — so the reference carries the same defect, and
+     its README now says so. Five assertions, including one that keeps the old
+     value as a test so the mistake cannot come back quietly.

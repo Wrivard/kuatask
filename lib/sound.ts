@@ -16,10 +16,27 @@ let enabled = true;
 let step = 0;
 let lastAt = 0;
 
-const ROOT = 523.25;                              // C5
-const SCALE = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21]; // major pentatonic, two octaves
+export const ROOT = 523.25;                              // C5
+export const SCALE = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21]; // major pentatonic, two octaves
 const RESET_MS = 20_000;
-const GAIN = 0.09;                                 // deliberately low
+const GAIN = 0.09;                                        // deliberately low
+
+/**
+ * Reopening a task, in semitones from the root.
+ *
+ * § 8.2 asks for two things in one sentence: « a fifth below the root, never
+ * part of the run ». This was -5, which is neither. A fifth below C5 is F4,
+ * seven semitones down; -5 is G4, a *fourth* below — and G is degree 7 of the
+ * scale above, so the tone meant to sound unlike a completion was a completion
+ * note moved down an octave.
+ *
+ * Consonant, which is why it never sounded wrong and never got noticed. But the
+ * point of this tone is to be outside the vocabulary the run is built from, so
+ * that reopening reads as a different kind of event rather than a quieter
+ * version of the same one. F is the one degree major pentatonic leaves out,
+ * which is exactly why the specification asked for it.
+ */
+export const UNCHECK_SEMITONES = -7;
 
 /** Call from the user's settings on hydration and on toggle. */
 export function setSoundEnabled(value: boolean) {
@@ -83,7 +100,7 @@ export function completionTone() {
 /** Reopening a task. A fifth below the root, never part of the run. */
 export function uncompleteTone() {
   if (!enabled) return;
-  tone(ROOT * Math.pow(2, -5 / 12), 0.14, GAIN * 0.7);
+  tone(ROOT * Math.pow(2, UNCHECK_SEMITONES / 12), 0.14, GAIN * 0.7);
 }
 
 /** Haptic companion. navigator.vibrate does not exist on iOS Safari. */

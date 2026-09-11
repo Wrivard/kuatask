@@ -14,7 +14,7 @@ of them substantially:
 | `store.ts` | 238 | 653 | Ref-counted `pending` with a timeout, undo entries carrying preconditions, retry on transport failure but not on refusal, no-op patch elision, server-seeded hydration, bounded completion window, archive search. |
 | `realtime.ts` | 41 | 80 | Reconnect and resync on wake, and `DELETE` handling that needed a migration to work at all. |
 | `parse-fr.ts` | 160 | 168 | Year rollover for numeric dates. |
-| `sound.ts` | 95 | 98 | — |
+| `sound.ts` | 95 | 98 | The uncheck interval. § 8.2 asks for « a fifth below the root, never part of the run »; the reference has -5 semitones, which is a fourth below and lands on G — a note the run itself uses. `lib/` has -7. |
 | `motion.ts` | 51 | 52 | — |
 
 If you are reading one of these to understand how something works, read the
