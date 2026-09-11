@@ -1006,3 +1006,25 @@ In a workspace for two, where plenty gets captured before it is assigned, the
 ring can read 2/2 with a checkmark while three unassigned tasks are due. That
 is the specification's instrument, not a bug in the implementation of it, and
 changing it would make it measure something else.
+
+## There is an activity log now, and the brief said there would not be
+
+`docs/00-brief.md`: *"No archive, no trash. Completed tasks stay in the table
+and collapse out of view. Deletion is real deletion with an undo window."*
+
+The owner asked for one directly — to see what happened, and to get a task back
+after a mistake. That is their call to make about their own brief. Recorded here
+rather than quietly contradicted.
+
+It is worth being precise about what changed, because it is less than it looks.
+A trash is somewhere deleted tasks *live on*, and it accumulates into exactly
+the wall of old work the rule exists to prevent. This is a log of actions.
+Tasks are still really deleted; what survives is the record that they existed,
+plus a snapshot complete enough to insert a new row carrying the old one's
+contents. Restoring makes a new task, and the log records it as a creation,
+because that is what it is.
+
+Written by database triggers rather than by the app. Every write path would
+otherwise have to remember to log — the store, the server actions, the drag
+handlers, anything added later — and the one that forgets is invisible until
+somebody needs the entry that was never written.

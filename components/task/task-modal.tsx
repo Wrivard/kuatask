@@ -283,7 +283,14 @@ export function TaskModal({
                     onChange={(e) =>
                       updateTask(task.id, { due_time: e.target.value || null })
                     }
-                    className="h-7 w-[104px] rounded-md border-border bg-bg text-[12px] dark:bg-bg"
+                    /*
+                      Wide enough for a 12-hour clock. A native time input takes
+                      its format from the *browser's* locale, not the document's
+                      lang — so a browser set to English renders "11:30 PM" in
+                      this French app, and at 104px the meridiem was cut to "PI".
+                      Nothing can force 24-hour here, so the box fits both.
+                    */
+                    className="h-7 w-[136px] rounded-md border-border bg-bg text-[12px] dark:bg-bg"
                   />
                   <button
                     type="button"

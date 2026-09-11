@@ -62,6 +62,7 @@ export function AppChrome() {
     c: () => router.push("/calendar"),
     b: () => router.push("/board"),
     l: () => router.push("/"),
+    a: () => router.push("/activity"),
     // S alone cycles a row's status; behind G there is no collision
     s: () => router.push("/settings"),
   });

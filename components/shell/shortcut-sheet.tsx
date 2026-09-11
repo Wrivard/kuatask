@@ -14,6 +14,7 @@ const GROUPS: { scope: string; rows: [string, string][] }[] = [
       ["G puis L", copy.nav.list],
       ["G puis B", copy.nav.board],
       ["G puis C", copy.nav.calendar],
+      ["G puis A", copy.nav.activity],
       ["G puis S", copy.nav.settings],
       ["⌘Z", copy.toast.undo],
       ["?", copy.shortcuts.title],

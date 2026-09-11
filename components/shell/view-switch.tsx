@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { List, Columns3, CalendarDays, type LucideIcon } from "lucide-react";
+import { List, Columns3, CalendarDays, History, type LucideIcon } from "lucide-react";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +18,11 @@ export const VIEWS: { href: string; icon: LucideIcon; label: string }[] = [
   { href: "/", icon: List, label: copy.nav.list },
   { href: "/board", icon: Columns3, label: copy.nav.board },
   { href: "/calendar", icon: CalendarDays, label: copy.nav.calendar },
+  /*
+    A fourth view rather than a settings page: it answers « what happened »,
+    which is a question about the work, not about the workspace.
+  */
+  { href: "/activity", icon: History, label: copy.nav.activity },
 ];
 
 export function ViewSwitch() {

@@ -33,6 +33,7 @@ export const copy = {
     later: "Plus tard",
     undated: "Sans date",
     calendar: "Calendrier",
+    activity: "Activité",
     prevMonth: "Mois précédent",
     nextMonth: "Mois suivant",
     board: "Tableau",
@@ -51,6 +52,34 @@ export const copy = {
 
   preview: {
     warning: "Aperçu — les modifications touchent les vraies données.",
+  },
+
+  activity: {
+    empty: "Rien encore. L'historique se remplira à mesure.",
+    restore: "Restaurer",
+    restoring: "…",
+    restored: "Tâche restaurée",
+    limit: "Les 200 dernières actions.",
+    verb: {
+      created: "créée",
+      updated: "modifiée",
+      completed: "terminée",
+      reopened: "rouverte",
+      deleted: "supprimée",
+    } as Record<string, string>,
+    field: {
+      title: "titre",
+      notes: "notes",
+      label: "étiquette",
+      due_on: "date",
+      due_time: "heure",
+      assignee_id: "assignation",
+      status: "statut",
+      important: "importance",
+      position: "ordre",
+      completed_at: "complétion",
+      completed_by: "complétion",
+    } as Record<string, string>,
   },
 
   search: {
@@ -259,6 +288,8 @@ export const copy = {
     alreadyThere: "C'est déjà là.",
     gone: "Cette tâche n'existe plus.",
     missingField: "Il manque une information.",
+    cannotRestore: "Cette tâche ne peut pas être restaurée.",
+    alreadyRestored: "Cette tâche est déjà de retour.",
     notAllowed: "Tu n'as pas les droits pour ça.",
     offline: "Connexion perdue. Les modifications reprendront au retour du réseau.",
     inviteFailed: "L'invitation n'a pas pu être envoyée. Vérifie l'adresse.",
