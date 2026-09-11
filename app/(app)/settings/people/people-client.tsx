@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { accentColor } from "@/components/task/assignee-dot";
-import { inviteMember, removeMember, revokeInvite } from "./actions";
+import { inviteMember, removeMember, resendInvite, revokeInvite } from "./actions";
+import { formatDueLabel, instantToDay } from "@/lib/time";
 import { copy } from "@/lib/copy";
 
 type MemberRow = {
@@ -17,7 +18,13 @@ type MemberRow = {
   accent: string;
 };
 
-type InviteRow = { id: string; email: string; role: "admin" | "member" };
+type InviteRow = {
+  id: string;
+  email: string;
+  role: "admin" | "member";
+  /** So the page can say how long somebody has been waiting. */
+  created_at: string;
+};
 
 export function PeopleClient({
   members,
@@ -109,21 +116,42 @@ export function PeopleClient({
             {invites.map((i) => (
               <li
                 key={i.id}
-                className="flex h-11 items-center gap-3 border-b border-border"
+                className="flex min-h-11 items-center gap-3 border-b border-border py-1.5"
               >
-                <span className="min-w-0 flex-1 truncate text-[15px] text-fg-muted">
-                  {i.email}
+                {/*
+                  When it was created, because a pending invite says nothing
+                  about whether anybody was told. This workspace's own first one
+                  was written by the seed in migration 0001 — the row had
+                  existed since before there was a member, and no email was ever
+                  sent for it. From the page it looked exactly like one that had.
+                */}
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-[15px] text-fg-muted">{i.email}</span>
+                  <span className="truncate text-[12px] text-fg-faint">
+                    {copy.people.invitedOn(formatDueLabel(instantToDay(i.created_at)))}
+                  </span>
                 </span>
                 {isAdmin && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    disabled={busy}
-                    onClick={() => void run(() => revokeInvite(i.id))}
-                    className="h-7 rounded-sm px-2 text-[12px] text-fg-muted hover:text-danger"
-                  >
-                    {copy.people.revoke}
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => void run(() => resendInvite(i.id), copy.people.resent)}
+                      className="h-7 shrink-0 rounded-sm px-2 text-[12px] text-fg-muted hover:text-fg"
+                    >
+                      {copy.people.resend}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => void run(() => revokeInvite(i.id))}
+                      className="h-7 shrink-0 rounded-sm px-2 text-[12px] text-fg-muted hover:text-danger"
+                    >
+                      {copy.people.revoke}
+                    </Button>
+                  </>
                 )}
               </li>
             ))}

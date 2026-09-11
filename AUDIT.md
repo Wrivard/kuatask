@@ -464,3 +464,15 @@ reviewed. Numbering continues.
      and reveals only whether things are up. `docs/keeping-it-awake.md` records
      what it does not cover — a manual pause, a disabled cron, and backups,
      which it has nothing to do with.
+178. [x] **P1** A pending invite said nothing about whether anybody was told.
+     Found in this workspace's own data: the invite for the second person was
+     created 2026-09-08, a day before the first account existed — it was written
+     by the seed in migration 0001, so no email was ever sent for it, and from
+     the people page it looked identical to one that had been. Somebody has been
+     « invited » since before there was a workspace and has never heard anything.
+
+     Invites now show when they were created, and an admin can send one again.
+     Resending creates and deletes nothing — the row already carries the address
+     and the role — so it is safe to press twice, and it is under the same hourly
+     ceiling as a new invitation, since a button that can be pressed repeatedly
+     is more likely to be.

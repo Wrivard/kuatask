@@ -154,6 +154,60 @@ export async function revokeInvite(inviteId: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/**
+ * Sends an existing invitation again.
+ *
+ * A pending invite row and an invitation somebody actually received look
+ * identical on the people page, and they are not the same thing. This
+ * workspace's own first invite is the proof: it was written by the seed in
+ * migration 0001, so the row has existed since before the workspace had a
+ * single member — and no email was ever sent for it. The person it names has
+ * been "invited" for days and has never heard anything.
+ *
+ * Nothing is created or deleted here. The row already carries the address and
+ * the role, so this only asks Supabase to deliver a link for it, which makes
+ * it safe to press twice.
+ */
+export async function resendInvite(inviteId: string): Promise<ActionResult> {
+  const ctx = await requireAdmin();
+  if (!ctx) return { ok: false, error: copy.error.saveFailed };
+
+  // RLS scopes this to the caller's workspace; the eq is belt and braces
+  const { data: invite } = await ctx.supabase
+    .from("pending_invites")
+    .select("email")
+    .eq("id", inviteId)
+    .eq("workspace_id", ctx.workspaceId)
+    .maybeSingle();
+
+  if (!invite) return { ok: false, error: copy.error.saveFailed };
+
+  /*
+    The same ceiling as a new invitation. Resending is exactly as capable of
+    exhausting somebody else's mailer, and a button that can be pressed
+    repeatedly is more likely to be.
+  */
+  const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
+  const { count: recent } = await ctx.supabase
+    .from("pending_invites")
+    .select("id", { count: "exact", head: true })
+    .eq("workspace_id", ctx.workspaceId)
+    .gte("created_at", hourAgo);
+
+  if ((recent ?? 0) >= INVITES_PER_HOUR) {
+    return { ok: false, error: copy.error.tooManyInvites };
+  }
+
+  const { error } = await adminClient().auth.admin.inviteUserByEmail(invite.email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+  });
+
+  if (error) return { ok: false, error: copy.error.inviteFailed };
+
+  revalidatePath("/settings/people");
+  return { ok: true };
+}
+
 export async function removeMember(userId: string): Promise<ActionResult> {
   const ctx = await requireAdmin();
   if (!ctx) return { ok: false, error: copy.error.saveFailed };

@@ -25,7 +25,7 @@ export default async function PeoplePage() {
   // RLS already scopes both of these to the caller's workspace
   const [{ data: members }, { data: invites }] = await Promise.all([
     supabase.from("workspace_members").select("user_id, role"),
-    supabase.from("pending_invites").select("id, email, role"),
+    supabase.from("pending_invites").select("id, email, role, created_at"),
   ]);
 
   const { data: profiles } = await supabase
