@@ -27,6 +27,7 @@ const NEEDED = [
   "links.ts",
   "session-reset.ts",
   "sound.ts",
+  "edit.ts",
 ];
 
 // inside the project, so node resolves date-fns from the local node_modules
@@ -49,6 +50,7 @@ const suggest = await load("suggest.ts");
 const { composeTask } = await load("compose.ts");
 const routing = await load("routing.ts");
 const { extractLinks } = await load("links.ts");
+const { textPatch } = await load("edit.ts");
 const reset = await load("session-reset.ts");
 const sound = await load("sound.ts");
 
@@ -788,6 +790,71 @@ section("Sound — the uncheck tone is outside the run");
   check("the run itself is pentatonic — five pitch classes", inScale.size === 5,
         `${inScale.size}`);
   eq("and it climbs ten notes before it stops", SCALE.length, 10);
+}
+
+/*
+  What an open editor still owes the task.
+
+  The modal debounces its three text fields, so closing has to save whatever has
+  not been written yet — there is no Cancel in it, so leaving is not discarding.
+  It used to cancel instead: the debounce cleared its own timer on unmount, and a
+  note typed and escaped inside 400ms was gone with nothing to say so. That was
+  always reachable and became the main path the day the composer grew a
+  Shift+Enter whose whole purpose is "open it, type a note, leave".
+*/
+section("Editor — closing saves what was typed, and only that");
+{
+  const saved = { title: "Appeler le client", notes: null, label: null };
+  const buf = (over) => ({ id: "t1", title: saved.title, notes: "", label: "", ...over });
+
+  eq("an untouched buffer owes nothing", textPatch(buf(), saved), null);
+
+  eq("a note typed inside the debounce window is still owed",
+     textPatch(buf({ notes: "rappeler apres 15h" }), saved),
+     { notes: "rappeler apres 15h" });
+
+  eq("so is a label, which used to save on blur and never fired on Esc",
+     textPatch(buf({ label: "acme" }), saved), { label: "acme" });
+
+  eq("everything at once arrives as one patch, not three",
+     textPatch(buf({ title: "Appeler Marie", notes: "n", label: "l" }), saved),
+     { title: "Appeler Marie", notes: "n", label: "l" });
+
+  /*
+    An emptied title box is a rewrite in progress, not an instruction. Select-all
+    then type passes through empty on every edit, and obeying it would blank the
+    row in the list behind the modal each time.
+  */
+  eq("an emptied title is not an instruction to delete the title",
+     textPatch(buf({ title: "   " }), saved), null);
+
+  eq("but emptied notes really do clear",
+     textPatch(buf({ notes: "" }), { ...saved, notes: "quelque chose" }),
+     { notes: null });
+
+  eq("and so does an emptied label",
+     textPatch(buf({ label: "  " }), { ...saved, label: "acme" }),
+     { label: null });
+
+  eq("whitespace around a label is not a change",
+     textPatch(buf({ label: " acme " }), { ...saved, label: "acme" }), null);
+
+  // a deleted task has nowhere to save to — the delete button closes the modal
+  eq("a task deleted while open is not resurrected",
+     textPatch(buf({ notes: "trop tard" }), undefined), null);
+
+  eq("and neither is one with no owner recorded",
+     textPatch({ id: "", title: "x", notes: "y", label: "" }, saved), null);
+
+  /*
+    The guard that makes a flush safe at all. Switching tasks renders the new id
+    with the old buffers for exactly one commit; pairing them outside the buffer
+    would write these notes onto that task.
+  */
+  const other = { title: "Autre tache", notes: null, label: null };
+  eq("the buffer carries its own owner, so a mismatch cannot be expressed",
+     textPatch({ id: "t1", title: "x", notes: "les notes de t1", label: "" }, other),
+     { title: "x", notes: "les notes de t1" });
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);

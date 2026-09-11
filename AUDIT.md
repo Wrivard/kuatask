@@ -671,3 +671,32 @@ reviewed. Numbering continues.
      landing in notes, and the modal stacking over the calendar day sheet have
      been typechecked, linted, built and server-rendered but not pressed. Recorded
      as unverified rather than described as done.
+205. [x] **P0** The modal lost what you typed. Both text effects cancel their
+     timer in the cleanup — right while you are typing, wrong when the modal
+     closes: type a note, press Esc inside the 400 ms window, and the cleanup
+     cancelled the only write that was ever going to happen. Silent, every time.
+     It was always reachable and item 198 made it the *main* path, since
+     Shift+Enter exists precisely so you can open a task, type a note and leave.
+     Closing now flushes. There is no Cancel in this modal by design, so leaving
+     was never supposed to mean discarding.
+206. [x] **P1** The label had a second version of the same hole: `defaultValue`
+     plus `onBlur`. Esc unmounts the input, and removing a focused element does
+     not dispatch `focusout`, so `onBlur` never ran and the label was dropped.
+     It now debounces like the other two, which also means it saves as you type
+     rather than only when you happen to click elsewhere.
+207. [x] **P1** The three buffers became one object carrying the id of the task
+     they belong to. Switching tasks renders the new `task.id` while the buffers
+     still hold the old text, so anything pairing "current id" with "current
+     text" sees one commit of new-id-old-text — and a flush on that commit writes
+     one task's notes onto another. Keeping the owner inside the buffer makes
+     that unrepresentable rather than merely unlikely.
+208. [x] **P1** The flush lives in `lib/edit.ts` as `textPatch(buffer, current)`,
+     a function of two plain objects, with eleven assertions in `verify:logic`.
+     A component cannot be asserted about, and this is a failure nothing reports:
+     no throw, no log, the note is just not there later. It returns null rather
+     than an empty patch, because an empty patch still costs a round trip, an
+     undo entry and a row in the activity log.
+209. [x] **P2** Dupliquer copied from props while the text fields were still
+     debounced, so duplicating within 400 ms of an edit produced a copy from
+     before the edit while the original kept it — two tasks differing by a change
+     you had just made. It flushes first, then copies what is actually saved.

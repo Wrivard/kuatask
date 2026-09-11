@@ -14,6 +14,7 @@ import { Avatar } from "./avatar";
 import { useStore, type Task } from "@/lib/store";
 import { useSetStatusWithFeedback, useDeleteWithFeedback } from "@/lib/completion";
 import { useAutoGrow } from "@/lib/auto-grow";
+import { textPatch } from "@/lib/edit";
 import { labelsInUse } from "@/lib/suggest";
 import { extractLinks } from "@/lib/links";
 import { copy } from "@/lib/copy";
@@ -103,46 +104,114 @@ export function TaskModal({
   const createTask = useStore((s) => s.createTask);
   const setStatus = useSetStatusWithFeedback();
 
-  const [title, setTitle] = React.useState("");
-  const [notes, setNotes] = React.useState("");
+  /*
+    The three text fields, buffered together with the id of the task they belong
+    to.
+
+    One state object rather than three, because the id is what makes a flush
+    safe. Switching tasks re-renders with the new `task.id` before the reset
+    effect has replaced the buffers, so anything keyed on the id alone would see
+    "new task, old text" for one render — and a flush on that render would write
+    one task's notes onto another. Keeping the owner *inside* the buffer makes
+    that state unrepresentable.
+  */
+  const [buf, setBuf] = React.useState({ id: "", title: "", notes: "", label: "" });
   const [picking, setPicking] = React.useState(false);
 
   // both fields size themselves to their content — docs/06-views.md
-  const titleRef = useAutoGrow<HTMLTextAreaElement>(title);
-  const notesRef = useAutoGrow<HTMLTextAreaElement>(notes);
+  const titleRef = useAutoGrow<HTMLTextAreaElement>(buf.title);
+  const notesRef = useAutoGrow<HTMLTextAreaElement>(buf.notes);
 
   // reset the local text buffers when a different task opens
   React.useEffect(() => {
     if (!task) return;
-    setTitle(task.title);
-    setNotes(task.notes ?? "");
+    setBuf({
+      id: task.id,
+      title: task.title,
+      notes: task.notes ?? "",
+      label: task.label ?? "",
+    });
     setPicking(false);
   }, [task?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // debounced title/notes writes
+  /**
+   * Writes whatever is in the buffer that is not already saved.
+   *
+   * Reads the store at call time rather than closing over `task`, so it is
+   * stable and can be called from an unmount cleanup — where the props are a
+   * render old and the task may be gone entirely.
+   */
+  const bufRef = React.useRef(buf);
+  bufRef.current = buf;
+
+  const flushText = React.useCallback(() => {
+    const b = bufRef.current;
+    const store = useStore.getState();
+    const patch = textPatch(b, store.tasks.find((t) => t.id === b.id));
+    if (patch) store.updateTask(b.id, patch);
+  }, []);
+
+  /*
+    Save on the way out.
+
+    The debounce below cancels its timer in the effect cleanup, which is correct
+    while you are typing and wrong when the modal closes: type a note, press Esc
+    inside 400ms, and the cleanup cancelled the only write that was ever going
+    to happen. The note was gone with nothing to say so.
+
+    That was always reachable and is now the main path — the composer's
+    Shift+Enter exists precisely so you can open a task, type a note and leave.
+    Closing is not cancelling; there is no Cancel in this modal by design.
+  */
+  React.useEffect(() => () => flushText(), [flushText]);
+
+  // and the same on the way from one task to another, before the buffers reset
+  const previousId = React.useRef(buf.id);
   React.useEffect(() => {
-    if (!task) return;
-    if (title === task.title || title.trim() === "") return;
+    if (previousId.current && previousId.current !== taskId) flushText();
+    previousId.current = taskId ?? "";
+  }, [taskId, flushText]);
+
+  // debounced writes while typing
+  React.useEffect(() => {
+    if (!task || buf.id !== task.id) return;
+    if (buf.title === task.title || buf.title.trim() === "") return;
     const id = setTimeout(
-      () => updateTask(task.id, { title: title.trim() }),
+      () => updateTask(task.id, { title: buf.title.trim() }),
       TEXT_DEBOUNCE,
     );
     return () => clearTimeout(id);
-  }, [title]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [buf.title]); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
-    if (!task) return;
-    const next = notes.trim() === "" ? null : notes;
+    if (!task || buf.id !== task.id) return;
+    const next = buf.notes.trim() === "" ? null : buf.notes;
     if (next === task.notes) return;
     const id = setTimeout(() => updateTask(task.id, { notes: next }), TEXT_DEBOUNCE);
     return () => clearTimeout(id);
-  }, [notes]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [buf.notes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /*
+    The label saves as you type too, where it used to save on blur.
+
+    `onBlur` never ran on the path that matters: Esc unmounts the input, and
+    removing a focused element does not dispatch `focusout`, so a label typed and
+    then escaped was discarded without a word. Debouncing it puts it on the same
+    footing as the title and the notes, and the flush above covers the rest.
+  */
+  React.useEffect(() => {
+    if (!task || buf.id !== task.id) return;
+    const next = buf.label.trim() === "" ? null : buf.label.trim();
+    if (next === task.label) return;
+    const id = setTimeout(() => updateTask(task.id, { label: next }), TEXT_DEBOUNCE);
+    return () => clearTimeout(id);
+  }, [buf.label]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const creator = members.find((m) => m.id === task?.created_by);
 
   const allTasks = useStore((s) => s.tasks);
   const knownLabels = React.useMemo(() => labelsInUse(allTasks), [allTasks]);
-  const links = React.useMemo(() => extractLinks(notes), [notes]);
+  const links = React.useMemo(() => extractLinks(buf.notes), [buf.notes]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (!task) return;
@@ -193,8 +262,8 @@ export function TaskModal({
           <Textarea
             ref={titleRef}
             autoFocus={focus !== "notes"}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            value={buf.title}
+            onChange={(e) => setBuf((b) => ({ ...b, title: e.target.value }))}
             placeholder={copy.task.titlePlaceholder}
             rows={1}
             className="min-h-0 resize-none overflow-hidden rounded-none border-0 bg-transparent p-0 text-[17px] font-medium leading-[1.35] tracking-[-0.014em] text-fg shadow-none focus-visible:ring-0 dark:bg-transparent"
@@ -203,8 +272,8 @@ export function TaskModal({
           <Textarea
             ref={notesRef}
             autoFocus={focus === "notes"}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            value={buf.notes}
+            onChange={(e) => setBuf((b) => ({ ...b, notes: e.target.value }))}
             placeholder={copy.task.notesPlaceholder}
             rows={1}
             className="mt-2 min-h-0 resize-none overflow-hidden rounded-none border-0 bg-transparent p-0 text-[13px] leading-[1.55] text-fg-muted shadow-none focus-visible:ring-0 dark:bg-transparent"
@@ -349,8 +418,8 @@ export function TaskModal({
             */}
             <Input
               list="kua-labels"
-              defaultValue={task.label ?? ""}
-              onBlur={(e) => updateTask(task.id, { label: e.target.value.trim() || null })}
+              value={buf.label}
+              onChange={(e) => setBuf((b) => ({ ...b, label: e.target.value }))}
               placeholder={copy.task.label}
               className="h-8 max-w-[260px] rounded-md border-border bg-bg text-[13px] dark:bg-bg"
             />
@@ -395,14 +464,22 @@ export function TaskModal({
               type="button"
               variant="ghost"
               onClick={() => {
+                /*
+                  Flush first, then copy what is actually saved. The text fields
+                  debounce, so duplicating within 400ms of an edit used to copy
+                  the version from before the edit while the original kept the
+                  edit — two tasks differing by a change you had just made.
+                */
+                flushText();
+                const from = useStore.getState().tasks.find((t) => t.id === task.id) ?? task;
                 createTask({
-                  title: task.title,
-                  notes: task.notes,
-                  label: task.label,
-                  important: task.important,
-                  due_on: task.due_on,
-                  due_time: task.due_time,
-                  assignee_id: task.assignee_id,
+                  title: from.title,
+                  notes: from.notes,
+                  label: from.label,
+                  important: from.important,
+                  due_on: from.due_on,
+                  due_time: from.due_time,
+                  assignee_id: from.assignee_id,
                 });
                 toast(copy.task.duplicated);
                 onClose();
