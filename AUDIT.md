@@ -536,3 +536,21 @@ reviewed. Numbering continues.
      the specification's instrument rather than a fault in implementing it, and
      changing it would make the ring measure something else. Written down so the
      gap between what it says and what the day holds is a known one.
+186. [x] **P1** `docs/10`'s contrast gate had been checked once, by hand, with a
+     calculator — during Phase 6, when `--ink-faint` turned out to be at 2.74:1
+     and both it and `--ink-muted` had to move to keep the three-step ramp. After
+     that, nothing. The next person to nudge a hex gets no warning, and a
+     contrast failure is invisible to everybody who does not have the deficiency
+     it excludes. `npm run verify:contrast` computes all six tokens against both
+     grounds from the same stylesheet the browser reads, and asserts the ramp
+     still descends. Currently passing, `--ink-faint` at 4.94:1 dark and 4.95:1
+     light — which is how close the thing docs/10 singled out still is.
+187. [x] **P2** `docs/10` asks that every `new Date()` outside `lib/time.ts` be
+     justified. Five sites, two justified. The other three — two rate-limit
+     windows and a log timestamp — are all elapsed server time rather than a
+     calendar day, which is exactly why they are correct and exactly what was
+     not written down. The grep the gate describes is now self-documenting.
+188. **NO** The service role key is absent from all sixteen production chunks
+     and there is no `any` in committed code. Both re-checked against the
+     deployed bundle rather than the local build, because the gate says « grep
+     the production bundle to confirm — do not assume ».

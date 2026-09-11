@@ -132,7 +132,13 @@ export default async function AppLayout({
             me: members?.find((m) => m.id === user.id) ?? null,
             workspaceId: membership.workspace_id,
             completionDays,
-            serverNow: new Date().toISOString(),
+            /*
+            The one `new Date()` that has to be raw. It is the server's own
+            instant, and it is what lib/time.ts calibrates against — asking
+            that file for it would be asking the corrected clock to correct
+            itself. docs/10 wants each of these justified; this is the root.
+          */
+          serverNow: new Date().toISOString(),
           }}
         />
         {/*

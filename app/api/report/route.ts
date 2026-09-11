@@ -46,6 +46,8 @@ export async function POST(request: Request) {
         digest: clip(body?.digest),
         path: clip(body?.path),
         stack: clip(body?.stack),
+        // when the report arrived, in UTC, for a log line. Not a calendar
+        // day and not shown to anybody, so lib/time.ts has no part in it
         at: new Date().toISOString(),
       }),
     );

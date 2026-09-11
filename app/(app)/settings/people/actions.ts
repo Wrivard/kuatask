@@ -73,6 +73,9 @@ export async function inviteMember(email: string): Promise<ActionResult> {
     return { ok: false, error: copy.error.inviteFailed };
   }
 
+  // docs/10 asks that every `new Date()` outside lib/time.ts be justified:
+  // this is an elapsed hour on the server, not a calendar day, so Montreal
+  // has no opinion about it and lib/time.ts is the wrong place to ask
   const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
   const { count: recentInvites } = await ctx.supabase
     .from("pending_invites")
@@ -187,6 +190,9 @@ export async function resendInvite(inviteId: string): Promise<ActionResult> {
     exhausting somebody else's mailer, and a button that can be pressed
     repeatedly is more likely to be.
   */
+  // docs/10 asks that every `new Date()` outside lib/time.ts be justified:
+  // this is an elapsed hour on the server, not a calendar day, so Montreal
+  // has no opinion about it and lib/time.ts is the wrong place to ask
   const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
   const { count: recent } = await ctx.supabase
     .from("pending_invites")
