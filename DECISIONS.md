@@ -945,3 +945,42 @@ nothing deletes a row it did not create.
 The wider lesson is about verification against a live workspace. Reading is
 cheap and safe; writing is neither, and a throwaway-data convention only holds
 if every delete is keyed on an id the run owns.
+
+## § 8.8's 1.2s cold load on 4G is not reachable with this stack
+
+Measured rather than assumed, with `npm run cold`, against production:
+
+| | over the wire | floor on Slow 4G |
+|---|---:|---:|
+| `/login` | 268 KB | 1672 ms |
+| `/` | 351 KB | 2095 ms |
+
+Slow 4G is Lighthouse's preset — 1.6 Mbps, 150ms RTT — and the floor is
+transfer plus two round trips, deliberately generous: it ignores parse,
+hydration and the font fetches, all of which a real browser pays.
+
+The budget allows about 240 KB in 1200ms, and 300ms of that goes to round
+trips, leaving roughly 180 KB. The framework floor is already past it:
+
+- React, React DOM and the Next runtime — about 96 KB
+- `@supabase/supabase-js` — 67 KB, and not removable without giving up
+  realtime, which is the entire two-person premise
+- `motion` — 46 KB, and `docs/08` is the document that forbids trading it:
+  *"if you have to trade polish somewhere, never trade it there"*. §8.1's
+  completion sequence and §8.5's sweep are the product.
+
+That is 209 KB before a line of this app's own code. The number and the locked
+stack in `docs/01` cannot both hold, and the stack is the one that shipped.
+
+**What was not done about it.** Moving sign-in to a server action would take 67
+KB off `/login` — the page that its own comment says is seen roughly once a
+month, and the one whose auth flow is the riskiest thing in the app to break for
+a saving nobody would feel. Lazy-loading `motion` would take 46 KB off `/` and
+give back a visible un-animated first interaction. Neither trade is worth making
+for a budget that would still be missed afterwards.
+
+**What is true in practice.** These two use the app on office wifi and on
+modern phones. At 25 Mbps, 351 KB is about 110ms. The 4G figure is a convention
+for comparing against itself over time, not a description of anybody's Tuesday —
+which is why `npm run cold` is in the repo: so the number moving is visible,
+even though the absolute value will not pass.

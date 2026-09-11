@@ -488,3 +488,17 @@ reviewed. Numbering continues.
      carrying member — and this workspace's own seeded invite grants admin, which
      is a decision nobody in it made on purpose. Who can remove whom is worth
      knowing before somebody arrives rather than after.
+181. [~] **P1** `docs/08` § 8.8 sets a number nothing had ever checked: « cold
+     load to interactive under 1.2s on 4G ». Measured with the new `npm run
+     cold`, against production: `/login` is 268 KB over the wire and floors at
+     1672 ms, `/` is 351 KB and floors at 2095 ms — 75% over, before parse,
+     hydration or fonts.
+
+     It is not reachable with the locked stack, and that is the finding rather
+     than an excuse. The budget allows roughly 180 KB after round trips; React,
+     Next, `@supabase/supabase-js` and `motion` are 209 KB between them, and the
+     two candidates for removal are realtime — the entire two-person premise —
+     and the completion animation, which is the document that sets the budget
+     forbidding the trade in the same breath. `DECISIONS.md` carries the
+     arithmetic and what was deliberately not done about it. The script stays so
+     the number moving is visible even though the absolute value will not pass.
