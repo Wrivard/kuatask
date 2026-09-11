@@ -8,6 +8,7 @@ import { SignOutButton } from "@/components/shell/sign-out-button";
 import { DeleteAccount } from "./delete-account";
 import { useStore } from "@/lib/store";
 import { completionTone } from "@/lib/sound";
+import { Avatar } from "@/components/task/avatar";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -67,6 +68,33 @@ export function ProfileClient() {
           className="h-9 max-w-[280px] rounded-sm text-[14px]"
         />
         <p className="mt-1.5 text-[12px] text-fg-faint">{copy.settings.displayNameHint}</p>
+      </Field>
+
+      {/*
+        A face, or initials on your colour until there is one. No upload: that
+        needs a storage bucket and a policy, and the point of this field today
+        is that two people stop being two words in a list. A URL covers the case
+        where the photo already exists somewhere, and the initials cover the
+        case where it does not — which is neither a blank nor a grey silhouette.
+      */}
+      <Field label={copy.settings.avatar}>
+        <div className="flex items-center gap-3">
+          <Avatar member={me} size="lg" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <Input
+              type="url"
+              inputMode="url"
+              defaultValue={me.avatar_url ?? ""}
+              placeholder={copy.settings.avatarPlaceholder}
+              onBlur={(e) => {
+                const next = e.target.value.trim() || null;
+                if (next !== (me.avatar_url ?? null)) updateProfile({ avatar_url: next });
+              }}
+              className="h-8 rounded-md border-border bg-bg text-[13px] dark:bg-bg"
+            />
+            <p className="text-[12px] text-fg-faint">{copy.settings.avatarHint}</p>
+          </div>
+        </div>
       </Field>
 
       <Field label={copy.settings.accent}>

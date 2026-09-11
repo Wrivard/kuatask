@@ -237,6 +237,11 @@ export const copy = {
   settings: {
     profile: "Ton profil",
     theme: "Thème",
+    avatar: "Photo",
+    avatarHint:
+      "Colle l'adresse d'une image. Sans photo, tes initiales sur ta couleur.",
+    avatarPlaceholder: "https://…",
+    avatarRemove: "Retirer",
     version: "Version",
     localBuild: "développement local",
     deleteAccount: "Supprimer mon compte",

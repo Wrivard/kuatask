@@ -29,6 +29,7 @@ import { useOpenTask } from "@/lib/events";
 import { useCompletionHold } from "@/lib/hold";
 import { useClearedToday } from "@/lib/clear-out";
 import { ClearOut } from "./clear-out";
+import { Avatar } from "@/components/task/avatar";
 import { streakFromDays, instantToDay, dayNumber } from "@/lib/time";
 import { useToday } from "@/lib/day";
 import { useLocalLens } from "@/lib/lens";
@@ -311,6 +312,16 @@ export function BoardView() {
                     folded ? "flex-1 flex-col items-center px-0" : "items-center",
                   )}
                 >
+                  {/*
+                    A face on a person column. The colour strip above says which
+                    column this is; the avatar says whose, which is a different
+                    question and only has an answer when grouping by person.
+                    Hidden when folded — 44px of width is the title's.
+                  */}
+                  {column.member && !folded && (
+                    <Avatar member={column.member} size="sm" />
+                  )}
+
                   <button
                     type="button"
                     onClick={() => toggleCollapsed(column.key)}

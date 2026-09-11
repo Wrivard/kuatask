@@ -18,8 +18,21 @@ let lastAt = 0;
 
 export const ROOT = 523.25;                              // C5
 export const SCALE = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21]; // major pentatonic, two octaves
-const RESET_MS = 20_000;
-const GAIN = 0.09;                                        // deliberately low
+/*
+  Tuned per § 8.9. 20s was the starting value and it is too short for the way
+  these two actually clear a list: you tick one, read the next, decide, tick it.
+  Thirty seconds keeps a run alive across that pause, and is still far below the
+  point where an unrelated completion half a minute later would inherit a climb
+  it did not earn.
+*/
+const RESET_MS = 30_000;
+/*
+  Tuned per § 8.9. 0.09 was the starting value and stays: under a conversation
+  is the brief, and the tone is a sine at 180ms with an exponential tail, which
+  carries further than its peak suggests. Louder was the wrong direction — what
+  makes a run feel good is the interval climbing, not the volume.
+*/
+const GAIN = 0.09;
 
 /**
  * Reopening a task, in semitones from the root.

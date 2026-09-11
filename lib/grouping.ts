@@ -27,6 +27,8 @@ export type Column = {
   tasks: Task[];
   /** Identity colour for a person column. */
   accent?: string;
+  /** The person a column stands for, when it stands for one. */
+  member?: Profile;
 };
 
 /** The unassigned column, kept distinct from a real user id. */
@@ -112,6 +114,7 @@ export function buildColumns(
       key: m.id,
       title: m.id === me?.id ? copy.filter.mine : m.display_name,
       accent: accentOf(m.accent),
+      member: m,
       tasks: [],
     }));
     columns.push({ key: NO_ASSIGNEE, title: copy.board.unassigned, tasks: [] });

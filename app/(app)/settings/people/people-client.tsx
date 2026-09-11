@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { accentColor } from "@/components/task/assignee-dot";
+import { Avatar } from "@/components/task/avatar";
 import {
   inviteMember,
   removeMember,
@@ -21,6 +21,7 @@ type MemberRow = {
   role: "admin" | "member";
   displayName: string;
   email: string;
+  avatarUrl: string | null;
   accent: string;
 };
 
@@ -72,9 +73,13 @@ export function PeopleClient({
               key={m.userId}
               className="flex min-h-11 items-center gap-3 border-b border-border py-1.5"
             >
-              <span
-                className="size-1.5 shrink-0 rounded-full"
-                style={{ backgroundColor: accentColor(m.accent) }}
+              <Avatar
+                member={{
+                  display_name: m.displayName,
+                  accent: m.accent,
+                  avatar_url: m.avatarUrl,
+                }}
+                size="md"
               />
               {/*
                 Two people can pick the same display name, and an invite is sent

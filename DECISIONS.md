@@ -1028,3 +1028,23 @@ Written by database triggers rather than by the app. Every write path would
 otherwise have to remember to log — the store, the server actions, the drag
 handlers, anything added later — and the one that forgets is invisible until
 somebody needs the entry that was never written.
+
+## The § 8.9 tuning values
+
+§ 8.9 names four numbers that "cannot be specified correctly in advance", says
+to set them by feel, and asks for the final values here so nobody reverts them
+thinking they were placeholders. They sat at their starting values until now.
+Two moved.
+
+| Value | Was | Now | Why |
+|---|---:|---:|---|
+| Row hold before collapse | 900ms | **1100ms** | 900 cut the tone off. The note is 180ms from 0, the checkmark finishes drawing at 280, and the row was leaving while the sound was still deciding what it had been. 1100 lets the sequence finish before anything moves, and § 8.1 predicts 700–1100. |
+| Checkmark draw | 180ms | **220ms** | Against the 140ms fill wipe it lands on, 180 read as the pop § 8.9 warns about rather than as a stroke being drawn. |
+| Tone gain | 0.09 | **0.09** | Unchanged. "Under a conversation" is the brief, and a 180ms sine with an exponential tail carries further than its peak suggests. Louder is the wrong lever — what makes a run feel good is the interval climbing, not the volume. |
+| Scale reset window | 20s | **30s** | 20 is short for how a list is actually cleared: tick one, read the next, decide, tick it. Thirty keeps a run alive across that pause and is still nowhere near letting unrelated work inherit a climb. |
+
+One addition that is not in the spec: a single ring expands out of the checkbox
+and fades, 420ms, on completion only. It is deliberately one thing rather than a
+burst — it reads as the tick having *happened* rather than the box having
+changed state, which is the same distinction § 8.1 draws when it insists the
+checkmark be drawn and not faded. Skipped entirely under reduced motion.

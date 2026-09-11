@@ -30,7 +30,7 @@ export default async function PeoplePage() {
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, display_name, email, accent");
+    .select("id, display_name, email, accent, avatar_url");
 
   const rows = (members ?? []).map((m) => {
     const profile = profiles?.find((p) => p.id === m.user_id);
@@ -40,6 +40,7 @@ export default async function PeoplePage() {
       displayName: profile?.display_name ?? profile?.email ?? "—",
       email: profile?.email ?? "",
       accent: profile?.accent ?? "green",
+      avatarUrl: profile?.avatar_url ?? null,
     };
   });
 

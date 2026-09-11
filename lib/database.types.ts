@@ -110,6 +110,7 @@ export type Database = {
       profiles: {
         Row: {
           accent: string
+          avatar_url: string | null
           created_at: string
           display_name: string
           email: string
@@ -118,6 +119,7 @@ export type Database = {
         }
         Insert: {
           accent?: string
+          avatar_url?: string | null
           created_at?: string
           display_name: string
           email: string
@@ -126,6 +128,7 @@ export type Database = {
         }
         Update: {
           accent?: string
+          avatar_url?: string | null
           created_at?: string
           display_name?: string
           email?: string

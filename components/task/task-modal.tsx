@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "./date-picker";
+import { Avatar } from "./avatar";
 import { useStore, type Task } from "@/lib/store";
 import { useSetStatusWithFeedback, useDeleteWithFeedback } from "@/lib/completion";
 import { useAutoGrow } from "@/lib/auto-grow";
@@ -319,6 +320,8 @@ export function TaskModal({
                   active={task.assignee_id === m.id}
                   onClick={() => updateTask(task.id, { assignee_id: m.id })}
                 >
+                  {/* assignment is chosen here, where there is room for a face */}
+                  <Avatar member={m} size="sm" />
                   {m.display_name}
                 </Chip>
               ))}

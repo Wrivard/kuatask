@@ -43,13 +43,32 @@ export function TaskCheckbox({
       aria-checked={checked}
       aria-label={label}
       onClick={handle}
-      className="relative grid size-[18px] shrink-0 place-items-center overflow-hidden rounded-sm border border-control"
+      className="relative grid size-[18px] shrink-0 place-items-center rounded-sm border border-control"
       animate={reduced ? {} : { scale: checked ? [1, 0.88, 1.04, 1] : 1 }}
       transition={{ duration: 0.26, times: [0, 0.25, 0.6, 1] }}
     >
+      {/*
+        A ring leaving the box on the tick.
+
+        Not in § 8.1, and deliberately one thing: a single circle expanding to
+        2.2× and fading over 420ms. It reads as the tick having *happened*
+        rather than the box having changed state, which is the same distinction
+        the draw-not-fade rule is chasing one level down. Outside the overflow
+        clip, so it can actually leave.
+      */}
+      {!reduced && (
+        <motion.span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-sm border border-accent"
+          initial={false}
+          animate={checked ? { scale: [1, 2.2], opacity: [0.55, 0] } : { scale: 1, opacity: 0 }}
+          transition={{ duration: COMPLETION.ripple / 1000, ease: "easeOut" }}
+        />
+      )}
+
       {/* accent fill wipes in from the bottom — a wipe, not a fade */}
       <motion.span
-        className="absolute inset-0 bg-accent"
+        className="absolute inset-0 overflow-hidden rounded-[1px] bg-accent"
         initial={false}
         animate={
           reduced
