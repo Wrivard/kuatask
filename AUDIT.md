@@ -700,3 +700,72 @@ reviewed. Numbering continues.
      debounced, so duplicating within 400 ms of an edit produced a copy from
      before the edit while the original kept it — two tasks differing by a change
      you had just made. It flushes first, then copies what is actually saved.
+210. [x] **P1** Clicking a row now completes it, and editing is a button that
+     appears on hover. The reverse of `docs/06`'s original rule, asked for after
+     using the app, and the reasoning holds: completing happens dozens of times a
+     day and is what this app exists to make feel good, while editing is
+     occasional. Stated in `docs/06` with its cost — a click meant as "let me
+     look at this" now completes something, which is why completion stays the
+     most undoable action here. Hover-revealed with a mouse, permanent under a
+     finger: there is no hover on a touch screen, so a hover-only control there
+     is not a subtle affordance, it is a missing one.
+211. [x] **P0** The calendar's cards had no click handler at all. A press became
+     a drag or it bubbled to the cell, which opened the whole day — so reaching a
+     task you could already see took two clicks and an intermediate screen, and
+     the cards added to make tasks distinguishable stopped short of letting you
+     act on the one you found. They now open the same `TaskModal` the list and
+     the day sheet use, which is the standardisation that was asked for: the
+     modal was already shared, the calendar just had no way into it.
+212. **NO** The calendar card opens rather than completes, unlike the list and
+     the board. Deliberate inconsistency: a calendar card is a 4mm bar in a grid
+     of forty-two, and a stray click there should not mark something done. The
+     calendar is where you look at a month and decide; completing is what the day
+     sheet is for, one click away, at full row size.
+213. [x] **P1** Clicking a board column's empty space adds a task in that column.
+     The board had one composer, at the bottom of the page, which could only
+     guess at the column you meant — putting "this is Guillaume's, En cours" on
+     the board meant typing it and then dragging it twice, while the empty space
+     that obviously meant "add here" did nothing. The column's meaning arrives as
+     fields the typed line cannot express, and anything the line *does* parse
+     still wins, so typing « demain » into today's column is a correction rather
+     than a conflict.
+214. **NO** Grouped by date, only « aujourd'hui » and « demain » name a day.
+     « cette semaine » and « plus tard » are ranges, and picking a Thursday out of
+     one would be the app deciding something the person did not. Those columns
+     create an undated task, which is what the composer would have done anyway.
+215. [x] **P1** That position is the last card's plus one, computed directly
+     rather than through `placeInColumn`. That function can hand back a restack to
+     apply, and this runs during render, where applying one would be a write in
+     the middle of a render. It does not need to: appending is the one case that
+     can never exhaust a gap, because it adds instead of halving.
+216. [x] **P2** The month grid was hairlines on the page background — every cell
+     the same near-black, all its structure in 1px lines. At a month's size that
+     reads as a void with scratches in it. A day in this month is now a surface
+     and a day outside it is not, one step apart, so the month reads as a block
+     without any cell shouting.
+217. [x] **P2** Today is a filled accent chip instead of a coloured numeral.
+     Accent-on-dark at 12px is a difference you have to go looking for, and today
+     is the one cell in forty-two that should find you instead.
+218. [x] **P2** Calendar cards carry their owner's colour across the card rather
+     than on a 2px rule alone — a 10% wash, via `color-mix` rather than an alpha
+     suffix, because the colour is only sometimes a hex: En cours and the unowned
+     case are CSS variables and `var(--color-accent)1a` is not a colour.
+     `color-mix` also follows the theme, which a baked hex would not.
+219. [x] **P2** `CELL_CHROME` 40 → 44 for the taller date chip. Undercounting
+     there does not fail loudly: the grid fits one card too many and clips the
+     last one against the cell's bottom edge.
+220. **NO** "At midnight all done tasks go to the archive" is already how this
+     works, and it was worth proving rather than rebuilding. The board filters to
+     `isOnDay(completed_at, day)` and the list footer has three states — shut,
+     today, and the week the browser already holds. `useToday` moves the day on a
+     timer re-armed daily so DST is picked up, with a `visibilitychange` check for
+     a laptop that slept through midnight. Six assertions now pin it, written with
+     UTC instants because `completed_at` is a timestamptz and an evening in
+     Montreal is already tomorrow in UTC — the single most common way this app
+     breaks. The rows are never deleted; they stop being today's work.
+221. **NO** The number in a board column header is that column's task count, and
+     it is faint until it is worth reading: grouped by status, an En cours column
+     past `WIP_COMFORTABLE` (5) turns it to full strength with a tooltip. Nothing
+     is blocked or refused — the count simply stops being quiet, which is the
+     whole intervention. Two people cannot be working on nine things, and a status
+     everything sits in has stopped sorting anything.
