@@ -23,11 +23,27 @@ export function CalendarCard({
   task,
   member,
   onGrab,
+  onOpen,
   compact = false,
 }: {
   task: Task;
   member: Profile | undefined;
   onGrab: (id: string, e: React.PointerEvent) => void;
+  /**
+   * Opens the task.
+   *
+   * The card used to have no click handler at all: the press became a drag or
+   * it bubbled to the cell, which opened the day. So reaching a task you could
+   * see took two clicks and an intermediate screen, and the one thing the cards
+   * were added for — being able to tell tasks apart at a glance — stopped short
+   * of letting you act on the one you found.
+   *
+   * It opens rather than completes, unlike the list and the board. The calendar
+   * is where you look at a month and decide; a stray click in a grid of 4mm
+   * bars should not mark something done. Completing from here is what the day
+   * sheet is for, one click away, at full row size.
+   */
+  onOpen: (id: string) => void;
   /** The month grid has a third of the height the week view does. */
   compact?: boolean;
 }) {
@@ -38,11 +54,16 @@ export function CalendarCard({
   return (
     <div
       onPointerDown={(e) => onGrab(task.id, e)}
+      onClick={(e) => {
+        // the cell behind this opens the whole day; the card is more specific
+        e.stopPropagation();
+        onOpen(task.id);
+      }}
       title={task.title}
       // the month grid measures two of these to work out how many fit
       data-cal-card=""
       className={cn(
-        "flex touch-none select-none items-center gap-1 rounded-sm border border-border border-l-2 bg-surface",
+        "flex cursor-pointer touch-none select-none items-center gap-1 rounded-sm border border-border border-l-2 bg-surface",
         "hover:border-control hover:bg-surface-hover",
         compact ? "px-1 py-px" : "px-1.5 py-1",
         done && "opacity-45",

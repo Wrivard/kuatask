@@ -339,6 +339,7 @@ export function CalendarView() {
               maxVisible={maxVisible}
               onOpenDay={setOpenDay}
               onGrabTask={grab}
+              onOpenTask={modal.open}
             />
           ))}
         </motion.div>
@@ -393,6 +394,7 @@ export function CalendarView() {
                       task={task}
                       member={members.find((m) => m.id === task.assignee_id)}
                       onGrab={grab}
+                      onOpen={modal.open}
                     />
                   ))}
                 </React.Fragment>

@@ -135,6 +135,7 @@ export const copy = {
     overdueCount: (n: number) => `${n} en retard`,
     filterByLabel: (label: string) => `Chercher #${label}`,
     filterByPerson: (name: string) => `Voir les tâches de ${name}`,
+    edit: "Modifier",
     titlePlaceholder: "Titre",
     notesPlaceholder: "Notes…",
     dueDate: "Échéance",

@@ -66,7 +66,15 @@ checkbox
 
 Left to right: checkbox, title, label chip if set, importance dot if set, due time if set, assignee dot.
 
-**There are no hover-revealed action buttons.** Hover raises the background to `--color-surface-hover` and reveals nothing. The entire interaction surface is: click the checkbox to complete, click anywhere else to open the modal. Two targets. That constraint is what keeps the list scannable.
+**Clicking a row completes it. Editing is one button, revealed on hover.**
+
+This reverses the original rule, which was "no hover-revealed action buttons — the checkbox completes, anywhere else opens the modal". The owner asked for the swap after using the app, and the reasoning holds: completing happens dozens of times a day and is the thing this app exists to make feel good; editing is occasional. The common action gets the whole row, the rare one gets a deliberate target.
+
+The cost is real and worth stating: a click meant as "let me look at this" now completes something. That is why completion is the most undoable action in the app — an undo toast every time, `⌘Z`, and a tone that tells you it happened before you have looked away.
+
+The edit button is revealed on hover with a mouse and **permanently visible under a finger**. There is no hover on a touch screen, so a hover-only control there is not a subtle affordance, it is a missing one.
+
+The calendar is the exception. Its cards are 4mm bars in a month grid, and a stray click there should not mark something done — so a calendar card *opens* the task. Completing from the calendar is what the day sheet is for, one click away, at full row size.
 
 Row height 44px desktop, 52px touch. Long titles truncate with an ellipsis at one line — the modal is where the full text lives.
 

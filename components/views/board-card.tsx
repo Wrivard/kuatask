@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { AlignLeft } from "lucide-react";
+import { AlignLeft, Pencil } from "lucide-react";
 import { TaskCheckbox } from "@/components/task/task-checkbox";
 import { LabelChip } from "@/components/task/label-chip";
 import { StatusChip } from "@/components/task/status-chip";
@@ -17,10 +17,10 @@ import { cn } from "@/lib/utils";
 /**
  * A board card is the task row's information, stacked instead of inline.
  *
- * It keeps the same two interaction targets as the row — the checkbox
- * completes, anywhere else opens the modal — and the same completion sequence,
- * so a task behaves identically wherever you meet it. The third gesture, drag,
- * only begins after the pointer moves, so clicking still opens.
+ * It keeps the same targets as the row — clicking completes, the edit button
+ * that appears on hover opens the modal — and the same completion sequence, so
+ * a task behaves identically wherever you meet it. The third gesture, drag,
+ * only begins once the pointer has moved 4px, so a click stays a click.
  */
 function BoardCardImpl({
   task,
@@ -85,10 +85,10 @@ function BoardCardImpl({
       onPointerDown={(e) => onGrab(task.id, e)}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("button,input,a")) return;
-        onOpen(task.id);
+        toggle(task.id);
       }}
       className={cn(
-        "flex touch-none select-none flex-col gap-1.5 rounded-md border border-border bg-surface p-2.5",
+        "group relative flex touch-none select-none flex-col gap-1.5 rounded-md border border-border bg-surface p-2.5",
         "cursor-pointer hover:bg-surface-hover",
         // the card lifts on grab, and nothing else in the app has a shadow
         dragging && "opacity-90 shadow-lg ring-1 ring-accent",
@@ -102,10 +102,31 @@ function BoardCardImpl({
           onToggle={() => toggle(task.id)}
           label={task.title}
         />
+        {/*
+          Pinned to the card's top-right rather than sitting in the flow, so it
+          cannot reflow the title when it appears. Absolute inside a relative
+          card; the title keeps its own padding clear of it.
+        */}
+        <button
+          type="button"
+          onClick={() => onOpen(task.id)}
+          title={copy.task.edit}
+          aria-label={copy.task.edit}
+          className={cn(
+            "absolute right-1.5 top-1.5 grid size-6 place-items-center rounded-sm",
+            "bg-surface text-fg-faint transition-opacity hover:bg-surface-hover hover:text-fg",
+            "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+            "focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent",
+            "[@media(pointer:coarse)]:opacity-100",
+          )}
+        >
+          <Pencil className="size-3.5" strokeWidth={1.5} aria-hidden />
+        </button>
         <button
           type="button"
           data-card-id={task.id}
-          onClick={() => onOpen(task.id)}
+          onClick={() => toggle(task.id)}
+          aria-pressed={done}
           onKeyDown={onKeyDown}
           className="relative min-w-0 flex-1 text-left text-[13px] leading-[1.35] outline-none focus-visible:underline focus-visible:decoration-accent focus-visible:underline-offset-4"
         >

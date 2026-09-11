@@ -40,6 +40,7 @@ export function CalendarDayCell({
   maxVisible,
   onOpenDay,
   onGrabTask,
+  onOpenTask,
 }: {
   day: string;
   anchor: Date;
@@ -54,6 +55,7 @@ export function CalendarDayCell({
   maxVisible: number;
   onOpenDay: (day: string) => void;
   onGrabTask: (taskId: string, e: React.PointerEvent) => void;
+  onOpenTask: (taskId: string) => void;
 }) {
   const outside = !isSameMonth(day, anchor);
   const overflow = tasks.length - maxVisible;
@@ -102,6 +104,7 @@ export function CalendarDayCell({
           task={task}
           member={members.find((m) => m.id === task.assignee_id)}
           onGrab={onGrabTask}
+          onOpen={onOpenTask}
           compact
         />
       ))}
