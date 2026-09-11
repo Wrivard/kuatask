@@ -50,7 +50,18 @@ is the answer to that, and `supabase/README.md` is blunt about it.
 curl -s https://kuatask.vercel.app/api/health | jq '.database'
 ```
 
-`{"ok": true, "ms": 400}` means the database answered. Vercel's dashboard lists
-cron executions under the project's Cron Jobs tab; a run that returned 503 means
-the ping happened and the database did not answer, which is the one case worth
-looking at.
+`{"ok": true, "ms": 400}` means the database answered.
+
+**The cron itself has not been confirmed from here.** Vercel registers crons from
+`vercel.json` on a production build, and the build went out — but the API token
+available while this was written could not read the project, so whether the job
+is actually scheduled is unverified. It shows under the project's **Cron Jobs**
+tab in the dashboard; if it is not listed, the plan may not allow it or the
+config may not have been picked up.
+
+On Hobby, crons run roughly once a day rather than at a guaranteed minute. That
+is fine for this: the requirement is that fewer than seven days pass between two
+runs, not that one lands at 07:00.
+
+A run that returned 503 means the ping happened and the database did not answer,
+which is the one case worth looking at.
