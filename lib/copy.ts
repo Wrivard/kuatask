@@ -119,6 +119,8 @@ export const copy = {
     placeholder: "Ajouter une tâche…",
     searchPlaceholder: "Chercher…",
     hint: "Entrée pour ajouter",
+    hintOpen: "Maj+Entrée pour ajouter des notes",
+    openHint: "Ajouter et ouvrir pour des notes",
     emptyTitle: "Sans titre",
     pasted: (n: number) => `${plural(n, "tâche")} ${n === 1 ? "ajoutée" : "ajoutées"}`,
     chipOff: "Ignorer cette lecture",

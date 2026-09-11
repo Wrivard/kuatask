@@ -627,3 +627,47 @@ reviewed. Numbering continues.
      saw it. Three rows survived every run. `taskIdsEver` never shrinks, because
      activity entries outlive the task they describe — that is the whole point of
      the table, and it is exactly what the cleanup had failed to account for.
+198. [x] **P1** The composer had no path to notes. `docs/06` is emphatic that
+     Enter clears and keeps focus — "the feature that decides whether two-minute
+     tasks make it into the app at all" — so that stays untouched, and notes are
+     deliberately not one of the composer's tokens. But that left exactly one way
+     to add a note to something you had just captured: find it again in the list
+     and open it, after the composer had already cleared and taken your handle on
+     it away. Shift+Enter now creates the task and opens it, and lands the cursor
+     in the notes rather than the title, because the title is the sentence you
+     just typed. Documented in `docs/07`'s table and in the `?` sheet, which is
+     where somebody would go to find out it exists.
+199. [x] **P2** With a thumb-sized equivalent, because a phone has no Shift+Enter
+     and the composer is where a phone captures too — so the keyboard-only version
+     would have been missing from the half of the day it is most needed in. A
+     small pen button inside the input, only while there is something to create.
+200. [x] **P1** `createTask` now returns the id it was already generating. Every
+     other mutation returns void deliberately — a caller that can read a result
+     eventually awaits one, and nothing here may make somebody wait — but this id
+     comes from `crypto.randomUUID()` on the calling frame, before anything is
+     sent. Returning it costs no round trip and says nothing about whether the
+     write landed, which is the property that matters.
+201. [x] **P1** Which surfaced a bug nobody would have reported: `calendar-view`
+     never called `useOpenTask`. On `/calendar`, the command palette's "open this
+     task" set state in a component that was not mounted and silently did
+     nothing. All three views now share one `useTaskModal` hook — they had the
+     same open/close state three times and not identically, which is how one of
+     them came to be missing half of it.
+202. [x] **P2** Added `scripts/dev-login.mjs`, because `docs/12` ends with "verify
+     by using the app, not by reading the code" and the app is behind a magic
+     link — the one credential a script must never mint, since issuing one
+     invalidates the link already sitting in somebody's inbox. It creates a
+     throwaway member with a password and prints the session in the cookie shape
+     `@supabase/ssr` reads, with a `--cleanup` that verifies rather than assumes.
+203. [x] **P1** Used it to render every authenticated route against a real
+     session: `/`, `/board`, `/calendar`, `/activity`, `/settings` all 200 with no
+     runtime error, and the live response header now reads
+     `img-src 'self' https: data: blob:` — item 189 confirmed in production shape
+     rather than in the source. The three new strings were also confirmed present
+     in the shipped chunks, since a string that never reaches the bundle is a
+     feature that does not exist.
+204. **NO** The interaction itself is still unverified in a browser: the Chrome
+     extension is not connected in this environment, so Shift+Enter, the focus
+     landing in notes, and the modal stacking over the calendar day sheet have
+     been typechecked, linted, built and server-rendered but not pressed. Recorded
+     as unverified rather than described as done.

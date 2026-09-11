@@ -8,6 +8,8 @@ The app is fully operable without a mouse. This is not an accessibility checkbox
 |---|---|---|
 | `⌘K` / `Ctrl+K` | Command palette | Global |
 | `C` | Focus the composer | Global |
+| `Enter` | Create and clear for the next one | Composer |
+| `Shift+Enter` | Create, and open it to add notes | Composer |
 | `/` | Focus the composer in search mode | Global |
 | `J` / `↓` | Move row focus down | List |
 | `K` / `↑` | Move row focus up | List |

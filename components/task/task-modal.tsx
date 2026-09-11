@@ -51,9 +51,19 @@ const STATUSES: { value: Task["status"]; label: string }[] = [
 
 export function TaskModal({
   taskId,
+  focus,
   onClose,
 }: {
   taskId: string | null;
+  /**
+   * Where to put the cursor, when it matters.
+   *
+   * Unset for the usual case: you opened a task to look at it, so the title is
+   * the right place. `"notes"` comes from the composer's Shift+Enter, where the
+   * title is the sentence you just typed and the notes are the reason you opened
+   * anything at all.
+   */
+  focus?: "notes";
   onClose: () => void;
 }) {
   /*
@@ -182,7 +192,7 @@ export function TaskModal({
         <div className="shrink-0 border-b border-border px-5 pb-4 pr-12 pt-5">
           <Textarea
             ref={titleRef}
-            autoFocus
+            autoFocus={focus !== "notes"}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={copy.task.titlePlaceholder}
@@ -192,6 +202,7 @@ export function TaskModal({
 
           <Textarea
             ref={notesRef}
+            autoFocus={focus === "notes"}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder={copy.task.notesPlaceholder}

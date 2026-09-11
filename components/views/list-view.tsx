@@ -39,7 +39,7 @@ import { useScrollMemory } from "@/lib/scroll-memory";
 import { useClearedToday } from "@/lib/clear-out";
 import { useToday } from "@/lib/day";
 import { useLocalLens } from "@/lib/lens";
-import { useOpenTask, useStartSearch, focusComposer } from "@/lib/events";
+import { useTaskModal, useStartSearch, focusComposer } from "@/lib/events";
 import { nextDay } from "date-fns";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
@@ -63,7 +63,7 @@ export function ListView() {
   const members = useStore((s) => s.members);
   const me = useStore((s) => s.me);
   const filter = useStore((s) => s.assigneeFilter);
-  const [openId, setOpenId] = React.useState<string | null>(null);
+  const modal = useTaskModal();
   // expanded is a preference, not a transient: closing it on every trip to
   // the calendar means re-opening it every time you want yesterday's context
   const [doneOpenRaw, setDoneOpen] = useLocalLens<"0" | "1" | "7">("kua-done-open", "0");
@@ -286,7 +286,7 @@ export function ListView() {
     arrowup: () => step(-1),
     x: onFocused(toggle),
     enter: onFocused(toggle),
-    e: onFocused(setOpenId),
+    e: onFocused(modal.open),
     backspace: onFocused(remove),
     "!": onFocused((id) => {
       const task = allTasks.find((t) => t.id === id);
@@ -321,7 +321,6 @@ export function ListView() {
     escape: () => setFocusedId(null),
   });
 
-  useOpenTask(setOpenId);
 
   const completionDays = useStore((s) => s.completionDays);
   const streak = React.useMemo(() => {
@@ -371,7 +370,7 @@ export function ListView() {
         <ListSection
           title={copy.search.title}
           tasks={results}
-          onOpen={setOpenId}
+          onOpen={modal.open}
           focusedId={focusedId}
           onFocus={setFocusedId}
           onSelectLabel={searchLabel}
@@ -389,7 +388,7 @@ export function ListView() {
             id={`section-${s.bucket}`}
             title={s.title}
             tasks={s.tasks}
-            onOpen={setOpenId}
+            onOpen={modal.open}
             pulseIds={pulseIds}
             focusedId={focusedId}
             onFocus={setFocusedId}
@@ -450,7 +449,7 @@ export function ListView() {
                 style={{ overflow: "hidden" }}
               >
                 {doneShows.map((task) => (
-                  <TaskRow key={task.id} task={task} onOpen={setOpenId} />
+                  <TaskRow key={task.id} task={task} onOpen={modal.open} />
                 ))}
 
                 {/*
@@ -473,7 +472,9 @@ export function ListView() {
         </section>
       )}
 
-      {openId && <TaskModal taskId={openId} onClose={() => setOpenId(null)} />}
+      {modal.openId && (
+        <TaskModal taskId={modal.openId} focus={modal.focus} onClose={modal.close} />
+      )}
     </div>
   );
 }

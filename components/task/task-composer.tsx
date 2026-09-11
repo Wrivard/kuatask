@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { RotateCcw, X } from "lucide-react";
+import { PenLine, RotateCcw, X } from "lucide-react";
 import { composeTask } from "@/lib/compose";
 import { toast } from "sonner";
 import { formatDueLabel, formatTime } from "@/lib/time";
@@ -14,6 +14,7 @@ import {
   tokenAtCursor,
   type Suggestion,
 } from "@/lib/suggest";
+import { openTask } from "@/lib/events";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -177,11 +178,24 @@ export function TaskComposer({
     setDismissed(new Set());
   }
 
-  function submit() {
+  /**
+   * Creates the task. `andOpen` also opens it.
+   *
+   * `docs/06` is emphatic that Enter clears and keeps focus — rapid-fire capture
+   * is "the feature that decides whether two-minute tasks make it into the app at
+   * all" — so that path is untouched. But the composer is one line and notes are
+   * not one of its tokens, so the only way to add a note used to be to find the
+   * task again in the list and open it. Shift+Enter does that in one keystroke,
+   * while you still have the thought.
+   *
+   * The task is created either way. Opening is a second step, not a mode: if you
+   * change your mind and hit Escape, what you typed is already saved.
+   */
+  function submit(andOpen = false) {
     if (!composed.title) return;
 
     // matched is for the chips; the store has no use for it
-    createTask({
+    const id = createTask({
       title: composed.title,
       due_on: composed.due_on,
       due_time: composed.due_time,
@@ -194,6 +208,13 @@ export function TaskComposer({
     setValue("");
     setCursor(0);
     setDismissed(new Set());
+
+    if (andOpen && id) {
+      openTask(id);
+      // the modal takes focus; putting it back in the input would fight it
+      return;
+    }
+
     inputRef.current?.focus();
   }
 
@@ -234,6 +255,7 @@ export function TaskComposer({
 
   return (
     <div className="mb-4">
+      <div className="relative">
       <input
         ref={inputRef}
         type="text"
@@ -289,7 +311,7 @@ export function TaskComposer({
 
           if (e.key === "Enter") {
             e.preventDefault();
-            submit();
+            submit(e.shiftKey);
           }
         }}
         onPaste={onPaste}
@@ -302,8 +324,42 @@ export function TaskComposer({
           "text-[15px] leading-[1.4] tracking-[-0.011em]",
           "placeholder:text-fg-faint focus:border-accent focus:outline-none",
           searching && "border-accent",
+          // room for the open-and-edit button when there is one
+          !searching && value.trim() !== "" ? "pr-10" : "pr-3",
         )}
       />
+
+      {/*
+        The same thing Shift+Enter does, for a thumb.
+
+        A phone has no Shift+Enter, and the composer is where a phone captures
+        too — so without this the "create it and write the note now" path is
+        keyboard-only, which is the half of the day it is least needed in.
+
+        Only when there is something to create, so an idle composer stays a
+        single quiet line. `onMouseDown` with the default prevented, like the
+        suggestion list above: the input must not lose focus first, or the blur
+        reorders against the click.
+      */}
+      {!searching && value.trim() !== "" && (
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            submit(true);
+          }}
+          title={copy.composer.openHint}
+          aria-label={copy.composer.openHint}
+          className={cn(
+            "absolute right-1.5 top-1/2 grid size-7 -translate-y-1/2 place-items-center",
+            "rounded-sm text-fg-faint hover:bg-surface-hover hover:text-fg",
+            "focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent",
+          )}
+        >
+          <PenLine className="size-4" strokeWidth={1.5} aria-hidden />
+        </button>
+      )}
+      </div>
 
       {/*
         Only while typing, so an idle list stays quiet — and only where a
@@ -313,6 +369,8 @@ export function TaskComposer({
       {!searching && suggestions.length === 0 && value.trim() !== "" && (
         <p className="mt-1 hidden text-right text-[12px] text-fg-faint [@media(pointer:fine)]:block">
           {copy.composer.hint}
+          {" · "}
+          {copy.composer.hintOpen}
         </p>
       )}
 

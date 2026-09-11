@@ -25,7 +25,7 @@ import {
   useAssignWithFeedback,
   useRescheduleWithFeedback,
 } from "@/lib/completion";
-import { useOpenTask } from "@/lib/events";
+import { useTaskModal } from "@/lib/events";
 import { useCompletionHold } from "@/lib/hold";
 import { useClearedToday } from "@/lib/clear-out";
 import { ClearOut } from "./clear-out";
@@ -65,7 +65,7 @@ export function BoardView() {
 
   const day = useToday();
   const reduced = useReducedMotion();
-  const [openId, setOpenId] = React.useState<string | null>(null);
+  const modal = useTaskModal();
 
   // the grouping is a lens, like the assignee filter, so it persists locally
   const [groupBy, chooseGroup] = useLocalLens<GroupBy>(
@@ -101,7 +101,6 @@ export function BoardView() {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   useElementScrollMemory(`board:${groupBy}`, scrollRef);
 
-  useOpenTask(setOpenId);
 
   /*
     Grouping by person already separates the two of you, so the assignee lens
@@ -375,7 +374,7 @@ export function BoardView() {
                         <BoardCard
                           task={task}
                           dragging={dragId === task.id}
-                          onOpen={setOpenId}
+                          onOpen={modal.open}
                           onGrab={grab}
                           onMove={move}
                         />
@@ -417,7 +416,9 @@ export function BoardView() {
         <TaskComposer defaultAssigneeId={groupBy === "person" ? null : filter} />
       </div>
 
-      {openId && <TaskModal taskId={openId} onClose={() => setOpenId(null)} />}
+      {modal.openId && (
+        <TaskModal taskId={modal.openId} focus={modal.focus} onClose={modal.close} />
+      )}
     </div>
   );
 }

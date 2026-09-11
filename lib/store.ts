@@ -141,7 +141,19 @@ type Store = {
    */
   searchArchive: (query: string) => void;
 
-  createTask: (input: Partial<Task> & { title: string }) => void;
+  /**
+   * Adds a task and returns its id.
+   *
+   * Every other mutation returns void on purpose — a caller that can read a
+   * result is a caller that will eventually await one, and nothing here is
+   * allowed to make somebody wait. This one is different only because the id is
+   * generated here, on this frame, before anything is sent: returning it costs
+   * no round trip and tells nobody anything about whether the write landed.
+   *
+   * It exists so the composer can hand you the task you just captured —
+   * Shift+Enter creates it and opens it, for the ones that need a note.
+   */
+  createTask: (input: Partial<Task> & { title: string }) => string | null;
   updateTask: (id: string, patch: Partial<Task>) => void;
   toggleTask: (id: string) => void;
   deleteTask: (id: string) => void;
@@ -445,7 +457,7 @@ export const useStore = create<Store>((set, get) => {
 
     createTask(input) {
       const { workspaceId, me } = get();
-      if (!workspaceId || !me) return;
+      if (!workspaceId || !me) return null;
 
       const optimistic = {
         id: crypto.randomUUID(),
@@ -490,6 +502,8 @@ export const useStore = create<Store>((set, get) => {
         }
         patchLocal(optimistic.id, data);
       })();
+
+      return optimistic.id;
     },
 
     updateTask(id, patch) {

@@ -15,6 +15,7 @@ const TaskModal = dynamic(
 import { CalendarCard } from "./calendar-card";
 import { CARD_PITCH_GUESS, CARD_ROW, CELL_CHROME } from "./calendar-day-cell";
 import { useRowsThatFit } from "@/lib/fit";
+import { useTaskModal } from "@/lib/events";
 import {
   formatMonthYear,
   formatDueLabel,
@@ -114,7 +115,7 @@ export function CalendarView() {
     MODES,
   );
   const [openDay, setOpenDay] = React.useState<string | null>(null);
-  const [openTask, setOpenTask] = React.useState<string | null>(null);
+  const modal = useTaskModal();
 
   // read inside the key handler, which is bound once
   const modeRef = React.useRef(mode);
@@ -407,11 +408,13 @@ export function CalendarView() {
           onClose={() => setOpenDay(null)}
           onOpenTask={(id) => {
             setOpenDay(null);
-            setOpenTask(id);
+            modal.open(id);
           }}
         />
       )}
-      {openTask && <TaskModal taskId={openTask} onClose={() => setOpenTask(null)} />}
+      {modal.openId && (
+        <TaskModal taskId={modal.openId} focus={modal.focus} onClose={modal.close} />
+      )}
     </div>
   );
 }
