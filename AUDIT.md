@@ -515,3 +515,24 @@ reviewed. Numbering continues.
      brief said to copy as-is — so the reference carries the same defect, and
      its README now says so. Five assertions, including one that keeps the old
      value as a test so the mistake cannot come back quietly.
+183. **NO** `docs/07-keyboard.md`, checked line by line against the code. All
+     eighteen mapped keys exist, the focus model holds in full — including hover
+     setting row focus, which is the easy one to forget — every palette group is
+     present in the specified order, and the only `⌘` strings outside the
+     shortcut sheet are in code comments rather than rendered text, which is
+     what the mobile rule asks. Nothing to do. Recorded because a spec checked
+     and found whole is a result, and the alternative is checking it again in
+     three months.
+184. [x] **P2** The progress ring's comment repeated § 8.3's « always visible »
+     while the code beside it returned null at 0/0. The behaviour is defensible
+     — a ring at zero out of zero reads as a bug rather than as calm — but a
+     comment claiming what the code does not do is worse than either choice,
+     and it is the second instance of that exact defect this session. Stated as
+     a deviation, with the reasoning, in the file and in `DECISIONS.md`.
+185. **NO** § 8.3 counts only tasks assigned to you, so a task nobody has picked
+     up does not count toward anybody's ring even when it is due today — in a
+     workspace for two, where plenty is captured before it is assigned, the ring
+     can read 2/2 with a checkmark while three unassigned tasks are due. That is
+     the specification's instrument rather than a fault in implementing it, and
+     changing it would make the ring measure something else. Written down so the
+     gap between what it says and what the day holds is a known one.

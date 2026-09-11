@@ -18,9 +18,23 @@ const C = 2 * Math.PI * R;
  * Today's completion for tasks assigned to you, with the remaining count beside
  * it in Geist Mono.
  *
- * The only piece of persistent state feedback in the interface — small, always
- * visible, quietly demanding. There is deliberately no percentage label, no
- * weekly version, and no second ring anywhere.
+ * The only piece of persistent state feedback in the interface — small, quietly
+ * demanding. There is deliberately no percentage label, no weekly version, and
+ * no second ring anywhere.
+ *
+ * **One deviation from § 8.3, which calls it "always visible".** It is not: with
+ * nothing assigned to you and due today it renders nothing at all. A ring at
+ * 0/0 is a circle with no meaning and a number that says zero out of zero,
+ * which reads as a bug rather than as calm. The spec's phrase is about the ring
+ * being persistent rather than a toast you miss — and that still holds the
+ * moment there is anything to count.
+ *
+ * Worth knowing about the scope: "assigned to you" is the spec's wording and
+ * this follows it literally, so a task nobody has picked up does not count
+ * toward anybody's ring even when it is due today. In a workspace for two that
+ * is a real gap between what the ring says and what the day holds — but it is
+ * the specification's call, and changing it would make the ring a different
+ * instrument.
  */
 export function ProgressRing() {
   const reduced = useReducedMotion();

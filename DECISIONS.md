@@ -984,3 +984,25 @@ modern phones. At 25 Mbps, 351 KB is about 110ms. The 4G figure is a convention
 for comparing against itself over time, not a description of anybody's Tuesday —
 which is why `npm run cold` is in the repo: so the number moving is visible,
 even though the absolute value will not pass.
+
+## The progress ring hides itself when nothing is assigned to you
+
+`docs/08` § 8.3 describes it as "always visible". It is not: `total === 0`
+renders nothing.
+
+A ring at 0/0 is a circle with no meaning next to a number reading zero out of
+zero, which looks like a bug rather than like calm. The spec's phrase is doing
+the work of distinguishing persistent feedback from a toast you can miss, and
+that distinction still holds from the first task onward.
+
+Recorded rather than silently differing, because the component's own comment
+used to repeat "always visible" while the code beside it did the opposite —
+which is worse than either choice.
+
+**A related thing that is not a deviation but is worth knowing.** § 8.3 says
+"tasks assigned to you" and the code follows that literally, so a task nobody
+has picked up does not count toward anybody's ring even when it is due today.
+In a workspace for two, where plenty gets captured before it is assigned, the
+ring can read 2/2 with a checkmark while three unassigned tasks are due. That
+is the specification's instrument, not a bug in the implementation of it, and
+changing it would make it measure something else.
