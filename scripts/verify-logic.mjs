@@ -28,6 +28,7 @@ const NEEDED = [
   "session-reset.ts",
   "sound.ts",
   "edit.ts",
+  "motion.ts",
 ];
 
 // inside the project, so node resolves date-fns from the local node_modules
@@ -51,6 +52,7 @@ const { composeTask } = await load("compose.ts");
 const routing = await load("routing.ts");
 const { extractLinks } = await load("links.ts");
 const { textPatch } = await load("edit.ts");
+const motion = await load("motion.ts");
 const reset = await load("session-reset.ts");
 const sound = await load("sound.ts");
 
@@ -901,6 +903,77 @@ section("Editor — closing saves what was typed, and only that");
   eq("the buffer carries its own owner, so a mismatch cannot be expressed",
      textPatch({ id: "t1", title: "x", notes: "les notes de t1", label: "" }, other),
      { title: "x", notes: "les notes de t1" });
+}
+
+/*
+  The checkmark's geometry.
+
+  § 8.1: "The checkmark DRAWS, it does not appear. That distinction is most of
+  the effect." The draw is a `stroke-dashoffset` animation from the path's
+  length to zero, so the declared length has to be the path's actual length. It
+  was not — 13.2 against a real 10.879 — which meant the dash was 21% longer
+  than the stroke and the last 17.6% of every draw had nothing left to draw.
+
+  Nothing about that failure is visible in code review: two plausible numbers
+  sitting next to each other, one of them wrong. So the length is derived from
+  the points, and this checks the derivation against the geometry independently.
+*/
+section("Checkmark — the dash length is the path length");
+{
+  const pts = motion.CHECK_POINTS;
+  const byHand = pts.reduce(
+    (t, [x, y], i) => (i === 0 ? 0 : t + Math.hypot(x - pts[i - 1][0], y - pts[i - 1][1])),
+    0,
+  );
+
+  check("the declared length is the real one", Math.abs(motion.CHECK_LENGTH - byHand) < 1e-9,
+        `${motion.CHECK_LENGTH} vs ${byHand}`);
+
+  // the value that was there before, kept as a test so it cannot come back
+  check("and it is not the 13.2 that used to be written there",
+        Math.abs(motion.CHECK_LENGTH - 13.2) > 1,
+        String(motion.CHECK_LENGTH));
+
+  check("the path string still starts at the first point",
+        motion.CHECK_PATH.startsWith(`M${pts[0][0]} ${pts[0][1]}`), motion.CHECK_PATH);
+
+  check("and names every point exactly once",
+        motion.CHECK_PATH.split(/[ML]/).filter(Boolean).length === pts.length,
+        motion.CHECK_PATH);
+
+  /*
+    The tick has to fit the box it is drawn in: a 14px viewBox inside an 18px
+    button. A coordinate outside it would be clipped, and a clipped checkmark
+    reads as a rendering bug rather than as a tick.
+  */
+  check("every point is inside the 14px viewBox",
+        pts.every(([x, y]) => x >= 0 && x <= 14 && y >= 0 && y <= 14),
+        JSON.stringify(pts));
+
+  /*
+    § 8.1 gives the draw 60ms of delay then the draw itself, and § 8.9 moved the
+    duration to 220. The whole sequence has to finish inside the hold, or the row
+    leaves while the tick it is showing is still being drawn.
+  */
+  const drawEnds = motion.COMPLETION.checkDrawDelay + motion.COMPLETION.checkDrawDuration;
+  check("the draw finishes before the row collapses",
+        drawEnds < motion.COMPLETION.holdBeforeCollapse,
+        `${drawEnds}ms draw vs ${motion.COMPLETION.holdBeforeCollapse}ms hold`);
+
+  check("so does the ripple",
+        motion.COMPLETION.ripple < motion.COMPLETION.holdBeforeCollapse,
+        `${motion.COMPLETION.ripple}ms`);
+
+  // § 8.1: the hold "is almost certainly between 700 and 1100"
+  check("the hold is inside the range 8.1 predicts",
+        motion.COMPLETION.holdBeforeCollapse >= 700 && motion.COMPLETION.holdBeforeCollapse <= 1100,
+        `${motion.COMPLETION.holdBeforeCollapse}ms`);
+
+  // docs/04: nothing user-triggered exceeds 260ms
+  for (const [name, ms] of Object.entries(motion.COMPLETION)) {
+    if (name === "holdBeforeCollapse" || name === "ripple") continue;
+    check(`${name} is inside the 260ms ceiling`, ms <= 260, `${ms}ms`);
+  }
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);

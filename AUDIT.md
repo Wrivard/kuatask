@@ -801,3 +801,34 @@ reviewed. Numbering continues.
      for the same signature to be sure it was the only one. Worth recording
      because it typechecks as a missing module rather than as corruption, and the
      obvious reading of `git status` is that somebody meant to change it.
+226. [x] **P0** The checkmark stopped drawing before its animation ended.
+     `stroke-dasharray` was a hand-written 13.2 next to a path that is 10.879
+     long, so the dash was 21% longer than the stroke it dashed and the last
+     17.6% of every draw had nothing left to draw. § 8.1 says "the checkmark
+     DRAWS, it does not appear — that distinction is most of the effect", and
+     this is that effect finishing early and then idling. Two plausible numbers
+     side by side, one wrong, nothing in review to tell them apart.
+227. [x] **P1** It had also been quietly eating my own tuning. Raising
+     `checkDrawDuration` from 180 to 220 in the § 8.9 pass was meant to stop the
+     tick reading as a pop; because 17.6% of the window was dead, the visible
+     draw only went from ~148ms to ~181ms and the tail grew instead. The change
+     I measured by feel was mostly not the change I made. With the length right,
+     220ms is 220ms of drawing.
+228. [x] **P1** Both are now derived from one array of points: the `d` string and
+     the length come from the same source, so they cannot disagree again. Moved
+     to `lib/motion.ts` rather than left in the component, because that is what
+     lets `verify:logic` assert it — thirteen checks covering the derivation, the
+     old wrong value as a regression guard, the points fitting the 14px viewBox,
+     the draw and the ripple both finishing inside the hold, the hold sitting in
+     the 700–1100 § 8.1 predicts, and every user-triggered timing under the 260ms
+     `docs/04` ceiling.
+229. **NO** The checkbox border is `--color-control`, not the `--color-border-strong`
+     § 8.1 asks for. Already deviated deliberately and already written down: an
+     18px control outlined at 1.46:1 was genuinely hard to find, and
+     `--color-control` exists at 3:1 for exactly the boundaries WCAG 1.4.11 does
+     not exempt. Re-checked rather than assumed, since the rest of this pass was
+     about the spec's centrepiece.
+230. [x] **P2** A stale comment on the checkbox said the rest of the row opens
+     the modal. It completes the task now (210), which makes its
+     `stopPropagation` load-bearing in a new way — without it a click would
+     toggle twice and land back where it started.

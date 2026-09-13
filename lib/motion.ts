@@ -73,3 +73,39 @@ export function motionSafe<T extends Record<string, unknown>>(
 ): T | Partial<T> {
   return prefersReducedMotion() ? reduced : full;
 }
+
+/*
+  The checkmark, as points, so the path and its length cannot disagree.
+
+  They did. The length was a hand-written 13.2 beside a path that is 10.879
+  long, so `stroke-dasharray` was 21% longer than the stroke it dashed and the
+  last 17.6% of every draw had nothing left to draw — the tick finished early
+  and the animation ran on into dead time.
+
+  That is a bug in the one thing § 8.1 calls "most of the effect", and it hid a
+  second one: raising `checkDrawDuration` from 180 to 220 in the § 8.9 pass was
+  meant to stop the tick reading as a pop, and mostly did not, because the
+  visible part of the draw only went from ~148ms to ~181ms while the dead tail
+  grew with it. With the length right, 220ms is 220ms of drawing.
+
+  It lives here rather than in the component so `verify:logic` can assert the
+  two agree. A hand-measured constant is correct until somebody nudges a
+  coordinate, and nothing about the result says it has stopped being correct.
+*/
+export const CHECK_POINTS = [
+  [3.5, 7.2],
+  [6.2, 9.9],
+  [10.5, 4.3],
+] as const;
+
+/** The `d` attribute, built from the points rather than written beside them. */
+export const CHECK_PATH = "M" + CHECK_POINTS.map(([x, y]) => `${x} ${y}`).join(" L");
+
+/** Its length, for `stroke-dasharray` and the `stroke-dashoffset` it animates. */
+export const CHECK_LENGTH = CHECK_POINTS.reduce(
+  (total, [x, y], i) =>
+    i === 0
+      ? 0
+      : total + Math.hypot(x - CHECK_POINTS[i - 1][0], y - CHECK_POINTS[i - 1][1]),
+  0,
+);

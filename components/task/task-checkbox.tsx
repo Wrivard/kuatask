@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { COMPLETION } from "@/lib/motion";
+import { CHECK_LENGTH, CHECK_PATH, COMPLETION } from "@/lib/motion";
 
 /**
  * The completion sequence, docs/08-satisfaction.md § 8.1.
@@ -16,9 +16,7 @@ import { COMPLETION } from "@/lib/motion";
  * accessible channel for someone who turned animation off.
  */
 
-// length of the checkmark path below, measured once so dashoffset can animate it
-const CHECK_PATH = "M3.5 7.2 L6.2 9.9 L10.5 4.3";
-const CHECK_LENGTH = 13.2;
+// the geometry lives in lib/motion.ts, where verify:logic can assert it
 
 export function TaskCheckbox({
   checked,
@@ -32,7 +30,13 @@ export function TaskCheckbox({
   const reduced = useReducedMotion();
 
   function handle(e: React.MouseEvent) {
-    e.stopPropagation(); // the rest of the row opens the modal
+    /*
+      The row toggles too, now, so without this a click here would toggle twice
+      and land back where it started. The row's own handler already ignores
+      clicks that hit a control, so this is the second of two guards rather than
+      the only one — but it is the one that is local to the thing being clicked.
+    */
+    e.stopPropagation();
     onToggle(); // tone and haptics live in useToggleWithFeedback
   }
 
