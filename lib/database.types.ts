@@ -285,6 +285,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      completion_days: { Args: { days_back?: number }; Returns: string[] }
       is_admin: { Args: { ws: string }; Returns: boolean }
       is_member: { Args: { ws: string }; Returns: boolean }
     }

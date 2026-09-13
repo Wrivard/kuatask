@@ -309,6 +309,51 @@ try {
     Three behaviours from migrations 0013 and 0014, all of which were wrong at
     some point today and none of which the app can assert about itself.
   */
+  /*
+    Postgres and lib/time.ts have to agree on what day an instant falls on.
+
+    CLAUDE.md: "Every day-bucket calculation goes through lib/time.ts. Never use
+    the browser timezone, never use UTC dates for 'today'. This is the single
+    most common way this app breaks." `completion_days` (migration 0016) does
+    one in SQL instead, because computing distinct days in Postgres is the only
+    way to answer the streak without reading every completion ever recorded.
+
+    That deviation is only safe if the two conversions are the same conversion,
+    so this checks them against each other on the instants where a timezone can
+    actually disagree: either side of both DST boundaries, and the evenings that
+    are already tomorrow in UTC.
+  */
+  section("Montreal days — Postgres and lib/time.ts agree");
+  {
+    const { instantToDay } = await import("../lib/time.ts");
+
+    const instants = [
+      "2026-03-08T06:59:00Z", // 01:59 EST, minutes before spring forward
+      "2026-03-08T07:00:00Z", // 03:00 EDT, the hour that does not exist
+      "2026-11-01T05:00:00Z", // 01:00 EDT, the hour that happens twice
+      "2026-11-01T06:00:00Z", // 01:00 EST, the second time
+      "2026-06-17T03:59:59Z", // 23:59:59 EDT — still the 16th in Montreal
+      "2026-06-17T04:00:00Z", // 00:00 EDT the 17th
+      "2026-12-16T04:59:59Z", // 23:59:59 EST — still the 15th
+      "2026-01-01T04:30:00Z", // new year in UTC, still new year's eve here
+    ];
+
+    const { data: rows, error: tzError } = await admin.rpc("montreal_day_of", {
+      instants,
+    });
+
+    if (tzError) {
+      check("the comparison helper exists", false, tzError.message);
+    } else {
+      for (const row of rows ?? []) {
+        const mine = instantToDay(row.instant);
+        check(`${row.instant} -> ${row.day}`, mine === row.day, `lib/time says ${mine}`);
+      }
+      check("every instant was compared", (rows ?? []).length === instants.length,
+            `${(rows ?? []).length} of ${instants.length}`);
+    }
+  }
+
   section("Activity log — the trigger records what happened, once");
   const { data: logged } = await member.client
     .from("tasks")

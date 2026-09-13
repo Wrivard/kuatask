@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "verify:db": "node scripts/verify-db.mjs",
+    "verify:db": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-db.mjs",
     "verify:logic": "node --experimental-strip-types scripts/verify-logic.mjs",
     "verify": "npm run verify:logic && npm run verify:store && npm run verify:contrast && npm run verify:db && npm run verify:invites",
     "verify:store": "node --experimental-strip-types scripts/verify-store.mjs",

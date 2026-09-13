@@ -8,7 +8,7 @@ import { LiveRegion } from "@/components/shell/live-region";
 import { SetupRequired } from "@/components/shell/setup-required";
 import { Unreachable } from "@/components/shell/unreachable";
 import { PreviewBanner } from "@/components/shell/preview-banner";
-import { instantToDay, recentCompletionCutoff } from "@/lib/time";
+import { recentCompletionCutoff } from "@/lib/time";
 import { copy } from "@/lib/copy";
 
 // per-user by definition: never prerender
@@ -75,11 +75,15 @@ export default async function AppLayout({
       .or(`status.neq.done,completed_at.gte.${recent}`)
       .order("position"),
     supabase.from("profiles").select("*"),
-    supabase
-      .from("tasks")
-      .select("completed_at")
-      .eq("workspace_id", membership.workspace_id)
-      .not("completed_at", "is", null),
+    /*
+      Distinct days, computed in Postgres. This used to select `completed_at`
+      for every completed task in the workspace and reduce it to a set here —
+      unbounded, on every page load, to answer a question whose result is at
+      most a few hundred dates. Worse, PostgREST caps rows and the query had no
+      ordering, so past that cap the streak would have been computed from an
+      arbitrary subset with nothing to say it had gone wrong.
+    */
+    supabase.rpc("completion_days"),
   ]);
 
   /*
@@ -104,15 +108,8 @@ export default async function AppLayout({
   */
   if (tasksError) return <Unreachable />;
 
-  // distinct Montreal days, computed here so the client never sees the raw list
-  const completionDays = [
-    ...new Set(
-      (completions ?? [])
-        .map((row) => row.completed_at)
-        .filter((v): v is string => v !== null)
-        .map(instantToDay),
-    ),
-  ];
+  // already distinct, already Montreal days, already newest first
+  const completionDays = (completions ?? []) as string[];
 
   if (!workspace) redirect("/no-access");
 

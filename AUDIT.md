@@ -877,3 +877,31 @@ reviewed. Numbering continues.
      them have barely dragged anything yet and the 2-minute coalesce had absorbed
      the rest. The cleanup in 0015 therefore deleted nothing and rewrote one row.
      Worth doing now precisely because there was nothing to clean up.
+238. [x] **P1** The streak read every completion that had ever happened. The
+     shell selected `completed_at` for every completed task in the workspace, on
+     every page load, and reduced it to distinct Montreal days in JavaScript —
+     an unbounded query to answer a question whose result is at most a few
+     hundred dates. Two people at a handful a day reach four figures inside two
+     years.
+239. [x] **P0** And it had no `order by`. PostgREST caps result rows, so past
+     that cap the query returns an arbitrary subset — which for a streak is an
+     arbitrary answer, arriving silently, years from now, with nothing to say the
+     number has stopped being true. Not yet reachable at three completions, which
+     is exactly why it was worth fixing now.
+240. [x] **P1** `completion_days()` does the DISTINCT and the timezone
+     conversion in Postgres and returns dates, bounded to a 400-day window —
+     longer than any streak these two will plausibly hold, and bounded rather
+     than unbounded. `security invoker`, so RLS on `tasks` scopes it and the
+     function holds no privileges of its own.
+241. **NO** That is a day-bucket calculation outside `lib/time.ts`, which
+     CLAUDE.md forbids in the strongest terms it uses anywhere: "the single most
+     common way this app breaks". Taken deliberately, because computing distinct
+     days in Postgres is the only way to answer the streak without reading every
+     row. What makes it safe is `montreal_day_of()` and nine assertions holding
+     the two conversions against each other on the instants where a timezone can
+     actually disagree — either side of both DST boundaries, the evenings that
+     are already tomorrow in UTC, and a New Year's Eve that is next year in UTC.
+     All nine agree.
+242. [x] **P2** `verify:db` was printing a `MODULE_TYPELESS_PACKAGE_JSON` warning
+     over its own output once it imported `lib/time.ts`. A verification script
+     whose result you have to read around is worse at the one thing it does.
