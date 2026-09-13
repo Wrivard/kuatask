@@ -950,3 +950,32 @@ reviewed. Numbering continues.
      It was not reached by any existing test, so it would have failed as a
      confusing undefined rather than as a missing stub the first time somebody
      wrote one.
+250. [x] **P0** `restack()` called itself all-or-nothing and was not. It sent one
+     UPDATE per row; a refusal put every row back *locally* and raised one toast,
+     which is right — but the writes that had already landed stayed landed. Five
+     of twenty succeeding leaves the column half renumbered on the server, and
+     the local rollback hides that until the next resync.
+251. **NO** Worse than it sounds, because of why a restack runs at all: the gap
+     between two neighbours can no longer be halved, so the positions going in
+     are nearly equal. Modelled it rather than reasoned about it —
+     A=1.0, B=1.0000001, C=1.0000002, move only B to 2048, and the server's order
+     is A, C, B while the browser still shows A, B, C. Somebody's board silently
+     reorders. That is precisely the "partly renumbered" state the function's own
+     comment calls the one state worse than not renumbered; the old code avoided
+     creating it on this side of the wire and created it on the far side.
+252. [x] **P1** `restack_tasks(ids, positions)` does it in one
+     `update ... from unnest(...)` — one statement, one transaction, every row or
+     none. `security invoker`, so RLS decides what it may touch and it holds no
+     privileges of its own. Twenty round trips become one, which is the smaller
+     reason to prefer it. A length mismatch raises rather than silently pairing
+     short, since the arrays are matched by index.
+253. [x] **P1** Verified in both places it can be wrong: three assertions in
+     `verify:store` that the whole column moves in exactly one call and that no
+     per-row update is sent, and a live rolled-back transaction confirming the
+     positions land together and that a mismatched pair is refused.
+254. [x] **P2** Two gaps in the store stub found by using it. Its `rpc` returned
+     success unconditionally, so `restack` became untestable the moment it
+     stopped going through `from()` — the existing restack failure tests passed
+     for the wrong reason until it could fail. It now answers to the same script
+     as everything else, except `completion_days`, which is read during resync
+     and would otherwise catch errors scripted for a mutation.

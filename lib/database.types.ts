@@ -286,6 +286,7 @@ export type Database = {
     }
     Functions: {
       completion_days: { Args: { days_back?: number }; Returns: string[] }
+      restack_tasks: { Args: { ids: string[]; positions: number[] }; Returns: number }
       is_admin: { Args: { ws: string }; Returns: boolean }
       is_member: { Args: { ws: string }; Returns: boolean }
     }

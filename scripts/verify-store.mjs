@@ -48,6 +48,10 @@ export function failNextTransport(message, times = 1) {
 export let sequence = null;
 export function failSequence(list) { sequence = [...list]; }
 
+/** Every call the store made, so a test can assert how many it took. */
+export let calls = [];
+export function resetCalls() { calls = []; }
+
 const reply = () => {
   if (sequence) {
     const err = sequence.shift() ?? null;
@@ -74,9 +78,9 @@ export function createClient() {
         // insert().select().single() echoes the row back, as PostgREST does
         return r.error ? r : { data: payload, error: null };
       },
-      insert: (row) => builder(table, row),
-      update: (patch) => builder(table, patch),
-      delete: () => builder(table, null),
+      insert: (row) => { calls.push("insert:" + table); return builder(table, row); },
+      update: (patch) => { calls.push("update:" + table); return builder(table, patch); },
+      delete: () => { calls.push("delete:" + table); return builder(table, null); },
       then: (resolve) => resolve(reply()),
     };
     return b;
@@ -84,8 +88,16 @@ export function createClient() {
   return {
     auth: { getUser: async () => ({ data: { user: null } }) },
     from: (table) => builder(table, null),
-    // resync asks Postgres for the streak's distinct days (migration 0016)
-    rpc: async () => ({ data: [], error: null }),
+    /*
+      Writes through rpc answer to the same script as writes through from() —
+      restack_tasks is a write and has to be failable. completion_days is not:
+      it is read during resync, and letting an error scripted for a mutation
+      land on it would fail a test for a reason that has nothing to do with it.
+    */
+    rpc: async (name) => {
+      calls.push("rpc:" + name);
+      return name === "completion_days" ? { data: [], error: null } : reply();
+    },
   };
 }
 `;
@@ -499,6 +511,38 @@ check("and it is no longer ready, so a seed can refill it", s().ready === false)
   Both read one predicate now, so the only thing worth asserting is that they
   cannot disagree.
 */
+/*
+  A renumber is one transaction, not twenty writes that mostly work.
+
+  It used to be an UPDATE per row, described in its own comment as
+  all-or-nothing. That held on the client and not on the server: some writes
+  landing and others failing leaves the column half renumbered, and the local
+  rollback hides it until the next resync.
+
+  Which matters because of *why* a restack runs. The gap between two neighbours
+  can no longer be halved, so the positions going in are nearly equal —
+  A=1.0, B=1.0000001, C=1.0000002. Move only B to 2048 and the server's order is
+  A, C, B while the browser still shows A, B, C. Silently, on somebody's board.
+*/
+section("Restack — one transaction, not one write per row");
+reset();
+{
+  for (const t of ["un", "deux", "trois"]) {
+    s().createTask({ title: t });
+    await settle();
+  }
+  const ids = s().tasks.map((t) => t.id);
+  supa.resetCalls();
+  s().restack(ids.map((id, i) => ({ id, position: (i + 1) * 1024 })));
+  await slow();
+
+  const writes = supa.calls.filter((c) => !c.startsWith("rpc:completion_days"));
+  check("the whole column moves in a single call", writes.length === 1, writes.join(", "));
+  check("and that call is the atomic one", writes[0] === "rpc:restack_tasks", writes[0]);
+  check("no per-row updates are sent",
+        supa.calls.every((c) => c !== "update:tasks"), supa.calls.join(", "));
+}
+
 section("Failures — retrying and explaining agree on what a blip is");
 reset();
 supa.failNextTransport("Failed to fetch");

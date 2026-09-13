@@ -638,34 +638,35 @@ export const useStore = create<Store>((set, get) => {
       for (const { id, position } of positions) patchLocal(id, { position });
 
       void (async () => {
-        // one write per row, which is fine: this runs once in a very long while
-        const results = await Promise.all(
-          positions.map(async ({ id, position }) => {
-            const release = claim(id);
-            const { error } = await withRetry(() =>
-              supabase.from('tasks').update({ position }).eq('id', id),
-            );
-            release();
-            return error;
+        /*
+          One statement, so one transaction. This used to be an UPDATE per row
+          and it called itself all-or-nothing, which was true of the client and
+          not of the server: five writes landing and fifteen failing left the
+          column half renumbered, and the local rollback hid it until the next
+          resync.
+
+          That is worse than it sounds because of *why* a restack runs. The gap
+          between two neighbours can no longer be halved, so the positions going
+          in are nearly equal — A=1.0, B=1.0000001, C=1.0000002. Move only B to
+          2048 and the server's order becomes A, C, B while the browser still
+          shows A, B, C. Partly renumbered is the one state worse than not
+          renumbered, and the old code created it on the far side of the wire
+          while carefully avoiding it on this one.
+        */
+        const releases = positions.map(({ id }) => claim(id));
+        const { error } = await withRetry(() =>
+          supabase.rpc('restack_tasks', {
+            ids: positions.map((p) => p.id),
+            positions: positions.map((p) => p.position),
           }),
         );
+        for (const release of releases) release();
 
-        /*
-          A renumber is one action, so it fails as one. Reporting per row meant
-          a column of twenty and a dropped connection produced twenty identical
-          red toasts — and rolling back nothing, which left the board showing an
-          order the server does not have.
+        if (!error) return;
 
-          All or nothing: any refusal puts every row back and says so once.
-          Partly-renumbered is the one state worse than not renumbered, because
-          the next drop would compute a position against numbers that only exist
-          in this browser.
-        */
-        const failure = results.find(Boolean);
-        if (!failure) return;
-
+        // one action, one rollback, one toast
         for (const [id, position] of before) patchLocal(id, { position });
-        toastError(failure);
+        toastError(error);
       })();
     },
 
