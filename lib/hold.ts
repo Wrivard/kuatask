@@ -5,7 +5,8 @@ import { COMPLETION } from "@/lib/motion";
 import type { Task } from "@/lib/store";
 
 /**
- * The 900ms beat from docs/08-satisfaction.md § 8.1.
+ * The beat from docs/08-satisfaction.md § 8.1 — 900ms there, tuned to
+ * COMPLETION.holdBeforeCollapse here, which is the number to trust.
  *
  * A completed task stays where it was before it leaves. That pause is where the
  * satisfaction lives — removing the row on the same frame reads as the task

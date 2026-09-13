@@ -832,3 +832,28 @@ reviewed. Numbering continues.
      the modal. It completes the task now (210), which makes its
      `stopPropagation` load-bearing in a new way — without it a click would
      toggle twice and land back where it started.
+231. [x] **P2** Two comments had drifted from the values they describe.
+     `lib/sound.ts` still opened by saying completions climb « within 20s » when
+     `RESET_MS` is 30s, and `lib/hold.ts` still called itself « the 900ms beat »
+     when the hold is 1100. Both were my own § 8.9 changes, and a comment stating
+     the old number is worse than no comment: it is the thing somebody reads
+     instead of the code.
+232. **NO** Reopening a task does not reset the climb, and now says so. § 8.2
+     wants reopening to feel « neutral, not punitive », and sending the next
+     completion back to the root is the punitive reading — you corrected
+     something and the app took your run away. It matters more since 210: a click
+     on the row completes it, so accidental completions are easier to make, and
+     undoing one should cost nothing.
+233. **NO** Past the tenth note the run holds at the top rather than wrapping.
+     § 8.2 says « up ten notes » and the scale holds ten. Wrapping to the bottom
+     would undo the one thing the mechanic exists for — a phrase that rises — and
+     climbing on leaves the register where a sine at 0.09 still sits under a
+     conversation. An eleventh completion in one run repeating the top note is
+     the least bad of the three, and it is now written down as a choice rather
+     than left looking like a `Math.min` nobody thought about.
+234. [x] **P2** The day sheet printed its own heading on every row: « 8 septembre »
+     against forty tasks inside a panel titled « 8 septembre ». The list already
+     suppresses this for Aujourd'hui — the rule was just hardcoded to today
+     rather than to "wherever the day is already known". `impliedDay` generalises
+     it. The time survives, since that is the part the heading does not say, and
+     an overdue task keeps its red even where the date drops out.

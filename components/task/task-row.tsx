@@ -45,9 +45,22 @@ function TaskRowImpl({
   onGrab,
   onSelectLabel,
   onSelectAssignee,
+  impliedDay,
 }: {
   task: Task;
   onOpen: (id: string) => void;
+  /**
+   * A day the surrounding surface has already named.
+   *
+   * The day sheet is a list of one day's tasks under a heading giving that day,
+   * and every row printed it again — « 8 septembre » forty times inside a panel
+   * titled « 8 septembre ». The list already avoids this for Aujourd'hui; the
+   * rule was just hardcoded to today rather than to "wherever the day is
+   * already known".
+   *
+   * The time survives, because that is the part the heading does not say.
+   */
+  impliedDay?: string;
   pulseAssignee?: boolean;
   /** Row focus is separate from DOM focus and from selection. */
   focused?: boolean;
@@ -77,6 +90,13 @@ function TaskRowImpl({
   const dateText = (() => {
     if (!task.due_on) return "";
     const time = formatTime(task.due_time);
+
+    /*
+      An overdue task keeps its date everywhere except the day that *is* that
+      date: in the sheet for 8 September, « 8 septembre » in red says nothing the
+      heading has not, while the red itself still carries the warning.
+    */
+    if (impliedDay && task.due_on === impliedDay) return time;
     if (!overdue && daysFromToday(task.due_on) === 0) return time;
     return [formatDueLabel(task.due_on), time].filter(Boolean).join(" ");
   })();

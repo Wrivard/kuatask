@@ -130,6 +130,7 @@ export function DaySheet({
                 task={task}
                 onOpen={onOpenTask}
                 onGrab={grab}
+                impliedDay={current ?? undefined}
               />
             ))
           )}

@@ -1,7 +1,8 @@
 /**
  * Completion tones, generated with the Web Audio API. No audio files.
  *
- * The mechanic: completions within 20s of each other climb a pentatonic scale.
+ * The mechanic: completions close together climb a pentatonic scale — see
+ * RESET_MS below for how close, which is no longer the 20s § 8.2 starts from.
  * Clearing four tasks in a row produces a rising phrase, which is physically
  * pleasant in a way four identical beeps is not. Pentatonic means any subset of
  * notes in any order is consonant — no sequence of completions sounds wrong.
@@ -104,13 +105,33 @@ export function completionTone() {
   if (!enabled) return;
 
   const now = Date.now();
+  /*
+    Past the tenth note the run holds at the top rather than wrapping.
+
+    § 8.2 says « up ten notes », and ten notes is what SCALE holds. Wrapping to
+    the bottom would undo the one thing the mechanic is for — a phrase that
+    rises — and climbing further leaves the register where a sine at this gain
+    still sits under a conversation. Holding means an eleventh completion in one
+    run repeats the top note, which is the least bad of the three.
+  */
   step = now - lastAt < RESET_MS ? Math.min(step + 1, SCALE.length - 1) : 0;
   lastAt = now;
 
   tone(ROOT * Math.pow(2, SCALE[step] / 12));
 }
 
-/** Reopening a task. A fifth below the root, never part of the run. */
+/**
+ * Reopening a task. A fifth below the root, never part of the run.
+ *
+ * Deliberately leaves `step` and `lastAt` alone, so reopening does not reset the
+ * climb. § 8.2 asks for reopening to feel « neutral, not punitive », and sending
+ * the next completion back to the root would be the punitive reading — you
+ * corrected something and the app took your run away.
+ *
+ * It matters more since a click on the row completes it: an accidental
+ * completion is easier to make now, and undoing one should cost nothing but the
+ * two seconds it took.
+ */
 export function uncompleteTone() {
   if (!enabled) return;
   tone(ROOT * Math.pow(2, UNCHECK_SEMITONES / 12), 0.14, GAIN * 0.7);
