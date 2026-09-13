@@ -769,3 +769,35 @@ reviewed. Numbering continues.
      is blocked or refused — the count simply stops being quiet, which is the
      whole intervention. Two people cannot be working on nine things, and a status
      everything sits in has stopped sorting anything.
+222. [x] **P0** Dropping a dragged card also clicked it. A mouse drag ends with
+     `pointerup`, and the browser then dispatches a `click` on the nearest common
+     ancestor of press and release — nothing about that click says it came from a
+     drag. This was always true and always harmless, because a click opened the
+     modal: drag a card to another column and the modal popped open. Item 210
+     made a click *complete the task*, so the same trailing click now marked
+     things done as you rearranged the board. Found by reviewing the change
+     rather than by hitting it. `lib/drag.ts` now swallows exactly one click
+     after a drag that actually began, in the capture phase so no card handler
+     sees it, with a 300 ms window because the click is not guaranteed — a touch
+     drag or a release over another element fires none, and a listener left armed
+     would eat the next real click instead. It also fixes the older version of
+     the same bug: dropping a card onto a calendar cell no longer opens that day.
+223. [x] **P1** The board card's edit button was `absolute right-1.5 top-1.5`,
+     floating over the title. Invisible until hover with a mouse, but permanently
+     on top of the text under a finger, where it is always shown — the one place
+     the affordance was most needed was the one place it broke the card. It is a
+     flex sibling now. The reason for pinning it was to avoid reflow when it
+     appears, and that reason was already covered: it hides with `opacity`, not
+     `display`, so its 24px is reserved either way.
+224. [x] **P1** Every board column's composer shared one draft. Drafts are keyed
+     so a half-typed title survives a glance at another view, and the key was the
+     due date or `"main"` — fine for two composers, wrong the moment item 213
+     opened one per column. Typing into one column, clicking away, then opening
+     another handed you the first column's sentence, primed to be created in the
+     wrong place. Each box now carries its own scope.
+225. [x] **P0** `lib/drag.ts` was found zeroed — 9587 bytes of NUL, the file's
+     exact length, written at the moment the previous session ended. Not an edit;
+     a truncated write. Restored from the last commit, and the whole tree scanned
+     for the same signature to be sure it was the only one. Worth recording
+     because it typechecks as a missing module rather than as corruption, and the
+     obvious reading of `git status` is that somebody meant to change it.

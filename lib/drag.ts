@@ -13,11 +13,50 @@ import * as React from "react";
  * Two thresholds keep dragging from stealing ordinary interaction:
  *
  *  - mouse drags only begin after MOVE_THRESHOLD pixels, so a click stays a
- *    click and a card can still be opened by clicking it
+ *    click and a card can still be acted on by clicking it
  *  - touch drags only begin after LONG_PRESS_MS, so the list still scrolls
+ *  - a drag that did happen eats the click it leaves behind, so dropping a card
+ *    somewhere new does not also count as clicking it
  */
 const MOVE_THRESHOLD = 4;
 const LONG_PRESS_MS = 350;
+
+/**
+ * How long to keep watching for the click a finished drag leaves behind.
+ *
+ * A mouse drag ends with `pointerup`, and the browser then dispatches a `click`
+ * on the nearest common ancestor of the press and the release. Nothing about
+ * that click says it came from a drag, so a card that was dropped somewhere new
+ * also gets clicked — and since a click on a card completes the task, dragging a
+ * card between columns could mark it done.
+ *
+ * The click arrives immediately after `pointerup`, so this window only has to
+ * outlast one dispatch. It has to exist at all because the click is not
+ * guaranteed: a drag that ends over a different element, or a touch drag, fires
+ * none, and a listener left armed would eat the next real click instead.
+ */
+const CLICK_AFTER_DRAG_MS = 300;
+
+/**
+ * Eat exactly one click, the one a finished drag is about to produce.
+ *
+ * Capture phase, so it is seen before any handler on the card. Both
+ * `stopPropagation` and `preventDefault`: the first keeps it from the React
+ * handlers, the second covers anything the browser would do by default.
+ */
+function swallowNextClick() {
+  const swallow = (e: MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    window.removeEventListener("click", swallow, true);
+    clearTimeout(timer);
+  };
+  const timer = setTimeout(
+    () => window.removeEventListener("click", swallow, true),
+    CLICK_AFTER_DRAG_MS,
+  );
+  window.addEventListener("click", swallow, true);
+}
 
 /**
  * Edge auto-scroll while dragging.
@@ -209,8 +248,10 @@ export function useDragToTarget(
 
     function finish() {
       const dropped = dragging ? currentTarget : null;
+      const wasDragging = dragging;
       const at = currentIndex;
       cleanup();
+      if (wasDragging) swallowNextClick();
       if (dropped) onDropRef.current(itemId, dropped, at);
     }
 

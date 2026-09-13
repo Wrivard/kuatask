@@ -30,6 +30,7 @@ export function TaskComposer({
   defaultDueOn = null,
   defaultAssigneeId = null,
   extra,
+  draftScope,
   takeFocus = false,
   onDone,
   search,
@@ -46,6 +47,17 @@ export function TaskComposer({
    * into a column for today is a correction, not a conflict.
    */
   extra?: Partial<Task>;
+  /**
+   * What makes this composer a different box from the others.
+   *
+   * Drafts are keyed so a half-typed title survives a glance at another view,
+   * and the key used to be the due date or nothing. That was fine when there
+   * were two composers; the board now opens one per column, and they all keyed
+   * on "main" — so typing into one column, clicking away, and opening another
+   * handed you the first column's sentence, ready to be created in the wrong
+   * place. A scope makes each box its own.
+   */
+  draftScope?: string;
   /** Called after a task is created, for surfaces that close afterwards. */
   onDone?: () => void;
   /**
@@ -69,7 +81,7 @@ export function TaskComposer({
   };
 }) {
   // survives a glance at the calendar; see lib/draft.ts
-  const draftKey = "composer:" + (defaultDueOn ?? "main");
+  const draftKey = "composer:" + (draftScope ?? defaultDueOn ?? "main");
   const [value, setValue] = useDraft(draftKey);
   const [dismissed, setDismissed] = React.useState<Set<string>>(new Set());
 

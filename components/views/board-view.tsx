@@ -467,6 +467,7 @@ export function BoardView() {
                     <div className="pb-1.5">
                       <TaskComposer
                         extra={defaultsFor(column.key)}
+                        draftScope={`board:${groupBy}:${column.key}`}
                         takeFocus
                         onDone={() => setAdding(null)}
                       />

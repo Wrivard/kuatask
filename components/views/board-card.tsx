@@ -88,7 +88,7 @@ function BoardCardImpl({
         toggle(task.id);
       }}
       className={cn(
-        "group relative flex touch-none select-none flex-col gap-1.5 rounded-md border border-border bg-surface p-2.5",
+        "group flex touch-none select-none flex-col gap-1.5 rounded-md border border-border bg-surface p-2.5",
         "cursor-pointer hover:bg-surface-hover",
         // the card lifts on grab, and nothing else in the app has a shadow
         dragging && "opacity-90 shadow-lg ring-1 ring-accent",
@@ -102,26 +102,6 @@ function BoardCardImpl({
           onToggle={() => toggle(task.id)}
           label={task.title}
         />
-        {/*
-          Pinned to the card's top-right rather than sitting in the flow, so it
-          cannot reflow the title when it appears. Absolute inside a relative
-          card; the title keeps its own padding clear of it.
-        */}
-        <button
-          type="button"
-          onClick={() => onOpen(task.id)}
-          title={copy.task.edit}
-          aria-label={copy.task.edit}
-          className={cn(
-            "absolute right-1.5 top-1.5 grid size-6 place-items-center rounded-sm",
-            "bg-surface text-fg-faint transition-opacity hover:bg-surface-hover hover:text-fg",
-            "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-            "focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent",
-            "[@media(pointer:coarse)]:opacity-100",
-          )}
-        >
-          <Pencil className="size-3.5" strokeWidth={1.5} aria-hidden />
-        </button>
         <button
           type="button"
           data-card-id={task.id}
@@ -141,6 +121,32 @@ function BoardCardImpl({
             }
             transition={{ duration: COMPLETION.strikethrough / 1000, ease: "easeOut" }}
           />
+        </button>
+
+        {/*
+          In the flow, not pinned over the corner.
+
+          It was absolute, which floated it across the title — invisible until
+          hover with a mouse, but permanently on top of the text under a finger,
+          where it is always shown. As a flex sibling it reserves its 24px from
+          the start, and because it hides with opacity rather than `display`,
+          that space is reserved whether or not it is visible. Nothing reflows
+          when it appears, which was the only reason to pin it in the first place.
+        */}
+        <button
+          type="button"
+          onClick={() => onOpen(task.id)}
+          title={copy.task.edit}
+          aria-label={copy.task.edit}
+          className={cn(
+            "grid size-6 shrink-0 place-items-center rounded-sm text-fg-faint transition-opacity",
+            "hover:bg-surface-hover hover:text-fg",
+            "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+            "focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent",
+            "[@media(pointer:coarse)]:opacity-100",
+          )}
+        >
+          <Pencil className="size-3.5" strokeWidth={1.5} aria-hidden />
         </button>
       </div>
 
