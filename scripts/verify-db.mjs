@@ -347,6 +347,32 @@ try {
   await member.client.from("tasks").update({ label: "probe" }).eq("id", logged.id);
   check("a no-op write is not logged", (await logOf()).length === before);
 
+  /*
+    Nor is rearranging. Every task write fires this trigger and `position` is a
+    column like any other, so dragging used to write history — one entry per
+    drag reading « modifié · ordre », and one entry per card in the column when a
+    drag exhausted a gap and called `restack()`. An afternoon of tidying the
+    board would bury the creations and deletions this page exists to show.
+  */
+  const beforeMove = (await logOf()).length;
+  await member.client
+    .from("tasks")
+    .update({ position: 999.5 })
+    .eq("id", logged.id);
+  check("a pure reorder is not logged at all", (await logOf()).length === beforeMove);
+
+  // but a drag that also reassigns is about the reassignment
+  await member.client
+    .from("tasks")
+    .update({ position: 998.5, assignee_id: member.id })
+    .eq("id", logged.id);
+  const afterMove = await logOf();
+  const moveEntry = afterMove[afterMove.length - 1];
+  check("a move that changes something real is logged as that",
+        moveEntry?.changed?.includes("assignee_id") === true, String(moveEntry?.changed));
+  check("and never mentions the ordering it also touched",
+        moveEntry?.changed?.includes("position") === false, String(moveEntry?.changed));
+
   await member.client.from("tasks").update({ status: "done" }).eq("id", logged.id);
   await member.client.from("tasks").update({ notes: "after" }).eq("id", logged.id);
 

@@ -857,3 +857,23 @@ reviewed. Numbering continues.
      rather than to "wherever the day is already known". `impliedDay` generalises
      it. The time survives, since that is the part the heading does not say, and
      an overdue task keeps its red even where the date drops out.
+235. [x] **P1** Dragging wrote history. Every task write fires the log trigger
+     and `position` is a column like any other, so rearranging the board produced
+     entries reading « modifié · ordre » — one per drag, and one per card in the
+     column when a drag exhausted a gap and called `restack()`, which rewrites
+     every position in a single statement. One gesture, ten entries, none of them
+     saying anything. The same failure the 0013 coalesce fixed for typing,
+     arriving by a different route: an afternoon of tidying would bury the
+     creations and deletions the page was asked for.
+236. [x] **P1** `position` now joins `updated_at` as a column the log does not
+     consider — both are bookkeeping, one owned by a trigger and the other
+     recording where a task sits rather than what it is. A pure reorder writes
+     nothing; a cross-column drag that also reassigns is logged as the
+     reassignment and does not mention the ordering it touched on the way.
+     Verified live in a rolled-back transaction and pinned with three assertions
+     in `verify:db`.
+237. **NO** Caught before it mattered: the live table had exactly one entry
+     mentioning `position` and none that were position-only, because the two of
+     them have barely dragged anything yet and the 2-minute coalesce had absorbed
+     the rest. The cleanup in 0015 therefore deleted nothing and rewrote one row.
+     Worth doing now precisely because there was nothing to clean up.
