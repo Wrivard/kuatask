@@ -979,3 +979,30 @@ reviewed. Numbering continues.
      for the wrong reason until it could fail. It now answers to the same script
      as everything else, except `completion_days`, which is read during resync
      and would otherwise catch errors scripted for a mutation.
+255. [x] **P2** Sidebar icons were 16px. `docs/04` is specific: "16px in rows and
+     buttons, 18px in the sidebar". The one place the size is called out
+     separately was the one place following the other number.
+256. [x] **P1** The edit buttons I added in 210 were 14px icons in 24px targets.
+     `docs/04` says 16px in rows and buttons, and 24px is the floor WCAG 2.5.8
+     sets rather than a size to aim at — on touch this is the only way to open a
+     task, so it grows to 36px there. Their `focus-visible:outline` classes also
+     came out: `globals.css` already gives every focusable element the 1px accent
+     ring at 2px offset that `docs/04` § Focus asks for, so those were restating
+     the default and would have drifted from it.
+257. [x] **P1** An empty board column showed nothing at all. The button added in
+     213 is transparent until hovered, which is right under a full column and
+     wrong under an empty one — the invitation was invisible in the only column
+     that needed it. `docs/06` removed the old « Rien ici. » because a column
+     with nothing in it is already obviously empty and six copies of that
+     sentence are noise; this is a different thing in the same place, a control
+     rather than a label. Visible when the column is empty, quiet when it is not.
+258. [x] **P1** Three "pick one of N" selectors, two different shapes. The
+     modal's chips were `rounded-md px-2.5 py-1.5` with an accent border and a
+     wash; the board's « Grouper par » and the calendar's month/week were
+     `rounded-sm px-2 py-1` and marked the selection by moving the label one step
+     up the text ramp and nothing else — barely legible, on a control whose whole
+     job is to show the current state. One `Chip` now, one look.
+259. [x] **P2** And it is `rounded-sm`, 6px, which `docs/04` assigns to inputs
+     and buttons. The modal's 8px was the task-row radius on a button — precisely
+     the "one radius for everything" that having a radius per role exists to
+     prevent.

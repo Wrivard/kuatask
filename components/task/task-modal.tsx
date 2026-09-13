@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Chip } from "@/components/ui/chip";
 import { DatePicker } from "./date-picker";
 import { Avatar } from "./avatar";
 import { useStore, type Task } from "@/lib/store";
@@ -26,7 +27,6 @@ import {
   formatDueLabel,
   instantToDay,
 } from "@/lib/time";
-import { cn } from "@/lib/utils";
 
 /**
  * Every field saves on change, optimistically. There is no save button and no
@@ -527,29 +527,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Chip({
-  active,
-  onClick,
-  children,
-  ...props
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-} & Omit<React.ComponentProps<"button">, "onClick" | "children">) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] transition-colors",
-        active
-          ? "border-accent bg-accent/10 text-fg"
-          : "border-border text-fg-muted hover:border-control hover:text-fg",
-      )}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-}

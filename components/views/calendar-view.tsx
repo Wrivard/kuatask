@@ -16,6 +16,7 @@ import { CalendarCard } from "./calendar-card";
 import { CARD_PITCH_GUESS, CARD_ROW, CELL_CHROME } from "./calendar-day-cell";
 import { useRowsThatFit } from "@/lib/fit";
 import { useTaskModal } from "@/lib/events";
+import { Chip } from "@/components/ui/chip";
 import {
   formatMonthYear,
   formatDueLabel,
@@ -281,18 +282,9 @@ export function CalendarView() {
 
         <div className="ml-auto flex shrink-0 gap-1" aria-label={copy.calendar.mode}>
           {MODES.map((m) => (
-            <button
-              key={m}
-              type="button"
-              aria-pressed={mode === m}
-              onClick={() => setMode(m)}
-              className={cn(
-                "rounded-sm border border-border px-2 py-1 text-[12px]",
-                mode === m ? "text-fg" : "text-fg-muted hover:text-fg",
-              )}
-            >
+            <Chip key={m} active={mode === m} onClick={() => setMode(m)}>
               {m === "month" ? copy.nav.month : copy.nav.week}
-            </button>
+            </Chip>
           ))}
         </div>
       </div>

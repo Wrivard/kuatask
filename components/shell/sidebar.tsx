@@ -121,7 +121,8 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
                   : "text-fg-muted hover:bg-surface-hover hover:text-fg",
               )}
             >
-              <Icon className="size-4 shrink-0" strokeWidth={1.5} />
+              {/* docs/04: 18px in the sidebar, 16px in rows and buttons */}
+              <Icon className="size-[18px] shrink-0" strokeWidth={1.5} />
               {label}
             </Link>
           );
@@ -203,7 +204,7 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
             : "text-fg-muted hover:bg-surface-hover hover:text-fg",
         )}
       >
-        <Users className="size-4 shrink-0" strokeWidth={1.5} />
+        <Users className="size-[18px] shrink-0" strokeWidth={1.5} />
         {copy.nav.settings}
       </Link>
 

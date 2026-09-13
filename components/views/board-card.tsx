@@ -142,11 +142,10 @@ function BoardCardImpl({
             "grid size-6 shrink-0 place-items-center rounded-sm text-fg-faint transition-opacity",
             "hover:bg-surface-hover hover:text-fg",
             "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-            "focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent",
-            "[@media(pointer:coarse)]:opacity-100",
+            "[@media(pointer:coarse)]:size-9 [@media(pointer:coarse)]:opacity-100",
           )}
         >
-          <Pencil className="size-3.5" strokeWidth={1.5} aria-hidden />
+          <Pencil className="size-4" strokeWidth={1.5} aria-hidden />
         </button>
       </div>
 

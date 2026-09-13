@@ -221,12 +221,16 @@ function TaskRowImpl({
           "hover:bg-surface-hover hover:text-fg",
           // hidden until the row is hovered, and whenever it has keyboard focus
           "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-          "focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent",
-          // a finger has no hover, so there it simply lives there
-          "[@media(pointer:coarse)]:opacity-100",
+          /*
+            A finger has no hover, so there it simply lives there — and it grows
+            to 36px, because 24 is the floor WCAG 2.5.8 sets rather than a size
+            to aim at, and this is the only way to open a task by touch.
+          */
+          "[@media(pointer:coarse)]:size-9 [@media(pointer:coarse)]:opacity-100",
         )}
       >
-        <Pencil className="size-3.5" strokeWidth={1.5} aria-hidden />
+        {/* docs/04: 16px in rows and buttons */}
+        <Pencil className="size-4" strokeWidth={1.5} aria-hidden />
       </button>
     </div>
   );

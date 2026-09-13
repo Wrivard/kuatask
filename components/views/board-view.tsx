@@ -29,6 +29,7 @@ import { useTaskModal } from "@/lib/events";
 import { useCompletionHold } from "@/lib/hold";
 import { useClearedToday } from "@/lib/clear-out";
 import { ClearOut } from "./clear-out";
+import { Chip } from "@/components/ui/chip";
 import { Avatar } from "@/components/task/avatar";
 import { streakFromDays, instantToDay, dayNumber } from "@/lib/time";
 import { useToday } from "@/lib/day";
@@ -303,17 +304,13 @@ export function BoardView() {
       <div className="flex items-center gap-2 overflow-x-auto px-6 py-3">
         <span className="shrink-0 text-[12px] text-fg-faint">{copy.board.groupBy}</span>
         {GROUP_OPTIONS.map((option) => (
-          <button
+          <Chip
             key={option.value}
-            type="button"
+            active={groupBy === option.value}
             onClick={() => chooseGroup(option.value)}
-            className={cn(
-              "shrink-0 rounded-sm border border-border px-2 py-1 text-[12px]",
-              groupBy === option.value ? "text-fg" : "text-fg-muted hover:text-fg",
-            )}
           >
             {option.label}
-          </button>
+          </Chip>
         ))}
       </div>
 
@@ -479,11 +476,26 @@ export function BoardView() {
                         onClick={() => setAdding(column.key)}
                         title={copy.board.addHere}
                         className={cn(
-                          "min-h-9 flex-1 rounded-sm border border-dashed border-transparent",
-                          "text-left text-[12px] text-transparent transition-colors",
+                          "min-h-9 flex-1 rounded-sm border border-dashed text-left text-[12px] transition-colors",
                           "hover:border-border hover:text-fg-faint",
                           "focus-visible:border-border focus-visible:text-fg-faint focus-visible:outline-none",
-                          // a finger cannot hover, so the invitation is always legible
+                          /*
+                            Visible in an empty column, silent in a full one.
+
+                            `docs/06` removed the old « Rien ici. » because a
+                            column with nothing in it is already obviously empty
+                            and six copies of that sentence are noise. This is a
+                            different thing in the same place: not a label
+                            stating the obvious but the one control that fills
+                            the column, and an invitation nobody can see is not
+                            an invitation. Under a full column it goes quiet
+                            again, because there the cards are the content and
+                            this is just the space below them.
+                          */
+                          column.tasks.length === 0
+                            ? "border-border text-fg-faint"
+                            : "border-transparent text-transparent",
+                          // a finger cannot hover, so it stays legible either way
                           "[@media(pointer:coarse)]:border-border [@media(pointer:coarse)]:text-fg-faint",
                         )}
                       >
