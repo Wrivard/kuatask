@@ -230,6 +230,43 @@ async function withRetry<T extends { error: Refusal }>(run: () => PromiseLike<T>
   await new Promise((r) => setTimeout(r, RETRY_DELAY));
   return run();
 }
+
+/** Postgres unique_violation. On a retried insert it means "already written". */
+const UNIQUE_VIOLATION = '23505';
+
+/**
+ * An insert that is safe to retry, because the row carries its own id.
+ *
+ * Ids are generated on the client, so the retry sends the identical row. That
+ * makes the interesting case the one `withRetry` exists for: the first attempt
+ * reached the database and only its *response* was lost. The row is committed;
+ * the retry hits the primary key and comes back 23505.
+ *
+ * That is not a refusal, it is the write having already worked — but it was
+ * reported as one. The row was rolled back on screen and « déjà là » shown,
+ * while the task sat in the database where the other person could see it
+ * perfectly well. Nor did realtime repair it: the INSERT echo arrived while the
+ * id was still claimed in `pending`, so `applyRemote` had already dropped it as
+ * a local echo. The task stayed missing until the next resync.
+ *
+ * Only ever after a retry. A first attempt returning 23505 would be a genuine
+ * id collision, which for a v4 uuid is not a thing that happens, and passing it
+ * through keeps this from hiding a real one.
+ */
+async function insertWithRetry<T extends { error: Refusal }>(
+  run: () => PromiseLike<T>,
+): Promise<T> {
+  const first = await run();
+  if (!isTransportFailure(first.error)) return first;
+
+  await new Promise((r) => setTimeout(r, RETRY_DELAY));
+  const second = await run();
+
+  if (second.error?.code === UNIQUE_VIOLATION) {
+    return { ...second, error: null };
+  }
+  return second;
+}
 const FILTER_KEY = 'kua-assignee-filter';
 
 /** Rows a search may pull back from outside the window in one go. */
@@ -482,7 +519,7 @@ export const useStore = create<Store>((set, get) => {
       });
 
       void (async () => {
-        const { data, error } = await withRetry(() =>
+        const { data, error } = await insertWithRetry(() =>
           supabase.from('tasks').insert(optimistic).select().single(),
         );
 
@@ -493,7 +530,14 @@ export const useStore = create<Store>((set, get) => {
           toastError(error);
           return;
         }
-        patchLocal(optimistic.id, data);
+
+        /*
+          No row comes back when the retry found the insert already committed —
+          the error was swallowed, and 23505 returns no data. The optimistic row
+          is exactly what was written, so leaving it alone is correct; the next
+          resync reconciles anything the server decided for itself.
+        */
+        if (data) patchLocal(optimistic.id, data);
       })();
 
       return optimistic.id;
@@ -638,7 +682,7 @@ export const useStore = create<Store>((set, get) => {
         set((s) => ({ tasks: [...s.tasks, before] }));
         const releaseUndo = claim(before.id);
         void (async () => {
-          const { error } = await withRetry(() => supabase.from('tasks').insert(before));
+          const { error } = await insertWithRetry(() => supabase.from('tasks').insert(before));
           releaseUndo();
           if (error) {
             // the insert policy requires created_by = auth.uid(), so undoing a

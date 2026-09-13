@@ -40,7 +40,20 @@ export function failNextTransport(message, times = 1) {
   failCount = times;
 }
 
+/**
+ * A different answer per attempt, for the cases where the retry is the
+ * interesting one. Give it a list; each call consumes the next entry, and null
+ * means that attempt succeeds.
+ */
+export let sequence = null;
+export function failSequence(list) { sequence = [...list]; }
+
 const reply = () => {
+  if (sequence) {
+    const err = sequence.shift() ?? null;
+    if (sequence.length === 0) sequence = null;
+    return { data: null, error: err };
+  }
   const err = nextError;
   if (failCount > 1) failCount -= 1;
   else nextError = null;
@@ -71,6 +84,8 @@ export function createClient() {
   return {
     auth: { getUser: async () => ({ data: { user: null } }) },
     from: (table) => builder(table, null),
+    // resync asks Postgres for the streak's distinct days (migration 0016)
+    rpc: async () => ({ data: [], error: null }),
   };
 }
 `;
@@ -337,6 +352,44 @@ await slow();
 check("the task is still there after the retry lands",
       titles().includes("survit au reseau"), titles().join(","));
 check("and nothing was shouted at the user", errors.length === 0, errors.join(" | "));
+
+/*
+  The insert whose response went missing.
+
+  This is the failure `withRetry` exists for, seen from the far side: the first
+  attempt reached the database and committed, and only the reply was lost. The
+  retry sends the same row — ids are generated on the client — so it lands on
+  the primary key and comes back 23505.
+
+  Read as a refusal, that rolled the task off the screen and said « déjà là »
+  about a task that was sitting in the database, visible to the other person.
+  Realtime could not repair it either: the INSERT echo arrived while the id was
+  still claimed in `pending`, so it had already been dropped as a local echo.
+*/
+section("Retry — an insert whose reply was lost is not a failure");
+reset();
+supa.failSequence([
+  { message: "Failed to fetch", code: null },   // committed, reply lost
+  { message: "duplicate key value", code: "23505" }, // the retry meets its own row
+]);
+s().createTask({ title: "ecrite deux fois" });
+await slow();
+check("the task stays, because the write did happen",
+      titles().includes("ecrite deux fois"), titles().join(","));
+check("and nothing is shouted about it", errors.length === 0, errors.join(" | "));
+
+/*
+  A first attempt returning 23505 is a genuine id collision, which for a v4
+  uuid does not happen — and if it ever did, hiding it would be worse than
+  saying so. Only the retry gets the benefit of the doubt.
+*/
+section("Retry — a duplicate on the first attempt is still a refusal");
+reset();
+supa.failSequence([{ message: "duplicate key value", code: "23505" }]);
+s().createTask({ title: "vraie collision" });
+await slow();
+check("the task is rolled back", !titles().includes("vraie collision"), titles().join(","));
+check("and the refusal is reported", errors.length === 1, errors.join(" | "));
 
 section("Retry — a refusal is not retried, it is rolled back");
 reset();

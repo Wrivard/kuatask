@@ -927,3 +927,26 @@ reviewed. Numbering continues.
      wake from sleep, and now once a minute while degraded. Both call sites use
      the bounded RPC now, which is what fixing one of two identical queries
      should have prompted me to check the first time.
+246. [x] **P1** An insert whose reply went missing was reported as a failure.
+     This is the exact case `withRetry` exists for, seen from the far side: the
+     first attempt reaches the database and commits, and only the response is
+     lost. The retry sends the identical row — ids are generated on the client —
+     so it lands on the primary key and returns 23505. Read as a refusal, that
+     rolled the task off the screen and showed « déjà là » about a task sitting
+     in the database, visible to the other person.
+247. [x] **P1** Realtime could not repair it either, which is what made it stick.
+     The INSERT echo arrived while the id was still claimed in `pending`, so
+     `applyRemote` had already dropped it as a local echo — the one mechanism
+     that would have put the row back had correctly refused to. It stayed missing
+     until the next resync.
+248. [x] **P1** `insertWithRetry` treats a unique violation *on the retry* as the
+     write having already worked, for both insert paths — `createTask` and the
+     undo that restores a deleted task. Only on the retry: a first attempt
+     returning 23505 is a genuine id collision, which for a v4 uuid does not
+     happen, and swallowing it would hide a real one. Four assertions in
+     `verify:store`, which needed a stub that can script a different answer per
+     attempt, since the retry is the interesting one here rather than the repeat.
+249. [x] **P2** The store stub had no `rpc`, which `resync` began calling in 245.
+     It was not reached by any existing test, so it would have failed as a
+     confusing undefined rather than as a missing stub the first time somebody
+     wrote one.
