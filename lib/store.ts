@@ -16,7 +16,7 @@
 import { create } from 'zustand';
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/database.types';
-import { instantToDay, now, recentCompletionCutoff, type DayString } from '@/lib/time';
+import { now, recentCompletionCutoff, type DayString } from '@/lib/time';
 import { isTransportFailure, type Refusal } from '@/lib/errors';
 import { setSoundEnabled as applySoundEnabled } from '@/lib/sound';
 
@@ -401,23 +401,16 @@ export const useStore = create<Store>((set, get) => {
           .or(`status.neq.done,completed_at.gte.${recentCompletionCutoff()}`)
           .order('position'),
         supabase.from('profiles').select('*'),
-        supabase
-          .from('tasks')
-          .select('completed_at')
-          .eq('workspace_id', wsId)
-          .not('completed_at', 'is', null),
+        // distinct days, bounded, computed in Postgres — see migration 0016.
+        // This was the same unbounded read the shell used to do, and it matters
+        // more here: resync runs on every reconnect, every wake from sleep, and
+        // once a minute while the socket is down.
+        supabase.rpc('completion_days'),
       ]);
       if (!rows) return;
 
       // the streak's history can move while a tab sleeps, so refresh it too
-      const days = completions
-        ? [...new Set(
-            completions
-              .map((r) => r.completed_at)
-              .filter((v): v is string => v !== null)
-              .map(instantToDay),
-          )]
-        : get().completionDays;
+      const days = completions ?? get().completionDays;
 
       set((s) => {
         /*

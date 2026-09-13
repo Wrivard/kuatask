@@ -905,3 +905,25 @@ reviewed. Numbering continues.
 242. [x] **P2** `verify:db` was printing a `MODULE_TYPELESS_PACKAGE_JSON` warning
      over its own output once it imported `lib/time.ts`. A verification script
      whose result you have to read around is worse at the one thing it does.
+243. [x] **P1** A realtime channel that fails and stays failed left the board
+     silently stale. `subscribe` acted only on SUBSCRIBED and ignored
+     CHANNEL_ERROR, TIMED_OUT and CLOSED. Every recovery path in the file ends in
+     a resync, but all of them assume the interruption ends — and a channel can
+     fail permanently: a token it cannot refresh, a network that answers HTTP but
+     not websockets, a proxy that drops the upgrade. supabase-js retries, and if
+     the retries never land there is no later SUBSCRIBED to hang a resync on.
+     The failure looks like the worst version of itself: the app keeps working,
+     keeps accepting writes, and quietly stops showing the other person's.
+244. [x] **P1** So while the socket is down the app falls back to asking, once a
+     minute, and stops the moment it comes back. Long enough that an ordinary
+     reconnect wins the race and cancels it; skipped entirely while the tab is
+     hidden, since a hidden tab is nobody's live view and visibility already
+     resyncs on return. It converges within a minute instead of never — which is
+     the honest answer to « can you confirm the changes are instant ».
+245. [x] **P1** Reviewing that change caught 238 being only half done: `resync`
+     carried its own copy of the same unbounded completions query, reading every
+     `completed_at` in the workspace and mapping it through `instantToDay`. It
+     matters more there than in the shell — resync runs on every reconnect, every
+     wake from sleep, and now once a minute while degraded. Both call sites use
+     the bounded RPC now, which is what fixing one of two identical queries
+     should have prompted me to check the first time.
