@@ -14,11 +14,25 @@ import { copy } from "@/lib/copy";
 import { announce } from "./live-region";
 import { cn } from "@/lib/utils";
 
+/*
+  The same six the list has, in the same order.
+
+  The rail carried the first four, so a task with no date had no entry, no count
+  and no way to jump to it — and « Sans date » is where a quick capture lands, so
+  it is the bucket holding exactly the tasks this app exists to stop people
+  forgetting. The counts did not add up either: a board showing three tasks sat
+  next to a rail totalling two.
+
+  Costs nothing when they are empty. An empty bucket is already disabled and
+  faint, so the two extra lines are invisible until there is something in them.
+*/
 const BUCKETS: { bucket: Bucket; label: string }[] = [
   { bucket: "today", label: copy.nav.today },
   { bucket: "tomorrow", label: copy.nav.tomorrow },
   { bucket: "week", label: copy.nav.week },
   { bucket: "month", label: copy.nav.month },
+  { bucket: "later", label: copy.nav.later },
+  { bucket: "undated", label: copy.nav.undated },
 ];
 
 /**

@@ -477,7 +477,15 @@ export function BoardView() {
                         onClick={() => setAdding(column.key)}
                         title={copy.board.addHere}
                         className={cn(
-                          "min-h-9 flex-1 rounded-sm border border-dashed text-left text-[12px] transition-colors",
+                          /*
+                            `flex items-start` because a button centres its own
+                            content: filling the column made the label float
+                            halfway down an empty one, detached from the cards
+                            it belongs under. The target still fills the column
+                            — clicking anywhere empty adds a task — but the words
+                            sit where the next card would.
+                          */
+                          "flex min-h-9 flex-1 items-start rounded-sm border border-dashed pt-2 text-left text-[12px] transition-colors",
                           "hover:border-border hover:text-fg-faint",
                           "focus-visible:border-border focus-visible:text-fg-faint focus-visible:outline-none",
                           /*

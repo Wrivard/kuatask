@@ -1194,3 +1194,19 @@ reviewed. Numbering continues.
      list to one person — and a name describing the one thing that changed would
      have been the next comment to go stale. Two call sites; `accentColor` and
      `ACCENTS` stay where six other files already import them from.
+291. [x] **P1** The rail was missing two of the six buckets. `docs/06` gives the
+     list six sections; the sidebar carried the first four, so a task with no
+     date had no entry, no count and no way to jump to it. Visible in the owner's
+     own screenshot: a board showing three tasks beside a rail totalling two.
+     « Sans date » is where a quick capture lands, which makes it the bucket
+     holding exactly the tasks this app exists to stop people forgetting.
+292. **NO** The counts were already right — `bucketOf` covers all six and the map
+     had been computing `later` and `undated` all along. Nothing was being
+     calculated wrongly; two entries were simply never rendered. Costs nothing
+     when empty, since an empty bucket is already disabled and faint.
+293. [x] **P1** « Ajouter ici » floated halfway down an empty column. A button
+     centres its own content, and that one fills the column so it can be clicked
+     anywhere — so the label detached from the cards it belongs under and sat in
+     the middle of nothing. Seen in the screenshot rather than in the code, which
+     is the argument for looking at the app. `items-start` puts the words where
+     the next card would go; the target still fills the column.
