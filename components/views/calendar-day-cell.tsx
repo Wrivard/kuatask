@@ -14,8 +14,13 @@ import { cn } from "@/lib/utils";
  * measure. An earlier version of this file called the same number "measured"
  * and divided by it for ever; it was an estimate, and it would have drifted
  * silently the moment the card's padding changed.
+ *
+ * 22 rather than 20 since the card's title went from 11px to 12px. Being low
+ * costs one overfilled frame before the measurement lands; being high costs one
+ * card that could have fitted. Neither is visible for long, which is the whole
+ * reason this is allowed to be a guess.
  */
-export const CARD_PITCH_GUESS = 20;
+export const CARD_PITCH_GUESS = 22;
 
 /** Marks a card as a row the fitting measurement can take its height from. */
 export const CARD_ROW = "data-cal-card";

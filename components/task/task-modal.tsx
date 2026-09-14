@@ -253,7 +253,22 @@ export function TaskModal({
     >
       <DialogContent
         onKeyDown={handleKeyDown}
-        className="flex max-h-[88dvh] w-[calc(100vw-2rem)] max-w-[540px] flex-col gap-0 overflow-hidden rounded-lg border-border bg-surface p-0 sm:max-w-[540px]"
+        /*
+          The one shadow in the app.
+
+          `docs/04` bans drop shadows and carves out exactly one exception —
+          "the task modal gets a single soft shadow so it reads as floating
+          above the page" — and the modal did not have it. The base dialog
+          separates itself with a 1px ring, which is the hairline treatment
+          every other surface uses, so the one thing meant to read as lifted
+          read as another flat panel.
+
+          Wide, soft and offset downward rather than tight and dark: on the
+          light theme it is the whole separation, and on the dark one it deepens
+          the ground around the panel instead of drawing a second edge next to
+          the ring that is already there.
+        */
+        className="flex max-h-[88dvh] w-[calc(100vw-2rem)] max-w-[540px] flex-col gap-0 overflow-hidden rounded-lg border-border bg-surface p-0 shadow-[0_24px_64px_-16px_rgb(0_0_0/0.55)] sm:max-w-[540px]"
       >
         <DialogTitle className="sr-only">{task.title}</DialogTitle>
 

@@ -97,9 +97,23 @@ export function CalendarCard({
         backgroundColor: `color-mix(in srgb, ${colour} 10%, var(--color-surface-hover))`,
       }}
     >
+      {/*
+        12px in the month, 13px in the week.
+
+        These were 11px and 10px, below the 12px `docs/04` sets as the smallest
+        size in the app — the floor exists because that is where text stops
+        being comfortable to read, and a month grid is the surface you scan
+        longest. The owner's complaint about the calendar being hard on the eyes
+        was partly this.
+
+        Raising it costs cell density, but `useRowsThatFit` measures the real
+        rendered height rather than trusting a constant, so the grid adjusts on
+        its own and the « +N » overflow absorbs the difference.
+      */}
       <span
         className={cn(
-          "min-w-0 flex-1 truncate text-[11px] leading-[1.35] text-fg",
+          "min-w-0 flex-1 truncate leading-[1.35] text-fg",
+          compact ? "text-[12px]" : "text-[13px]",
           done && "line-through",
         )}
       >
@@ -114,7 +128,12 @@ export function CalendarCard({
       )}
 
       {time && (
-        <span className="shrink-0 font-mono text-[10px] tabular-nums text-fg-faint">
+        <span
+          className={cn(
+            "shrink-0 font-mono tabular-nums text-fg-faint",
+            compact ? "text-[11px]" : "text-[12px]",
+          )}
+        >
           {time}
         </span>
       )}

@@ -1099,3 +1099,28 @@ write that nothing could read.
 Worth noting for anyone adding version history later: the column 0012 stored was
 `row_after`, the state after the change. Undoing an edit needs `row_before`. The
 snapshot being kept was never the useful one.
+
+## The modal's field order, and the one shadow in the app
+
+`docs/06` lists the modal's fields as title, notes, due date, time, assignee,
+label, important. The implementation puts **status** first in the metadata band,
+ahead of the date. That list predates `doing` existing at all, so the spec had
+nothing to say about where a status field goes; putting it first reads as
+"what state is this in" before "when is it due", which is the order you ask
+those questions in.
+
+Worth knowing it is a deviation, because the rest of the order follows the spec
+exactly and a future reader would reasonably assume this one did too.
+
+Separately: `docs/04` bans drop shadows and carves out exactly one exception —
+"the task modal gets a single soft shadow so it reads as floating above the
+page". It did not have one. The base dialog separates itself with a 1px ring,
+which is the hairline treatment every other surface in the app uses, so the one
+element meant to read as lifted read as another flat panel. It now has a wide,
+soft, downward shadow: on the light theme that is the whole separation, and on
+the dark one it deepens the ground around the panel rather than drawing a second
+edge beside the ring already there.
+
+The board card's lift while dragging is the other shadow, and it is deliberate
+and noted in place — a card being carried is the one other thing that is
+genuinely above the page.

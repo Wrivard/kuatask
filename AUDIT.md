@@ -1006,3 +1006,29 @@ reviewed. Numbering continues.
      and buttons. The modal's 8px was the task-row radius on a button — precisely
      the "one radius for everything" that having a radius per role exists to
      prevent.
+260. [x] **P1** The modal had no shadow. `docs/04` bans drop shadows and carves
+     out exactly one exception in the same breath — "the task modal gets a single
+     soft shadow so it reads as floating above the page" — and the base dialog
+     separates itself with a 1px ring instead, the same hairline treatment every
+     flat surface in the app uses. The one element meant to read as lifted read
+     as another panel. Wide, soft and downward: on the light theme that is the
+     whole separation; on the dark one it deepens the ground rather than drawing
+     a second edge beside the ring already there.
+261. **NO** The modal puts status first in the metadata band, ahead of the date,
+     where `docs/06` lists title, notes, due date, time, assignee, label,
+     important. That list predates `doing` existing, so the spec had nothing to
+     say about where a status field goes, and asking "what state is this in"
+     before "when is it due" is the order those questions come in. Left as it is
+     and written down, because the rest of the order follows the spec exactly and
+     a reader would fairly assume this part did too.
+262. [x] **P1** The calendar's cards were below the app's own floor: 11px titles
+     and 10px times, where 12px is the smallest size `docs/04` defines. That floor
+     exists because it is where text stops being comfortable, and the month grid
+     is the surface you scan longest — part of what made the calendar « hard on
+     the eyes ». Now 12px in the month and 13px in the week. It costs cell
+     density, but `useRowsThatFit` measures real rendered height rather than
+     trusting a constant, so the grid adapts and the « +N » absorbs the rest.
+263. [x] **P2** `CARD_PITCH_GUESS` 20 → 22 to match. It is the first-paint
+     estimate before measurement lands, so being wrong costs one frame — but a
+     low guess overfills that frame and then reflows, which is the more visible
+     of the two directions.
