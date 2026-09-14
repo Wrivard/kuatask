@@ -1032,3 +1032,31 @@ reviewed. Numbering continues.
      estimate before measurement lands, so being wrong costs one frame — but a
      low guess overfills that frame and then reflows, which is the more visible
      of the two directions.
+264. [x] **P1** The sidebar could not say which item you were on. A nav link and
+     a bucket both used `bg-surface-hover` for the current item *and* for hover,
+     so pointing at anything made it look selected — for the buckets identically,
+     since they had no weight change either; the nav links differed by a font
+     weight alone. `FilterItem`, in the same file, had it right: hover moves the
+     text, the background is reserved for the selection.
+265. [x] **P1** One ramp for all three now. Hover moves one step up the surface
+     scale, the current item two — `bg-bg` → `bg-surface` → `bg-surface-hover`,
+     #0a0a0a → #111111 → #161616 in the dark theme. Small per step, unmistakable
+     across two, and the affordance survives: a nav rail should still feel like
+     it can be clicked. Extracted as three shared class constants, because the
+     rule being written three different ways is what let them drift apart.
+266. [x] **P2** Every list section ended with a hairline under its last row.
+     `docs/04` asks for a divider *between* rows; each row carries its own
+     `border-b`, so six sections meant six rules that divided nothing, each one
+     a line the eye stops at for no reason. The section strips the trailing one
+     rather than the row knowing where it sits — the row appears in three
+     different stacks and none of them is its business. Same in the completed
+     footer and the day sheet, where `last-of-type` is needed because a
+     « voir la semaine » button can follow the rows. Confirmed the arbitrary
+     variant actually compiled rather than trusting it to.
+267. [x] **P1** A row's metadata was seven items at the row's own `gap-3`, so a
+     label, a date, an identity dot and a notes glyph sat exactly as far apart as
+     the checkbox is from the title — eight things of equal weight, with nothing
+     saying which belong together. Grouped at 6px they read as one cluster
+     hanging off the title, which is what they are. The board card already did
+     this; the list is the busier of the two and had the looser spacing. The edit
+     button stays outside it: an action, not metadata.

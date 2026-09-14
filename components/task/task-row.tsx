@@ -172,45 +172,59 @@ function TaskRowImpl({
       </button>
 
       {/*
-        Whether a task has notes was only discoverable by opening it, which is
-        the one thing the row exists to avoid. A glyph, not a count: the number
-        of lines in someone's notes is not information.
+        The metadata, as one group rather than seven things in a row.
+
+        Everything here used to sit in the row's own `gap-3`, so a label, a
+        date, an identity dot and a notes glyph were spaced exactly as far apart
+        as the checkbox is from the title — eight items of equal weight, and
+        nothing saying which of them belong together. At 6px they read as one
+        cluster hanging off the end of the title, which is what they are. The
+        board card already grouped its metadata this way; the list is the busier
+        of the two and had the looser spacing.
       */}
-      {task.notes && task.notes.trim() !== "" && (
-        <AlignLeft
-          className="size-3 shrink-0 text-fg-faint"
-          strokeWidth={1.5}
-          aria-label={copy.task.hasNotes}
-        />
-      )}
+      <div className="flex min-w-0 shrink-0 items-center gap-1.5">
+        {/*
+          Whether a task has notes was only discoverable by opening it, which is
+          the one thing the row exists to avoid. A glyph, not a count: the number
+          of lines in someone's notes is not information.
+        */}
+        {task.notes && task.notes.trim() !== "" && (
+          <AlignLeft
+            className="size-3 shrink-0 text-fg-faint"
+            strokeWidth={1.5}
+            aria-label={copy.task.hasNotes}
+          />
+        )}
 
-      {task.status === "doing" && <StatusChip />}
+        {task.status === "doing" && <StatusChip />}
 
-      {task.label && <LabelChip label={task.label} onSelect={onSelectLabel} />}
+        {task.label && <LabelChip label={task.label} onSelect={onSelectLabel} />}
 
-      {task.important && (
-        <span
-          className="size-1.5 shrink-0 rounded-full bg-danger"
-          title={copy.task.important}
-          aria-label={copy.task.important}
-        />
-      )}
+        {task.important && (
+          <span
+            className="size-1.5 shrink-0 rounded-full bg-danger"
+            title={copy.task.important}
+            aria-label={copy.task.important}
+          />
+        )}
 
-      {dateText && (
-        <span
-          title={overdue ? copy.task.overdue : undefined}
-          className={cn(
-            "shrink-0 text-[12px] tabular-nums",
-            overdue ? "text-danger" : "text-fg-faint",
-          )}
-        >
-          {overdue && <span className="sr-only">{copy.task.overdue} — </span>}
-          {dateText}
-        </span>
-      )}
+        {dateText && (
+          <span
+            title={overdue ? copy.task.overdue : undefined}
+            className={cn(
+              "shrink-0 text-[12px] tabular-nums",
+              overdue ? "text-danger" : "text-fg-faint",
+            )}
+          >
+            {overdue && <span className="sr-only">{copy.task.overdue} — </span>}
+            {dateText}
+          </span>
+        )}
 
-      <AssigneeDot member={assignee} pulse={pulseAssignee} onSelect={onSelectAssignee} />
+        <AssigneeDot member={assignee} pulse={pulseAssignee} onSelect={onSelectAssignee} />
+      </div>
 
+      {/* an action, not metadata, so it keeps the row's own spacing */}
       <button
         type="button"
         onClick={() => onOpen(task.id)}

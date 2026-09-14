@@ -48,7 +48,17 @@ export function ListSection({
       aria-labelledby={headingId}
       // 68 — layout animation is the thing the preference is actually about
       layout={!reduced}
-      className="mb-6 scroll-mt-6"
+      /*
+        No divider under the last row.
+
+        `docs/04` asks for a hairline *between* rows; every row carries its own
+        `border-b`, so each section ended with a rule that divided nothing —
+        six of them down the page, each one a line the eye stops at for no
+        reason. The section strips the trailing one rather than the row knowing
+        where it sits, because the row appears in three different stacks and
+        none of them is its business.
+      */
+      className="mb-6 scroll-mt-6 [&>div:last-child_[data-task-id]]:border-b-0"
     >
       <header className="mb-1 flex items-baseline gap-2">
         <h2 id={headingId} className="text-[13px] font-medium text-fg-muted">

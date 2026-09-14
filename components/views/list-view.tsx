@@ -447,6 +447,10 @@ export function ListView() {
                 exit={{ height: 0, opacity: 0 }}
                 transition={exit}
                 style={{ overflow: "hidden" }}
+                // the same trailing hairline the sections drop; `last-of-type`
+                // rather than `last-child` because a « voir la semaine » button
+                // can follow the rows
+                className="[&>div:last-of-type]:border-b-0"
               >
                 {doneShows.map((task) => (
                   <TaskRow key={task.id} task={task} onOpen={modal.open} />

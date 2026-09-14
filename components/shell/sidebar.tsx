@@ -31,6 +31,26 @@ const BUCKETS: { bucket: Bucket; label: string }[] = [
  * and is not — so the rail's most prominent block did the least, and the actual
  * navigation was somewhere else entirely.
  */
+/*
+  One ramp for "you are here".
+
+  The rail had three kinds of item and three different answers. A nav link and a
+  bucket both used `bg-surface-hover` for the current one *and* for hover, so
+  pointing at any item made it look like the one you were on — for the buckets
+  identically, since they had no weight change either; only the nav links
+  differed, by a font weight. `FilterItem` was the one that had it right, with
+  hover moving the text and the background reserved for the selection.
+
+  So: hover moves one step up the surface ramp, the current item moves two. The
+  affordance survives — a nav rail should feel like it can be clicked — and the
+  selection is always the stronger of the two, whichever item the pointer is
+  over. `bg-bg` -> `bg-surface` -> `bg-surface-hover` is #0a0a0a -> #111111 ->
+  #161616 in the dark theme, which is small per step and unmistakable across two.
+*/
+const ITEM = "flex items-center rounded-sm px-2 py-1.5 text-left text-[13px]";
+const ITEM_IDLE = "text-fg-muted hover:bg-surface hover:text-fg";
+const ITEM_ON = "bg-surface-hover font-medium text-fg";
+
 export function Sidebar({ workspaceName }: { workspaceName: string }) {
   const tasks = useStore((s) => s.tasks);
   const members = useStore((s) => s.members);
@@ -114,12 +134,7 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-2 rounded-sm px-2 py-1.5 text-[13px]",
-                active
-                  ? "bg-surface-hover font-medium text-fg"
-                  : "text-fg-muted hover:bg-surface-hover hover:text-fg",
-              )}
+              className={cn(ITEM, "gap-2", active ? ITEM_ON : ITEM_IDLE)}
             >
               {/* docs/04: 18px in the sidebar, 16px in rows and buttons */}
               <Icon className="size-[18px] shrink-0" strokeWidth={1.5} />
@@ -143,11 +158,10 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
               disabled={empty}
               aria-current={onList && current === b.bucket ? "true" : undefined}
               className={cn(
-                "flex items-center justify-between rounded-sm px-2 py-1.5 text-left text-[13px]",
-                empty
-                  ? "cursor-default text-fg-faint"
-                  : "text-fg-muted hover:bg-surface-hover hover:text-fg",
-                onList && current === b.bucket && !empty && "bg-surface-hover text-fg",
+                ITEM,
+                "justify-between",
+                empty ? "cursor-default text-fg-faint" : ITEM_IDLE,
+                onList && current === b.bucket && !empty && ITEM_ON,
               )}
             >
               <span>{b.label}</span>
@@ -319,10 +333,7 @@ function FilterItem({
     <button
       type="button"
       onClick={onClick}
-      className={cn(
-        "flex items-center gap-2 rounded-sm px-2 py-1.5 text-left text-[13px]",
-        active ? "bg-surface-hover text-fg" : "text-fg-muted hover:text-fg",
-      )}
+      className={cn(ITEM, "gap-2", active ? ITEM_ON : ITEM_IDLE)}
     >
       {color ? (
         <span

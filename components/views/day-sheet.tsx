@@ -112,7 +112,8 @@ export function DaySheet({
           })}
         </div>
 
-        <div className="px-5 pb-5">
+        {/* the trailing hairline goes here too — see list-section.tsx */}
+        <div className="px-5 pb-5 [&>div:last-of-type]:border-b-0">
           {/*
             Focused on open. The sheet is opened to add something to a
             particular day — the alternative was tabbing past the close button
