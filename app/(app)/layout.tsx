@@ -9,6 +9,7 @@ import { SetupRequired } from "@/components/shell/setup-required";
 import { Unreachable } from "@/components/shell/unreachable";
 import { PreviewBanner } from "@/components/shell/preview-banner";
 import { recentCompletionCutoff } from "@/lib/time";
+import { isTransportFailure } from "@/lib/errors";
 import { copy } from "@/lib/copy";
 
 // per-user by definition: never prerender
@@ -106,7 +107,35 @@ export default async function AppLayout({
     the only version of it where somebody is looking at their own workspace
     being described as empty.
   */
-  if (tasksError) return <Unreachable />;
+  /*
+    One retry before giving up, on a failure that looks like transport.
+
+    Every write in the app already does this — `withRetry` in the store exists
+    because a phone changing cell towers is routine and a single blip should not
+    become a rollback. The first load was the one request with no such guard, so
+    one dropped fetch took the entire app to a full-page error that tells you to
+    go and wake a project which, in the case that prompted this, was running
+    perfectly the whole time.
+
+    Only transport failures. A refusal carries a SQLSTATE — that is the database
+    saying no, and asking again immediately helps nobody.
+  */
+  let failure = tasksError;
+  let rows = tasks;
+
+  if (failure && isTransportFailure(failure)) {
+    await new Promise((r) => setTimeout(r, 400));
+    const retry = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("workspace_id", membership.workspace_id)
+      .or(`status.neq.done,completed_at.gte.${recent}`)
+      .order("position");
+    failure = retry.error;
+    rows = retry.data;
+  }
+
+  if (failure) return <Unreachable code={failure.code ?? null} />;
 
   // already distinct, already Montreal days, already newest first
   const completionDays = (completions ?? []) as string[];
@@ -124,7 +153,8 @@ export default async function AppLayout({
       <div className="flex min-h-0 flex-1">
         <StoreBoot
           initial={{
-            tasks: tasks ?? [],
+            // `rows`, not `tasks` — the retry above may be the attempt that worked
+            tasks: rows ?? [],
             members: members ?? [],
             me: members?.find((m) => m.id === user.id) ?? null,
             workspaceId: membership.workspace_id,

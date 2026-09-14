@@ -293,6 +293,15 @@ export const copy = {
     unreachableBody:
       "Le projet Supabase est probablement en pause — le plan gratuit met un projet en pause après une semaine sans activité. Réveille-le depuis le tableau de bord, puis recharge la page.",
     unreachableNothingLost: "Rien n'est perdu. Tes tâches sont toujours là.",
+    /*
+      Shown when the database answered and said no. That is a different event
+      from not answering at all, and telling somebody to go wake a project that
+      is already awake sends them somewhere there is nothing to do.
+    */
+    refusedTitle: "La base de données a refusé la demande",
+    refusedBody:
+      "Ce n'est pas une panne — le projet répond. Recharge la page ; si ça " +
+      "recommence, note le code ci-dessous.",
     saveFailed: "La modification n'a pas été enregistrée. Réessaie.",
     titleLength: "Un titre fait entre 1 et 500 caractères.",
     alreadyThere: "C'est déjà là.",

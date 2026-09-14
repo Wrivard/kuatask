@@ -1144,3 +1144,26 @@ reviewed. Numbering continues.
      used nowhere. Left alone: it came with shadcn and removing it is not this
      pass's business, but a reader should know it is unreferenced before
      assuming the styling on it matters.
+282. [x] **P0** The error screen asserted a cause it had never checked. It said
+     the project is « probablement en pause » for *any* failed first load, and
+     the owner hit it while the project was `ACTIVE_HEALTHY` and production's own
+     health probe answered in 222 ms. It sent them to a dashboard to wake
+     something that was already running, where there was nothing to do and
+     nothing explaining what they were actually looking at.
+283. [x] **P1** It can tell the two apart, using the predicate the store already
+     has. No SQLSTATE means the fetch never got an answer — a paused project, a
+     dropped connection — and on this plan that usually *is* the pause, so it
+     still says so. A code means the database answered and refused, so the screen
+     says that instead and shows the code, which is the only part that makes a
+     next step possible. Not the driver's message: English jargon naming a
+     constraint nobody here has heard of.
+284. [x] **P0** And the first load was the one request in the app with no retry.
+     Every write goes through `withRetry` because a phone changing cell towers is
+     routine and one blip should not become a rollback — but a single dropped
+     fetch on boot took the whole app to a full-page error. It retries once now,
+     transport failures only, which is most likely what this screen actually was.
+285. [x] **P0** Caught while verifying rather than assuming: the retry recovered
+     the rows and the shell still seeded `StoreBoot` from the *first* attempt's
+     `tasks`, which is null. A recovered load would have rendered « Rien encore.
+     Ajoute ta première tâche. » to somebody with forty — the precise failure the
+     comment ten lines above it exists to prevent, reintroduced by the fix for it.
