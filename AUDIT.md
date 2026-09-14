@@ -1167,3 +1167,30 @@ reviewed. Numbering continues.
      `tasks`, which is null. A recovered load would have rendered « Rien encore.
      Ajoute ta première tâche. » to somebody with forty — the precise failure the
      comment ten lines above it exists to prevent, reintroduced by the fix for it.
+286. [x] **P1** A task said who it belonged to with a 6px dot. That is enough to
+     tell two people apart and not enough to recognise one — the owner asked for
+     the picture on the card, and the reason an avatar went into this app at all
+     still holds: two people dividing work should not be two shades of a small
+     circle. Rows and board cards now carry a 20px face.
+287. **NO** The colour is not lost, which is what makes this a superset rather
+     than a swap. `Avatar` falls back to initials on the person's accent, so
+     somebody who has set no picture still reads as their colour and nothing
+     regresses for them. `docs/04` specified the dot by name and now says this
+     instead, with the reasoning — the same treatment `docs/06` got when clicking
+     a row stopped opening it.
+288. **NO** The dot survives where it is a legend rather than an owner: the
+     assignee lens in the sidebar and the actor beside an activity entry, where
+     the colour *is* the information and faces would be a rail of stacked
+     avatars. Calendar cards keep the coloured left rule for the reason already
+     recorded — a month-grid card is a 4mm bar.
+289. [x] **P2** Unassigned now renders nothing where the dot left a 6px spacer.
+     `Avatar`'s dashed placeholder is right in the modal, where you are choosing
+     an assignee, and wrong on a row, where every unowned task would grow an
+     empty circle asking to be filled — and unassigned is the normal state of
+     something just captured.
+290. [x] **P2** `AssigneeDot` is `AssigneeFace`. The component was never really
+     about the shape — it is identity, the § 8.7 pulse when the other person
+     completes something on your screen, and the optional tap that narrows the
+     list to one person — and a name describing the one thing that changed would
+     have been the next comment to go stale. Two call sites; `accentColor` and
+     `ACCENTS` stay where six other files already import them from.

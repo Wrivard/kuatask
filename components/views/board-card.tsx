@@ -6,7 +6,7 @@ import { AlignLeft, Pencil } from "lucide-react";
 import { TaskCheckbox } from "@/components/task/task-checkbox";
 import { LabelChip } from "@/components/task/label-chip";
 import { StatusChip } from "@/components/task/status-chip";
-import { AssigneeDot } from "@/components/task/assignee-dot";
+import { AssigneeFace } from "@/components/task/assignee-dot";
 import { COMPLETION, spring } from "@/lib/motion";
 import { daysFromToday, formatDueLabel, formatTime, isOverdue } from "@/lib/time";
 import { useStore, type Task } from "@/lib/store";
@@ -175,7 +175,7 @@ function BoardCardImpl({
             </span>
           )}
           <span className="ml-auto">
-            <AssigneeDot member={assignee} />
+            <AssigneeFace member={assignee} />
           </span>
         </div>
       )}

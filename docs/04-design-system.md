@@ -47,7 +47,13 @@ Dark is the default. Light mode is supported and must be equally finished — no
 
 **Accent green is reserved.** It marks three things and nothing else: a completed state, the focus ring, and today's marker in the calendar. It is never a card background, never a gradient, never decorative. Its scarcity is what makes a completion register.
 
-**Identity dots are the only other colour.** Each user picks an accent stored in `profiles.accent`. It appears as a 6px dot next to assigned tasks. Keep the palette to six options, all legible on both themes.
+**Identity is the only other colour.** Each user picks an accent stored in `profiles.accent`. Keep the palette to six options, all legible on both themes.
+
+On a task it is **a 20px face**, not the 6px dot this originally specified. A dot is enough to tell two people apart and not enough to recognise one, and the owner asked for the picture on the card. The colour is not lost: with no picture set, the face is the person's initials on their accent, so it still reads as their colour and nothing regresses for whoever has not uploaded one. It is a superset of the dot rather than a replacement.
+
+The 6px dot survives where it is a legend rather than an owner — the assignee lens in the sidebar, the actor beside an activity entry — because there the colour *is* the information and a face would be six avatars stacked down a rail.
+
+Calendar cards are the exception: a month-grid card is a 4mm bar, so identity stays the coloured left rule there. See `docs/06`.
 
 **One border-radius per role**, not one for everything: `6px` on inputs and buttons, `8px` on task rows, `10px` on the modal.
 
