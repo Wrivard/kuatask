@@ -1079,3 +1079,20 @@ reviewed. Numbering continues.
 270. [x] **P2** `npm run bench` printed a Node module-type warning over its own
      output, the same one `verify:db` had. Its column padding was also one label
      too narrow to hold the corrected name.
+271. [x] **P1** Escape closed the wrong thing. With the modal's date grid open it
+     closed the whole modal — you meant to stop picking a date and lost the task
+     you were looking at. Radix's `onEscapeKeyDown` fires before it decides to
+     close, and `preventDefault` there keeps the dialog open; a React handler on
+     the content cannot do it, because the dismissal listener is on the document
+     and never sees the stopped propagation.
+272. [x] **P1** And the composer I opened inside board columns in 213 had no way
+     out at all. Escape was handled for search and for the suggestion list, but
+     nothing closed the composer itself, so opening one and changing your mind
+     left it open until you created something — a trap rather than a shortcut.
+     `onCancel` is passed only by surfaces that can be dismissed: the list's
+     composer is permanent and passes nothing, so Escape there behaves as before.
+273. **NO** Checked the rest of the stack for the same shape. Escape order inside
+     the composer is already innermost-first — the suggestion list takes it, then
+     search, and only then the composer. Stacked Radix layers (a task modal over
+     the day sheet, the palette, the shortcut sheet) are handled by
+     DismissableLayer, which gives it to the topmost.

@@ -467,6 +467,7 @@ export function BoardView() {
                         draftScope={`board:${groupBy}:${column.key}`}
                         takeFocus
                         onDone={() => setAdding(null)}
+                        onCancel={() => setAdding(null)}
                       />
                     </div>
                   ) : (

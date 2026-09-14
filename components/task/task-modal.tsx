@@ -254,6 +254,21 @@ export function TaskModal({
       <DialogContent
         onKeyDown={handleKeyDown}
         /*
+          Escape closes the innermost thing, not the outermost.
+
+          With the date grid open, Escape used to close the whole modal: you
+          meant to stop picking a date and lost the task you were looking at.
+          Radix calls this before it decides to close, and `preventDefault`
+          keeps the dialog open — which is the only way to intercept it, since
+          the dismissal listener is on the document and a React handler on the
+          content cannot stop it from bubbling there.
+        */
+        onEscapeKeyDown={(e) => {
+          if (!picking) return;
+          e.preventDefault();
+          setPicking(false);
+        }}
+        /*
           The one shadow in the app.
 
           `docs/04` bans drop shadows and carves out exactly one exception —

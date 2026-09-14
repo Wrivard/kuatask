@@ -33,6 +33,7 @@ export function TaskComposer({
   draftScope,
   takeFocus = false,
   onDone,
+  onCancel,
   search,
 }: {
   defaultDueOn?: string | null;
@@ -60,6 +61,16 @@ export function TaskComposer({
   draftScope?: string;
   /** Called after a task is created, for surfaces that close afterwards. */
   onDone?: () => void;
+  /**
+   * Escape, when there is nothing smaller to close first.
+   *
+   * Only surfaces that can be dismissed pass this. A board column opens a
+   * composer on demand and so needs a way out — without one it stayed open until
+   * you created something, which is a trap rather than a shortcut. The list's
+   * composer is permanent and passes nothing, so Escape there does what it
+   * always did.
+   */
+  onCancel?: () => void;
   /**
    * Focus on mount. Off in the list, where the composer sits above six sections
    * somebody may have come to read; on in the day sheet, which is opened to put
@@ -341,6 +352,13 @@ export function TaskComposer({
           if (e.key === "Enter") {
             e.preventDefault();
             submit(e.shiftKey);
+            return;
+          }
+
+          // last, so the suggestion list above gets Escape before the composer does
+          if (e.key === "Escape" && onCancel) {
+            e.preventDefault();
+            onCancel();
           }
         }}
         onPaste={onPaste}
