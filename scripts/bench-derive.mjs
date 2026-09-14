@@ -44,7 +44,7 @@ const bench = (name, fn) => {
   const t0 = performance.now();
   for (let i = 0; i < 1000; i += 1) fn();
   const ms = (performance.now() - t0) / 1000;
-  console.log(`  ${name.padEnd(34)} ${ms.toFixed(4)} ms/call`);
+  console.log(`  ${name.padEnd(38)} ${ms.toFixed(4)} ms/call`);
 };
 
 console.log(`\n${N} tasks — one store write costs each of these once:`);
@@ -56,10 +56,23 @@ bench("sidebar bucket counts", () => {
   }
   return map;
 });
-bench("streak from every completed_at", () => {
-  const local = tasks.map((t) => t.completed_at).filter(Boolean).map(time.instantToDay);
-  return time.streakFromDays(local, day);
-});
+/*
+  The streak, as the client actually computes it now.
+
+  This used to map `instantToDay` over every `completed_at` in the store and
+  then count the run — which is exactly the work migration 0016 moved into
+  Postgres. `completion_days()` returns distinct Montreal days already, so the
+  browser receives at most a few hundred dates and does nothing but walk them.
+
+  Measuring the old shape was worse than not measuring: it reported a cost no
+  longer paid, on a code path no longer taken, and the number would have looked
+  reassuring while telling you nothing about the app.
+*/
+const completionDays = [
+  ...new Set(tasks.map((t) => t.completed_at).filter(Boolean).map(time.instantToDay)),
+];
+bench("streak from the days Postgres returns", () =>
+  time.streakFromDays(completionDays, day));
 bench("board columns (by person)", () =>
   grouping.buildColumns("person", tasks, members, members[0], () => "green", new Map(), day));
 bench("board columns (by due)", () =>

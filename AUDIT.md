@@ -1060,3 +1060,22 @@ reviewed. Numbering continues.
      hanging off the title, which is what they are. The board card already did
      this; the list is the busier of the two and had the looser spacing. The edit
      button stays outside it: an action, not metadata.
+268. **NO** Measured before optimising, and found nothing worth optimising. All
+     four per-write derives total 0.16 ms at 2000 tasks — a tenth of a frame. The
+     bundle is already split as far as the locked stack allows: `cmdk` and the
+     shortcut sheet are dynamic and absent from the shared chunk, and what
+     remains is React, Next, Supabase and motion. Cold load against § 8.8's
+     1.2 s was already measured at 2095 ms and documented as unreachable. Written
+     down as a non-finding, because "I looked and there is nothing here" is worth
+     recording — otherwise the next pass measures it again.
+269. [x] **P1** The benchmark was measuring code that no longer runs. It mapped
+     `instantToDay` over every `completed_at` in the store and then counted the
+     run — exactly the work migration 0016 moved into Postgres. A number for a
+     path nobody takes is worse than no number: it looks reassuring and tells you
+     nothing about the app. Pointed at the live shape, it also *shows* the effect
+     of that migration rather than hiding it — 0.027 ms → 0.0066 ms, and now flat
+     from 500 tasks to 2000, because the streak works on distinct days instead of
+     scaling with the task list.
+270. [x] **P2** `npm run bench` printed a Node module-type warning over its own
+     output, the same one `verify:db` had. Its column padding was also one label
+     too narrow to hold the corrected name.

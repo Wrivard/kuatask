@@ -13,7 +13,7 @@
     "verify": "npm run verify:logic && npm run verify:store && npm run verify:contrast && npm run verify:db && npm run verify:invites",
     "verify:store": "node --experimental-strip-types scripts/verify-store.mjs",
     "verify:invites": "node scripts/verify-invites.mjs",
-    "bench": "node scripts/bench-derive.mjs",
+    "bench": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/bench-derive.mjs",
     "size": "node scripts/bundle-size.mjs",
     "backup": "node scripts/backup.mjs",
     "hooks": "git config core.hooksPath .githooks",
