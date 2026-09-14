@@ -73,7 +73,7 @@ export function ProfileClient() {
             if (next && next !== me.display_name) updateProfile({ display_name: next });
             else setName(me.display_name);
           }}
-          className="h-9 max-w-[280px] rounded-sm text-[14px]"
+          className="h-9 max-w-[280px] text-[14px]"
         />
         <p className="mt-1.5 text-[12px] text-fg-faint">{copy.settings.displayNameHint}</p>
       </Field>
@@ -99,7 +99,7 @@ export function ProfileClient() {
                 setAvatarBroken(false);
                 if (next !== (me.avatar_url ?? null)) updateProfile({ avatar_url: next });
               }}
-              className="h-8 rounded-md border-border bg-bg text-[13px] dark:bg-bg"
+              className=""
             />
             <p className={cn("text-[12px]", avatarBroken ? "text-danger" : "text-fg-faint")}>
               {avatarBroken ? copy.settings.avatarBroken : copy.settings.avatarHint}

@@ -1096,3 +1096,25 @@ reviewed. Numbering continues.
      search, and only then the composer. Stacked Radix layers (a task modal over
      the day sheet, the palette, the shortcut sheet) are handled by
      DismissableLayer, which gives it to the topmost.
+274. [x] **P1** Every input in the app was fighting shadcn's design system
+     instead of using this one. The base `Input` shipped `rounded-lg` — 10px, the
+     *modal's* radius, on an input the doc gives 6px — plus `border-input` and
+     `dark:bg-input/30`, neither of which is a token this app defines, and
+     `focus-visible:ring-3` in shadcn's ring colour.
+275. [x] **P0** That last one meant inputs were the only control in the app with
+     *two* focus rings and neither was the specified one: the 3px shadcn ring sat
+     on top of the 1px accent outline `globals.css` gives every focusable
+     element, because a ring and an outline are different properties and neither
+     replaced the other. `docs/04` § Focus asks for exactly one, 1px accent at
+     2px offset.
+276. [x] **P1** Six call sites each patched a different subset of it, which is
+     why two fields in the same settings form did not match — 36px/14px/6px next
+     to 32px/13px/8px, one on shadcn's translucent grey and one on the app's
+     ground. Fixed at the base so they cannot drift again; call sites now set
+     only height and width, which is the part that legitimately varies.
+277. **NO** The base keeps `bg-bg` rather than the composer's `bg-surface`. One
+     value cannot be right for both grounds: inside the modal, which is
+     `bg-surface`, a `bg-bg` field reads as a recessed well; on a settings page,
+     which is `bg-bg`, it reads as an outline and the 3:1 `--color-control`
+     border carries it. Most editing happens in the modal, and recessed is the
+     stronger affordance of the two, so that is the one to optimise for.

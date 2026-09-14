@@ -137,7 +137,7 @@ export default function LoginPage() {
               placeholder={copy.auth.emailPlaceholder}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-10 rounded-sm text-[15px]"
+              className="h-10 text-[15px]"
             />
             <Button
               type="submit"

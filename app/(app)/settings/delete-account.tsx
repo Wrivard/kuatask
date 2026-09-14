@@ -73,7 +73,7 @@ export function DeleteAccount() {
         autoComplete="off"
         value={typed}
         onChange={(e) => setTyped(e.target.value)}
-        className="mt-1.5 h-8 rounded-md border-border bg-bg text-[13px] dark:bg-bg"
+        className="mt-1.5"
       />
 
       <div className="mt-3 flex items-center gap-2">

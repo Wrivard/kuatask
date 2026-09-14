@@ -401,7 +401,7 @@ export function TaskModal({
                       this French app, and at 104px the meridiem was cut to "PI".
                       Nothing can force 24-hour here, so the box fits both.
                     */
-                    className="h-7 w-[136px] rounded-md border-border bg-bg text-[12px] dark:bg-bg"
+                    className="h-7 w-[136px] text-[12px]"
                   />
                   <button
                     type="button"
@@ -451,7 +451,7 @@ export function TaskModal({
               value={buf.label}
               onChange={(e) => setBuf((b) => ({ ...b, label: e.target.value }))}
               placeholder={copy.task.label}
-              className="h-8 max-w-[260px] rounded-md border-border bg-bg text-[13px] dark:bg-bg"
+              className="max-w-[260px]"
             />
             <datalist id="kua-labels">
               {knownLabels.map((l) => (

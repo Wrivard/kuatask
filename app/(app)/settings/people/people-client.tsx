@@ -227,7 +227,7 @@ export function PeopleClient({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={copy.people.invitePlaceholder}
-              className="h-9 max-w-[320px] rounded-sm text-[14px]"
+              className="h-9 max-w-[320px] text-[14px]"
             />
             <Button
               type="submit"
