@@ -25,7 +25,9 @@ function Command({
     <CommandPrimitive
       data-slot="command"
       className={cn(
-        "flex size-full flex-col overflow-hidden rounded-xl! bg-popover p-1 text-popover-foreground",
+        // docs/04 has three radii — 6px controls, 8px rows, 10px modals. 14px
+        // is not one of them, and the palette is a modal.
+        "flex size-full flex-col overflow-hidden rounded-lg! bg-popover p-1 text-popover-foreground",
         className
       )}
       {...props}
@@ -54,7 +56,7 @@ function CommandDialog({
       </DialogHeader>
       <DialogContent
         className={cn(
-          "top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0",
+          "top-1/3 translate-y-0 overflow-hidden rounded-lg! p-0",
           className
         )}
         showCloseButton={showCloseButton}
@@ -71,7 +73,14 @@ function CommandInput({
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
   return (
     <div data-slot="command-input-wrapper" className="p-1 pb-0">
-      <InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
+      {/*
+        The same field the rest of the app uses: 6px, a `--color-control`
+        border at 3:1, and the app's ground. It was `bg-input/30`, a
+        translucent grey that is `--control` at 30% and not one of the three
+        surfaces the ramp defines — the one field in the app sitting on a
+        colour that exists nowhere else.
+      */}
+      <InputGroup className="h-8! rounded-sm! border-control bg-bg shadow-none! *:data-[slot=input-group-addon]:pl-2!">
         <CommandPrimitive.Input
           data-slot="command-input"
           className={cn(

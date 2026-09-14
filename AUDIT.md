@@ -1098,15 +1098,21 @@ reviewed. Numbering continues.
      DismissableLayer, which gives it to the topmost.
 274. [x] **P1** Every input in the app was fighting shadcn's design system
      instead of using this one. The base `Input` shipped `rounded-lg` — 10px, the
-     *modal's* radius, on an input the doc gives 6px — plus `border-input` and
-     `dark:bg-input/30`, neither of which is a token this app defines, and
-     `focus-visible:ring-3` in shadcn's ring colour.
-275. [x] **P0** That last one meant inputs were the only control in the app with
-     *two* focus rings and neither was the specified one: the 3px shadcn ring sat
-     on top of the 1px accent outline `globals.css` gives every focusable
-     element, because a ring and an outline are different properties and neither
-     replaced the other. `docs/04` § Focus asks for exactly one, 1px accent at
-     2px offset.
+     *modal's* radius, on an input the doc gives 6px — plus `dark:bg-input/30`, a
+     translucent grey that is not one of the three surfaces this app's ramp
+     defines, and a second focus ring on top of the specified one.
+275. [x] **P1** That last one meant inputs were the only control in the app with
+     *two* focus indicators: a 3px ring sat on top of the 1px accent outline
+     `globals.css` gives every focusable element, because a ring and an outline
+     are different properties and neither replaced the other. `docs/04` § Focus
+     asks for exactly one.
+
+     Corrected after checking rather than assuming: the ring was **not** a
+     foreign colour. `--ring` maps to `--green` and `--input` to `--control`, so
+     shadcn's tokens are wired to this app's palette and that ring was the accent
+     at 50%. The extra indicator is the defect; the 1px outline underneath was
+     already exactly what the spec asks for. Downgraded from P0 — an accent glow
+     around a focused field is off-system, not wrong.
 276. [x] **P1** Six call sites each patched a different subset of it, which is
      why two fields in the same settings form did not match — 36px/14px/6px next
      to 32px/13px/8px, one on shadcn's translucent grey and one on the app's
@@ -1118,3 +1124,23 @@ reviewed. Numbering continues.
      which is `bg-bg`, it reads as an outline and the 3:1 `--color-control`
      border carries it. Most editing happens in the modal, and recessed is the
      stronger affordance of the two, so that is the one to optimise for.
+278. [x] **P2** The command palette was the last surface on a colour that exists
+     nowhere else. Its search field used `bg-input/30` — `--control` at 30%, a
+     translucent grey that is not one of the three surfaces the ramp defines —
+     and both it and the palette's shell were `rounded-xl`, 14px, which is not
+     one of the three radii `docs/04` names. It is a modal, so it is 10px, and
+     its field is now the same 6px `--color-control` field as everywhere else.
+279. **NO** The shadcn tokens are wired to this app's palette — `--popover` to
+     `--surface`, `--input` to `--control`, `--ring` to `--green`, `--border` to
+     `--hairline`. Checked rather than assumed, and it corrected item 275: the
+     extra focus ring inputs carried was the *accent* at 50%, not a foreign
+     colour. Two indicators where the spec asks for one is still the defect; the
+     colour was never wrong.
+280. [x] **P2** `DialogContent`'s base radius was 14px. Every one of the three
+     dialogs already overrode it to 10px, so nothing on screen changed — but the
+     next dialog would have inherited the wrong one, which is the exact drift
+     this pass keeps finding. Fixed at the base rather than in a fourth override.
+281. **NO** `DialogFooter` is dead — defined in `components/ui/dialog.tsx` and
+     used nowhere. Left alone: it came with shadcn and removing it is not this
+     pass's business, but a reader should know it is unreferenced before
+     assuming the styling on it matters.
