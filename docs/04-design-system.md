@@ -68,8 +68,11 @@ Metadata           12px / 400 / fg-faint
 Page title         22px / 600 / -0.02em
 Composer input     15px / 400                      matches task title exactly
 Calendar numeral   12px Geist Mono / tabular-nums
+Micro-label        11px / 500 / uppercase / 0.06em / fg-faint
 Button             14px / 500
 ```
+
+The micro-label is the only role that was not in this list and had to be added to it. It names a field in the modal and a band in the calendar's week view, and because nobody had written it down it existed at 11px in one place and 10px in the other, plus an untracked variant for the date picker's weekday initials. It now lives in `lib/type.ts` as one string, so a fourth spelling cannot quietly appear. Use it for a label *over* something; `Section header` still names a region, and `Metadata` is still what sits beside a task.
 
 The task title is the one to get right. It is 90% of the pixels a user reads. Test it at 15px before assuming.
 

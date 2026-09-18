@@ -16,6 +16,7 @@ import { useStore, type Task } from "@/lib/store";
 import { useSetStatusWithFeedback, useDeleteWithFeedback } from "@/lib/completion";
 import { useAutoGrow } from "@/lib/auto-grow";
 import { textPatch } from "@/lib/edit";
+import { MICRO_LABEL } from "@/lib/type";
 import { labelsInUse } from "@/lib/suggest";
 import { extractLinks } from "@/lib/links";
 import { copy } from "@/lib/copy";
@@ -448,6 +449,7 @@ export function TaskModal({
             */}
             <Input
               list="kua-labels"
+              aria-label={copy.task.label}
               value={buf.label}
               onChange={(e) => setBuf((b) => ({ ...b, label: e.target.value }))}
               placeholder={copy.task.label}
@@ -540,18 +542,32 @@ export function TaskModal({
   same size and weight as the values under it, so the eye had nothing to anchor
   on and the whole panel read as one undifferentiated column.
 */
-function FieldLabel({ children }: { children: React.ReactNode }) {
+function FieldLabel({ id, children }: { id?: string; children: React.ReactNode }) {
   return (
-    <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-fg-faint">
+    <span id={id} className={MICRO_LABEL}>
       {children}
     </span>
   );
 }
 
+/**
+ * A labelled field, announced as one.
+ *
+ * The label was a bare `<span>` sitting above the control and connected to it by
+ * nothing — visible to anybody looking at the screen and absent for anybody not.
+ * A screen reader reached « Statut » as loose text, then three unnamed buttons.
+ *
+ * `role="group"` with `aria-labelledby` rather than a `<label>`, because half of
+ * these hold a *set* of controls — the status chips, the quick dates, the six
+ * accent swatches — and a `<label>` may name exactly one. The single-control
+ * fields carry their own `aria-label` as well, so they are named twice over
+ * rather than only by the group they sit in.
+ */
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const id = React.useId();
   return (
-    <div className="flex flex-col gap-2">
-      <FieldLabel>{label}</FieldLabel>
+    <div role="group" aria-labelledby={id} className="flex flex-col gap-2">
+      <FieldLabel id={id}>{label}</FieldLabel>
       {children}
     </div>
   );

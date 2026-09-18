@@ -1239,3 +1239,30 @@ reviewed. Numbering continues.
      it belongs with the rule it serves. `parse-fr`'s stays private to date
      parsing; coupling search to the French date parser to save two lines would
      be the worse trade.
+
+### Deep UI audit — accessibility, type roles, naming
+
+299. **NO** Swept first rather than fixing what was in front of me. Clean: every
+     `<img>` carries an alt, the polite live region exists and is used, headings
+     are present on every screen, and all three icon-only buttons a crude regex
+     flagged turned out to render their label through `{children}`. Recorded so
+     the next sweep does not re-run the same four checks.
+300. [x] **P1** Every labelled field in the app was nameless to a screen reader.
+     `Field` rendered its label as a bare `<span>` above the control, connected
+     to it by nothing — visible to anybody looking at the screen and absent for
+     anybody not. A screen reader reached « Statut » as loose text, then three
+     unnamed buttons. It is `role="group"` with `aria-labelledby` now, not a
+     `<label>`, because half of these hold a *set* of controls — the status
+     chips, the quick dates, the six accent swatches — and a `<label>` may name
+     exactly one.
+301. [x] **P1** The login email and the invite address had only a placeholder,
+     which is not a label: it disappears the moment you type, which is precisely
+     when you might want to check what the field was. Both carry an `aria-label`
+     now, as does the modal's own label input, so single-control fields are named
+     twice over rather than only by the group they sit in.
+302. [x] **P2** A sixth type role existed without being written down. The
+     uppercase, letter-spaced micro-label sat at 11px over a modal field and 10px
+     over a calendar band, with an untracked 11px third spelling in the date
+     picker — one role, three renderings, none of them in `docs/04`. It is one
+     string in `lib/type.ts` now and a named row in the scale, so a fourth cannot
+     appear quietly.

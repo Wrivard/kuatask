@@ -17,6 +17,7 @@ import { CARD_PITCH_GUESS, CARD_ROW, CELL_CHROME } from "./calendar-day-cell";
 import { useRowsThatFit } from "@/lib/fit";
 import { useTaskModal } from "@/lib/events";
 import { Chip } from "@/components/ui/chip";
+import { MICRO_LABEL } from "@/lib/type";
 import {
   formatMonthYear,
   formatDueLabel,
@@ -377,7 +378,7 @@ export function CalendarView() {
               </span>
               {bandsFor(byDay.get(day) ?? []).map(({ band, tasks: banded }) => (
                 <React.Fragment key={band}>
-                  <span className="mt-0.5 text-[10px] uppercase tracking-[0.06em] text-fg-faint">
+                  <span className={cn("mt-0.5", MICRO_LABEL)}>
                     {copy.calendar.bands[band]}
                   </span>
                   {banded.map((task) => (

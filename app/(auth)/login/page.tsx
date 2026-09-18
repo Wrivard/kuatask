@@ -131,6 +131,8 @@ export default function LoginPage() {
             <Input
               type="email"
               name="email"
+              // a placeholder is not a label: it goes away the moment you type
+              aria-label={copy.auth.emailPlaceholder}
               autoComplete="email"
               autoFocus
               required

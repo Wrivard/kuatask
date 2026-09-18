@@ -224,6 +224,7 @@ export function PeopleClient({
           >
             <Input
               type="email"
+              aria-label={copy.people.invitePlaceholder}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={copy.people.invitePlaceholder}
