@@ -33,7 +33,7 @@ export function SignOutButton() {
       type="button"
       variant="outline"
       onClick={() => void signOut()}
-      className="h-10 rounded-sm text-[14px] font-medium"
+      className="h-10"
     >
       {copy.auth.signOut}
     </Button>

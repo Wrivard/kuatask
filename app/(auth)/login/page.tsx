@@ -144,7 +144,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={sending || email.trim() === ""}
-              className="h-10 rounded-sm text-[14px] font-medium"
+              className="h-10"
             >
               {sending ? copy.auth.sending : copy.auth.send}
             </Button>
@@ -159,7 +159,7 @@ export default function LoginPage() {
               variant="outline"
               disabled={cooldown > 0 || sending}
               onClick={() => void send(sentTo)}
-              className="h-10 rounded-sm text-[14px] font-medium"
+              className="h-10"
             >
               {cooldown > 0 ? copy.auth.resendIn(cooldown) : copy.auth.resend}
             </Button>

@@ -480,7 +480,7 @@ export function TaskModal({
                 deleteTask(task.id);
                 onClose();
               }}
-              className="h-8 rounded-sm px-2 text-[13px] text-danger hover:text-danger"
+              className="h-8 px-2 text-[13px] text-danger hover:text-danger"
             >
               {copy.task.delete}
             </Button>

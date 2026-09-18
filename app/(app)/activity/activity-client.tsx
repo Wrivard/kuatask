@@ -174,7 +174,7 @@ export function ActivityClient({
                       variant="ghost"
                       disabled={busy !== null}
                       onClick={() => void restore(entry)}
-                      className="h-7 shrink-0 rounded-sm px-2 text-[12px] text-fg-muted hover:text-fg"
+                      className="h-7 shrink-0 px-2 text-[12px] text-fg-muted hover:text-fg"
                     >
                       {busy === entry.id ? copy.activity.restoring : copy.activity.restore}
                     </Button>

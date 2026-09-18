@@ -120,7 +120,7 @@ export function PeopleClient({
                       copy.people.roleChanged,
                     )
                   }
-                  className="h-7 shrink-0 rounded-sm px-2 text-[12px] text-fg-muted hover:text-fg"
+                  className="h-7 shrink-0 px-2 text-[12px] text-fg-muted hover:text-fg"
                 >
                   {m.role === "admin" ? copy.people.demote : copy.people.promote}
                 </Button>
@@ -131,7 +131,7 @@ export function PeopleClient({
                   variant="ghost"
                   disabled={busy}
                   onClick={() => void run(() => removeMember(m.userId))}
-                  className="h-7 rounded-sm px-2 text-[12px] text-fg-muted hover:text-danger"
+                  className="h-7 px-2 text-[12px] text-fg-muted hover:text-danger"
                 >
                   {copy.people.remove}
                 </Button>
@@ -183,7 +183,7 @@ export function PeopleClient({
                       variant="ghost"
                       disabled={busy}
                       onClick={() => void run(() => resendInvite(i.id), copy.people.resent)}
-                      className="h-7 shrink-0 rounded-sm px-2 text-[12px] text-fg-muted hover:text-fg"
+                      className="h-7 shrink-0 px-2 text-[12px] text-fg-muted hover:text-fg"
                     >
                       {copy.people.resend}
                     </Button>
@@ -192,7 +192,7 @@ export function PeopleClient({
                       variant="ghost"
                       disabled={busy}
                       onClick={() => void run(() => revokeInvite(i.id))}
-                      className="h-7 shrink-0 rounded-sm px-2 text-[12px] text-fg-muted hover:text-danger"
+                      className="h-7 shrink-0 px-2 text-[12px] text-fg-muted hover:text-danger"
                     >
                       {copy.people.revoke}
                     </Button>
@@ -233,7 +233,7 @@ export function PeopleClient({
             <Button
               type="submit"
               disabled={busy || email.trim() === ""}
-              className="h-9 rounded-sm text-[14px] font-medium"
+              className="h-9"
             >
               {copy.people.inviteSend}
             </Button>

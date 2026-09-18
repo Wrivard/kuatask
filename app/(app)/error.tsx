@@ -43,7 +43,7 @@ export default function AppError({
             type="button"
             variant="outline"
             onClick={reset}
-            className="h-10 rounded-sm text-[14px] font-medium"
+            className="h-10"
           >
             {copy.error.retry}
           </Button>

@@ -1411,3 +1411,20 @@ reviewed. Numbering continues.
 331. [x] **P2** So the title hides below `sm` and the search box takes the row.
      The bottom bar already says which view you are on, which makes the title the
      repetition and the search box the thing unreachable any other way.
+332. [x] **P1** The stats page rendered a failed read as zeros. Every number
+     falling to nought is a perfectly plausible state — nobody finished anything
+     today is a real week — so a broken query would have rendered as a
+     true-looking fact rather than as a failure. The shell carries the same guard
+     for the task list and says why in a comment ten lines long: an empty result
+     and a failed one look identical from the inside and mean opposite things. I
+     wrote the page without it anyway, an hour after re-reading that comment.
+333. [x] **P2** Every `Button` call site restated the base. Ten of eleven
+     repeated `rounded-sm` and five repeated `text-[14px] font-medium`, all of
+     which the base now provides after 309 — overrides that no longer override
+     anything, and would have silently pinned the old values if the base ever
+     moved again. What is left in each is only what genuinely differs: height,
+     padding, colour.
+334. **NO** The login page audits clean. Errors carry `role="alert"`, the field
+     has a real label as well as its placeholder, `autoComplete` and `autoFocus`
+     are set, the submit disables while sending, and the resend has a cooldown.
+     Nothing to change.

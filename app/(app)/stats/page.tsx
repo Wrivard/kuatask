@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/shell/header";
+import { Unreachable } from "@/components/shell/unreachable";
 import { StatsClient, type PersonStats } from "./stats-client";
 import { copy } from "@/lib/copy";
 
@@ -29,10 +30,21 @@ export default async function StatsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: rows }, { data: profiles }] = await Promise.all([
+  const [{ data: rows, error: statsError }, { data: profiles }] = await Promise.all([
     supabase.rpc("person_stats"),
     supabase.from("profiles").select("id, display_name, accent, avatar_url"),
   ]);
+
+  /*
+    A failed read is not a quiet week.
+
+    Without this the page falls through to zero for everybody, which is a
+    perfectly plausible number — nobody finished anything today is a real state —
+    so a broken query would render as a true-looking fact. The shell carries the
+    same guard for the task list and the same reasoning: an empty result and a
+    failed one look identical from the inside and mean opposite things.
+  */
+  if (statsError) return <Unreachable code={statsError.code ?? null} />;
 
   /*
     Everybody appears, including whoever has finished nothing. `person_stats`

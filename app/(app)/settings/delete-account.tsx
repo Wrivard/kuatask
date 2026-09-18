@@ -82,7 +82,7 @@ export function DeleteAccount() {
           variant="ghost"
           disabled={!matches || busy}
           onClick={() => void confirm()}
-          className="h-8 rounded-sm px-2 text-[13px] text-danger hover:text-danger"
+          className="h-8 px-2 text-[13px] text-danger hover:text-danger"
         >
           {busy ? copy.settings.deleting : copy.settings.deleteAccountDo}
         </Button>
