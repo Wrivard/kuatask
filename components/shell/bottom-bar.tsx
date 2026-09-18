@@ -2,13 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { List, Columns3, CalendarDays, Plus, Users, type LucideIcon } from "lucide-react";
+import * as React from "react";
+import {
+  List,
+  Columns3,
+  CalendarDays,
+  Plus,
+  Users,
+  History,
+  BarChart3,
+  MoreHorizontal,
+  type LucideIcon,
+} from "lucide-react";
+import dynamic from "next/dynamic";
 import { focusComposer } from "@/lib/events";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
 /**
- * Mobile navigation, four items, replacing the sidebar under md.
+ * Mobile navigation, replacing the sidebar under lg.
  *
  * Padded by the bottom safe-area inset so it cannot sit under the home
  * indicator on a notched device, and every target clears 44px. No keyboard
@@ -18,11 +30,40 @@ const ITEMS: { href: string; icon: LucideIcon; label: string }[] = [
   { href: "/", icon: List, label: copy.nav.list },
   { href: "/board", icon: Columns3, label: copy.nav.board },
   { href: "/calendar", icon: CalendarDays, label: copy.nav.calendar },
+];
+
+/*
+  Loaded when it is opened, not on every page.
+
+  Putting Radix's Sheet in this file put 14 kB of dialog into the first load of
+  all six routes — for a menu that is mobile-only and opened rarely. The day
+  sheet has always been dynamic for the same reason; this one forgot to be, and
+  the route sizes said so immediately.
+*/
+const MoreSheet = dynamic(() => import("./more-sheet").then((m) => m.MoreSheet));
+
+/*
+  The destinations that do not fit on the bar.
+
+  Six routes, five slots — and the rail that holds all six is `lg:` only, so
+  Activité and Classement had no way in on a phone at all. Adding them would
+  have made seven tabs at 54px each, which is narrower than the word
+  « Calendrier ».
+
+  So the bar keeps what you move between while working, and the rest is one tap
+  behind « Plus ». Réglages goes here rather than staying on the bar because it
+  is the one you open least: changing your colour is not navigation.
+*/
+const MORE: { href: string; icon: LucideIcon; label: string }[] = [
+  { href: "/activity", icon: History, label: copy.nav.activity },
+  { href: "/stats", icon: BarChart3, label: copy.nav.stats },
   { href: "/settings", icon: Users, label: copy.nav.settings },
 ];
 
 export function BottomBar() {
   const pathname = usePathname();
+
+  const [moreOpen, setMoreOpen] = React.useState(false);
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -36,6 +77,15 @@ export function BottomBar() {
       {ITEMS.map(({ href, icon, label }) => (
         <Tab key={href} href={href} icon={icon} label={label} active={isActive(href)} />
       ))}
+
+      <Tab
+        icon={MoreHorizontal}
+        label={copy.nav.more}
+        onClick={() => setMoreOpen(true)}
+        active={MORE.some((m) => isActive(m.href))}
+      />
+
+      <MoreSheet open={moreOpen} onOpenChange={setMoreOpen} items={MORE} isActive={isActive} />
     </nav>
   );
 }

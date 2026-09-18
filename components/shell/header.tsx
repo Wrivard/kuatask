@@ -22,12 +22,22 @@ import { SearchBar } from "./search-bar";
 export function Header({ title }: { title: string }) {
   return (
     <header className="flex h-14 items-center gap-4 border-b border-border px-6">
-      <h1 className="min-w-0 shrink-0 truncate text-[22px] font-semibold tracking-[-0.02em]">
+      {/*
+        Hidden on a phone, where 255px has to hold a title and a search box and
+        « Aujourd'hui » alone is 133 of them. The bottom bar already says which
+        view you are on, so the title is the repetition and the search box is the
+        thing you cannot get at any other way.
+
+        `flex-1`, not `shrink-0`: `truncate` only works on an item allowed to
+        shrink, so the two together meant a long title pushed the search box and
+        the ring off the end instead of ellipsing.
+      */}
+      <h1 className="hidden min-w-0 flex-1 truncate text-[22px] font-semibold tracking-[-0.02em] sm:block">
         {title}
       </h1>
 
-      {/* takes the slack, so the title keeps its width and the ring stays put */}
-      <div className="flex min-w-0 flex-1 justify-end">
+      {/* fixed, so the title gives way first and the ring never moves */}
+      <div className="flex min-w-0 flex-1 justify-end sm:w-[220px] sm:flex-none lg:w-[280px]">
         <SearchBar />
       </div>
 

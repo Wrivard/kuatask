@@ -82,7 +82,8 @@ export function SearchBar() {
   }
 
   return (
-    <div className="relative w-full max-w-[280px]">
+    // the header decides how wide; this only fills what it is given
+    <div className="relative w-full">
       <Search
         className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-fg-faint"
         strokeWidth={1.5}

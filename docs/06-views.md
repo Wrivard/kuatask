@@ -25,7 +25,11 @@
 
 ### Sidebar
 
-Fixed 220px. Collapses to an icon rail under 1024px. Becomes a bottom bar on mobile with four items: Liste, Calendrier, Ajouter, Réglages.
+Fixed 220px. Collapses to an icon rail under 1024px. Becomes a bottom bar on mobile.
+
+The bar carries what you move between while working — Ajouter, Liste, Tableau, Calendrier — and a **Plus** tab holding Activité, Classement and Réglages. Six routes do not fit in five slots: seven tabs on a 375px screen is 54px each, narrower than the word « Calendrier ». Réglages is in the overflow rather than on the bar because changing your colour is not navigation.
+
+That panel is loaded when it is opened. Inlining Radix's Sheet in the bar put 14 kB of dialog into the first load of every route for a menu that only exists under `lg`.
 
 Contents, top to bottom: workspace name, the four list buckets with live counts, Calendar, a divider, the assignee filter (`Tout` / `Moi` / partner's first name), a divider, the streak.
 

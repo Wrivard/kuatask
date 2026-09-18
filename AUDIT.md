@@ -1389,3 +1389,25 @@ reviewed. Numbering continues.
      zero the day after a streak breaks, the other has to survive that. Twelve
      assertions, including the three places naive date arithmetic fails — a month
      boundary, a year boundary, a leap day — and the 23-hour spring-forward day.
+327. [x] **P1** Two routes had no way in on a phone. The rail that holds all six
+     is `lg:` only and the bottom bar carried four, so Activité was unreachable
+     on touch — and Classement, added an hour earlier, joined it. Found by
+     auditing the new page's own reachability rather than by using it.
+328. [x] **P1** Not fixed by adding two tabs: seven on a 375px screen is 54px
+     each, narrower than the word « Calendrier ». The bar keeps what you move
+     between while working and a « Plus » tab holds the rest. Réglages moved into
+     it rather than staying on the bar — changing your colour is not navigation.
+329. [x] **P0** That sheet cost 14 kB on the first load of *every* route, because
+     inlining Radix's Sheet in `bottom-bar.tsx` put a mobile-only panel into the
+     shared bundle: 305 kB → 319 kB, caught by the route table in the same build
+     that introduced it. Extracted to its own file so `next/dynamic` can actually
+     split it — a dynamic import of a symbol declared in the importing file saves
+     nothing. Back to 306 kB.
+330. [x] **P1** The header I changed an hour earlier had `shrink-0` and
+     `truncate` on the same element, which is a contradiction: `truncate` only
+     ellipses an item allowed to shrink, so a long title pushed the search box
+     and the ring off the end instead. At 375px the title alone is 133px of the
+     255px available.
+331. [x] **P2** So the title hides below `sm` and the search box takes the row.
+     The bottom bar already says which view you are on, which makes the title the
+     repetition and the search box the thing unreachable any other way.

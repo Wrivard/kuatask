@@ -35,6 +35,8 @@ export const copy = {
     calendar: "Calendrier",
     activity: "Activité",
     stats: "Classement",
+    /* The mobile overflow: six routes, five slots on the bar. */
+    more: "Plus",
     prevMonth: "Mois précédent",
     nextMonth: "Mois suivant",
     board: "Tableau",
