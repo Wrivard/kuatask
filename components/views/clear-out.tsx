@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { SWEEP_DURATION } from "@/lib/motion";
+import { SETTLE, SWEEP_DURATION } from "@/lib/motion";
 import { copy } from "@/lib/copy";
 
 /**
@@ -56,7 +56,10 @@ export function ClearOut({
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.24, delay: reduced ? 0 : 0.2 }}
+        transition={{
+          duration: SETTLE.settleFade / 1000,
+          delay: reduced ? 0 : SETTLE.settleDelay / 1000,
+        }}
         className="flex flex-col gap-1"
       >
         <p className="text-[15px] text-fg">{line}</p>

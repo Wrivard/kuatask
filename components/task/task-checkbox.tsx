@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { CHECK_LENGTH, CHECK_PATH, COMPLETION } from "@/lib/motion";
+import { CHECK_LENGTH, CHECK_PATH, COMPLETION, SETTLE } from "@/lib/motion";
 
 /**
  * The completion sequence, docs/08-satisfaction.md § 8.1.
@@ -49,7 +49,10 @@ export function TaskCheckbox({
       onClick={handle}
       className="relative grid size-[18px] shrink-0 place-items-center rounded-sm border border-control"
       animate={reduced ? {} : { scale: checked ? [1, 0.88, 1.04, 1] : 1 }}
-      transition={{ duration: 0.26, times: [0, 0.25, 0.6, 1] }}
+      transition={{
+        duration: SETTLE.checkboxScale / 1000,
+        times: SETTLE.checkboxTimes,
+      }}
     >
       {/*
         A ring leaving the box on the tick.

@@ -1266,3 +1266,35 @@ reviewed. Numbering continues.
      picker — one role, three renderings, none of them in `docs/04`. It is one
      string in `lib/type.ts` now and a named row in the scale, so a fourth cannot
      appear quietly.
+303. **NO** French copy is punctuated consistently: 34 straight apostrophes and
+     zero curly, 8 proper ellipsis characters and zero `...`. Nothing to fix.
+     Recorded so the next sweep does not re-derive it.
+304. [x] **P2** Two animation timings were bare numbers in components while every
+     other one is a named token. § 8.9 is a tuning pass, and tuning means
+     changing a value to see how it feels — a number only grep can find is a
+     number nobody tunes. The checkbox's 260ms scale is the more interesting of
+     the two: it sits exactly on the ceiling `docs/04` sets for anything a user
+     triggered, which is worth naming so a later nudge upward is a decision
+     rather than a digit.
+305. [x] **P1** The skeleton was not shaped like the thing it stands for. Rows
+     were 20px on a 32px pitch against real rows of 44px sitting flush, the
+     section header was missing, and the composer's outline used `border-border`
+     where the real one uses `border-control`. So the one screen in the app
+     guaranteed to be followed by a layout shift was the loading state — and
+     § 8.8 asks for no layout shift. Every measurement now comes from the
+     component it imitates.
+306. [x] **P1** The board's strikethrough had been striking through nothing. A
+     card's title wraps — 280px column, 13px text — and the drawn strikethrough
+     is one absolutely-positioned line across the middle of the block: on a
+     one-line title that is the text, on a two-line title it is the gap between
+     them. Real `text-decoration` is drawn by the browser through every line at
+     any number of them.
+307. **NO** Which costs the left-to-right draw § 8.1 asks for, because
+     `text-decoration` cannot sweep. It fades over the same 200ms instead. The
+     list row keeps the drawn version and always will: `truncate` makes that
+     title one line by construction, so the effect is always correct there. On
+     the board, correct beats faithful.
+308. [x] **P2** Board titles clamp to two lines, with the full text on hover. An
+     untruncated title in a 280px column can run to a dozen lines on a 500-char
+     title the length check allows, and a column you have to scroll past one card
+     to read is not a board.

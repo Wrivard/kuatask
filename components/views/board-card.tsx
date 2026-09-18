@@ -108,19 +108,34 @@ function BoardCardImpl({
           onClick={() => toggle(task.id)}
           aria-pressed={done}
           onKeyDown={onKeyDown}
-          className="relative min-w-0 flex-1 text-left text-[13px] leading-[1.35] outline-none focus-visible:underline focus-visible:decoration-accent focus-visible:underline-offset-4"
+          // the full text on hover, since two lines is where this now stops
+          title={task.title}
+          className={cn(
+            "min-w-0 flex-1 text-left text-[13px] leading-[1.35] outline-none",
+            "line-clamp-2 [overflow-wrap:anywhere]",
+            "focus-visible:underline focus-visible:decoration-accent focus-visible:underline-offset-4",
+            /*
+              A real strikethrough here, not the drawn one.
+
+              A board card's title wraps — the column is 280px and the text is
+              13px — and the drawn version is a single absolutely-positioned line
+              across the middle of the block. On a one-line title that is the
+              text; on a two-line title it is the gap between them. It has been
+              striking through nothing this whole time on every card long enough
+              to wrap.
+
+              `text-decoration` is drawn by the browser through every line, at
+              any number of them. It cannot sweep left to right, so it fades in
+              over the same 200ms instead — § 8.1 asks for the draw, and the list
+              row still does it, because `truncate` makes that title one line by
+              construction. Here, correct beats faithful.
+            */
+            "decoration-current decoration-1 transition-[text-decoration-color] motion-reduce:transition-none",
+            done ? "line-through" : "line-through decoration-transparent",
+          )}
+          style={{ transitionDuration: `${COMPLETION.strikethrough}ms` }}
         >
           {task.title}
-          <motion.span
-            aria-hidden
-            className="absolute left-0 top-1/2 h-px w-full bg-current"
-            style={{ transformOrigin: "left" }}
-            initial={false}
-            animate={
-              reduced ? { opacity: done ? 1 : 0, scaleX: 1 } : { scaleX: done ? 1 : 0 }
-            }
-            transition={{ duration: COMPLETION.strikethrough / 1000, ease: "easeOut" }}
-          />
         </button>
 
         {/*

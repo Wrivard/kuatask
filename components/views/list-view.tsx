@@ -487,13 +487,47 @@ export function ListView() {
   );
 }
 
+/**
+ * The one loading state in the app, shaped like what replaces it.
+ *
+ * It was not: rows were 20px on a 32px pitch against real rows of 44px sitting
+ * flush, the section header was missing entirely, and the composer's outline
+ * used `border-border` where the real one uses `border-control`. So the single
+ * screen in the app guaranteed to be followed by a layout shift was the one
+ * § 8.8 names — "no layout shift when a row leaves" is the same requirement seen
+ * from the other end, and a skeleton that lies about its proportions breaks it
+ * before the app has even started.
+ *
+ * Every measurement here is taken from the thing it stands for: `mb-4` from the
+ * composer's wrapper, `h-11` and the hairline from `TaskRow`, `mb-1` and the
+ * 13px line from `ListSection`'s header.
+ */
 function Skeleton() {
   return (
     <div className="max-w-[760px] px-6 py-6">
-      <div className="h-10 w-full rounded-sm border border-border bg-surface" />
-      <div className="mt-6 flex flex-col gap-3">
+      {/* the composer: same height, same radius, same control border */}
+      <div className="mb-4 h-10 w-full rounded-sm border border-control bg-surface" />
+
+      <div className="mb-6">
+        {/* a section header is 13px on a 4px baseline, with mb-1 under it */}
+        <div className="mb-1 flex h-[18px] items-center">
+          <div className="h-3 w-24 rounded-sm bg-surface" />
+        </div>
+
+        {/*
+          Rows, not bars. 44px each and flush, because that is what arrives —
+          four of them, which is about what a first screen holds before anybody
+          scrolls.
+        */}
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-5 w-full max-w-[420px] rounded-sm bg-surface" />
+          <div key={i} className="flex h-11 items-center gap-3 border-b border-border px-3">
+            <div className="size-[18px] shrink-0 rounded-sm border border-control" />
+            <div
+              className="h-3 rounded-sm bg-surface"
+              // uneven, so it reads as titles rather than as a progress bar
+              style={{ width: ["58%", "37%", "71%", "45%"][i] }}
+            />
+          </div>
         ))}
       </div>
     </div>

@@ -60,6 +60,44 @@ export const COMPLETION = {
 
 export const SWEEP_DURATION = 600; // clear-out light band, 8.5
 
+/**
+ * The two timings that were living in components as bare numbers.
+ *
+ * § 8.9 is a tuning pass, and tuning means changing a value and seeing how it
+ * feels. Everything else in the completion sequence is named here for exactly
+ * that reason — these two were not, so they could only be found by grep, and a
+ * number you cannot find is a number nobody tunes.
+ */
+export const SETTLE = {
+  /**
+   * The checkbox's scale spring, § 8.1: 1 → 0.88 → 1.04 → 1.
+   *
+   * 260ms is not incidental — it is the ceiling `docs/04` sets for anything a
+   * user triggered, and this is the one animation that sits exactly on it. Worth
+   * naming so that a later nudge upward is a visible decision rather than a
+   * digit.
+   */
+  checkboxScale: 260,
+  /**
+   * Keyframe positions for that scale, as fractions of the duration.
+   *
+   * Typed as a mutable array rather than caught by the `as const` below:
+   * motion takes `number[]`, and a readonly tuple is not assignable to it.
+   */
+  checkboxTimes: [0, 0.25, 0.6, 1] as number[],
+
+  /** The clear-out's settled state fading in, § 8.5 step 3. */
+  settleFade: 240,
+  /**
+   * How long it waits first.
+   *
+   * The band sweeps for 600ms; this starts at 200 so the words are arriving
+   * while the light is still crossing rather than after it has gone. Under
+   * reduced motion there is no sweep to wait for, so the delay is dropped.
+   */
+  settleDelay: 200,
+} as const;
+
 export function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined') return false;
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
