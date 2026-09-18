@@ -105,7 +105,9 @@ fs.writeFileSync(path.join(tmp, "supabase-stub.ts"), stub);
 
 // store.ts pulls in time.ts for the streak history and errors.ts for the
 // transport predicate it now shares with the toast; errors.ts pulls in copy
-for (const file of ["store.ts", "sound.ts", "time.ts", "errors.ts", "copy.ts"]) {
+// store.ts pulls in search.ts too: the archive lookup asks the same question
+// the list does, rather than approximating it (lib/search.ts)
+for (const file of ["store.ts", "sound.ts", "time.ts", "errors.ts", "copy.ts", "search.ts"]) {
   const src = fs.readFileSync(path.join("lib", file), "utf8");
   fs.writeFileSync(
     path.join(tmp, file),

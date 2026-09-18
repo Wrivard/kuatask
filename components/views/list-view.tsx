@@ -41,6 +41,7 @@ import { useToday } from "@/lib/day";
 import { useLocalLens } from "@/lib/lens";
 import { useTaskModal, useStartSearch, focusComposer } from "@/lib/events";
 import { nextDay } from "date-fns";
+import { matches, parseQuery } from "@/lib/search";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -99,16 +100,19 @@ export function ListView() {
     done included and shown as done.
   */
   const results = React.useMemo(() => {
-    const q = searching ? normalize(query.trim()) : "";
-    if (!q) return null;
+    if (!searching || query.trim() === "") return null;
 
-    // accent-insensitive: nobody types "étiquette" with the accent while searching
+    /*
+      `#facture` filters by tag; anything else is free text; together they mean
+      both. This was one substring test over every field joined into a string,
+      which made `#facture` and `facture` the same question and neither of them
+      the one a label chip asks when you click it. See lib/search.ts.
+    */
+    const parsed = parseQuery(query);
+    if (parsed.tag === null && parsed.text === "") return null;
+
     return byAssignee
-      .filter((t) =>
-        normalize(
-          [t.title, t.label ? `#${t.label}` : "", t.notes ?? ""].join(" "),
-        ).includes(q),
-      )
+      .filter((t) => matches(t, parsed))
       .sort((a, b) => (b.due_on ?? "").localeCompare(a.due_on ?? ""));
   }, [byAssignee, searching, query]);
 
@@ -496,10 +500,4 @@ function Skeleton() {
   );
 }
 
-/** Lowercase and strip accents, so "etiquette" finds "étiquette". */
-function normalize(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
-}
+

@@ -29,6 +29,7 @@ const NEEDED = [
   "sound.ts",
   "edit.ts",
   "motion.ts",
+  "search.ts",
 ];
 
 // inside the project, so node resolves date-fns from the local node_modules
@@ -53,6 +54,7 @@ const routing = await load("routing.ts");
 const { extractLinks } = await load("links.ts");
 const { textPatch } = await load("edit.ts");
 const motion = await load("motion.ts");
+const search = await load("search.ts");
 const reset = await load("session-reset.ts");
 const sound = await load("sound.ts");
 
@@ -974,6 +976,60 @@ section("Checkmark — the dash length is the path length");
     if (name === "holdBeforeCollapse" || name === "ripple") continue;
     check(`${name} is inside the 260ms ceiling`, ms <= 260, `${ms}ms`);
   }
+}
+
+/*
+  What a search query means.
+
+  Search was one substring test over title + label + notes joined together, so
+  `#facture` and `facture` asked the same question and neither asked "tasks
+  tagged facture". Clicking a label chip fills the box with `#facture` and reads
+  as « show me this tag » — and it returned every task merely mentioning the word
+  in its notes. With four tasks that passes for working; with a client's name
+  used in both a title and a label it stops being a filter.
+*/
+section("Search — a tag filters, text finds, and together they narrow");
+{
+  const { parseQuery, matches } = search;
+  const hit = (q, t) => matches(t, parseQuery(q));
+
+  const tagged = { title: "envoyer le devis", label: "facture", notes: null };
+  const mentions = { title: "appeler le client", label: "acme", notes: "au sujet de la facture" };
+  const neither = { title: "refaire le site", label: null, notes: null };
+  const accented = { title: "étiquette à revoir", label: "Étiquette", notes: null };
+
+  eq("a tag is parsed out of the query", parseQuery("#facture"), { tag: "facture", text: "" });
+  eq("and the rest stays as text", parseQuery("#facture client"),
+     { tag: "facture", text: "client" });
+  eq("a tag can arrive after the words", parseQuery("client #facture"),
+     { tag: "facture", text: "client" });
+  eq("a bare # names no tag", parseQuery("#"), { tag: null, text: "#" });
+  eq("and a second one is just text", parseQuery("#a #b"), { tag: "a", text: "#b" });
+
+  check("#tag finds the task carrying it", hit("#facture", tagged));
+  check("and not one that merely mentions the word", !hit("#facture", mentions));
+  check("text alone still finds both",
+        hit("facture", tagged) && hit("facture", mentions));
+  check("text alone finds neither of the unrelated", !hit("facture", neither));
+
+  /*
+    Prefix, not equality: the query is being typed, and results narrowing on
+    the way to `#facture` is what tells you the tag exists at all.
+  */
+  check("a half-typed tag still matches", hit("#fac", tagged));
+  check("but not a tag it is not a prefix of", !hit("#ture", tagged));
+
+  check("tag and text are ANDed", !hit("#facture client", tagged));
+  check("and both together match when both hold",
+        hit("#acme client", mentions));
+
+  // accents and case, on both sides of the comparison
+  check("a tag matches regardless of case", hit("#etiquette", accented));
+  check("and regardless of accents", hit("#étiquette", accented));
+  check("text is accent-insensitive too", hit("etiquette", accented));
+
+  check("an empty query matches nothing", !hit("", tagged));
+  check("whitespace is not a query", !hit("   ", tagged));
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);

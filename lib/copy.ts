@@ -119,6 +119,8 @@ export const copy = {
   composer: {
     placeholder: "Ajouter une tâche…",
     searchPlaceholder: "Chercher…",
+    /* Shown while searching: the tag syntax is not guessable from an empty box. */
+    searchHint: "#étiquette pour filtrer par étiquette",
     hint: "Entrée pour ajouter",
     hintOpen: "Maj+Entrée pour ajouter des notes",
     openHint: "Ajouter et ouvrir pour des notes",

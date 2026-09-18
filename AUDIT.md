@@ -1210,3 +1210,32 @@ reviewed. Numbering continues.
      the middle of nothing. Seen in the screenshot rather than in the code, which
      is the argument for looking at the app. `items-start` puts the words where
      the next card would go; the target still fills the column.
+294. [x] **P1** Searching by tag did not filter by tag. Search was one substring
+     test over `title + "#" + label + notes` joined into a single string, so
+     `#facture` and `facture` asked the same question and neither asked « tasks
+     tagged facture ». Clicking a label chip fills the box with `#facture` and
+     reads as "show me this tag" — and returned every task that merely mentioned
+     the word in its notes. With four tasks that passes for working; with a
+     client's name used in both a title and a label it stops being a filter.
+295. [x] **P1** `lib/search.ts` now owns what a query means: a `#token` filters
+     by tag, anything else is free text, and the two are ANDed, so
+     `#facture client` is tagged-facture-and-mentioning-client. Tags match by
+     prefix because the query is being typed — results narrowing on the way to
+     `#facture` is what tells you the tag exists. Text still searches the label
+     too, so the `#` narrows rather than unlocks. Eighteen assertions.
+296. [x] **P1** The archive lookup asked a different question from the list.
+     `searchArchive` stripped a leading `#` and ran one substring over three
+     columns, so a tagged task from outside the loaded window came back only if
+     the word also appeared in its title or notes. Both call `parseQuery` now,
+     and the tag becomes a real `label ilike 'tag%'` filter ANDed with the text.
+     Verified against the live database rather than reasoned about: tag alone,
+     prefix, text alone, tag+text ANDed, and a tag nobody uses.
+297. [x] **P2** Search mode says what `#` does. The syntax is not guessable from
+     an empty box, and the only other way to find it is clicking a label chip —
+     which only helps for a tag some task already carries. The owner reported not
+     being able to search properly, and discoverability was half of that.
+298. [x] **P2** `normalize` existed twice — once in `list-view.tsx` and once
+     privately in `parse-fr.ts`. The search copy moved into `lib/search.ts` where
+     it belongs with the rule it serves. `parse-fr`'s stays private to date
+     parsing; coupling search to the French date parser to save two lines would
+     be the worse trade.

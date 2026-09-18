@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/database.types';
 import { now, recentCompletionCutoff, type DayString } from '@/lib/time';
 import { isTransportFailure, type Refusal } from '@/lib/errors';
+import { parseQuery } from '@/lib/search';
 import { setSoundEnabled as applySoundEnabled } from '@/lib/sound';
 
 export type Task = Database['public']['Tables']['tasks']['Row'];
@@ -739,18 +740,40 @@ export const useStore = create<Store>((set, get) => {
 
     searchArchive(query) {
       const wsId = get().workspaceId;
-      const q = query.trim().replace(/^#/, '');
+
+      /*
+        The same question `lib/search.ts` answers locally, asked of the rows
+        outside the loaded window. It used to strip a leading `#` and run one
+        substring over three columns, so a tagged task from last month came back
+        only when the word also appeared in its title or notes — the local list
+        and the archive disagreed about what a tag is.
+      */
+      const parsed = parseQuery(query);
+
       // `or` is a comma-separated grammar and % / _ are wildcards, so anything
       // that would change the shape of the filter is dropped rather than escaped
-      const safe = q.replace(/[,()%_*\\]/g, ' ').trim();
-      if (!wsId || safe.length < 2) return;
+      const clean = (v: string) => v.replace(/[,()%_*\\]/g, ' ').trim();
+      const tag = parsed.tag ? clean(parsed.tag) : null;
+      const text = clean(parsed.text);
+
+      // one letter matches most of the workspace; it is not yet a search
+      if (!wsId || (!tag && text.length < 2)) return;
 
       void (async () => {
-        const { data } = await supabase
+        let request = supabase
           .from('tasks')
           .select('*')
-          .eq('workspace_id', wsId)
-          .or(`title.ilike.%${safe}%,label.ilike.%${safe}%,notes.ilike.%${safe}%`)
+          .eq('workspace_id', wsId);
+
+        // prefix on the label, matching the local rule rather than approximating it
+        if (tag) request = request.ilike('label', `${tag}%`);
+        if (text.length >= 2) {
+          request = request.or(
+            `title.ilike.%${text}%,label.ilike.%${text}%,notes.ilike.%${text}%`,
+          );
+        }
+
+        const { data } = await request
           .order('completed_at', { ascending: false, nullsFirst: false })
           .limit(ARCHIVE_LIMIT);
         if (!data?.length) return;

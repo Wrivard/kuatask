@@ -413,6 +413,19 @@ export function TaskComposer({
         keyboard exists. docs/07-keyboard.md: no keyboard hints on touch, decided
         by a pointer media query rather than by sniffing the user agent.
       */}
+      {/*
+        The tag syntax, while the box is a search box.
+
+        It is not guessable from an empty field, and clicking a label chip is
+        the only other way to discover that `#` means anything here — which
+        only helps if a task already carries the tag you want.
+      */}
+      {searching && (
+        <p className="mt-1 hidden text-right text-[12px] text-fg-faint [@media(pointer:fine)]:block">
+          {copy.composer.searchHint}
+        </p>
+      )}
+
       {!searching && suggestions.length === 0 && value.trim() !== "" && (
         <p className="mt-1 hidden text-right text-[12px] text-fg-faint [@media(pointer:fine)]:block">
           {copy.composer.hint}
