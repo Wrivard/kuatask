@@ -47,11 +47,25 @@ const Toaster = ({ ...props }: ToasterProps) => {
           <Loader2Icon className="size-4 animate-spin" />
         ),
       }}
+      /*
+        A step above `--popover`, with a control's border rather than a hairline.
+
+        The toast used to be `--popover` (#111111) edged with `--border`, which
+        is exactly the colour of a board card and a calendar cell — so it floated
+        over them at a 1.20:1 edge, which is to say invisibly. That is the undo
+        toast: the way back from the action this app is built around.
+
+        `docs/04` bans shadows on everything but the modal, so the separation has
+        to come from the ramp instead. One step up lifts it off the surfaces it
+        covers, and `--control` at 3.14:1 is the token DECISIONS already assigns
+        to the boundary of an interactive control — which a toast carrying an
+        « Annuler » button is.
+      */
       style={
         {
-          "--normal-bg": "var(--popover)",
+          "--normal-bg": "var(--surface-hover)",
           "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
+          "--normal-border": "var(--control)",
           "--border-radius": "var(--radius)",
         } as React.CSSProperties
       }

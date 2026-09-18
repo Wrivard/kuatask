@@ -1428,3 +1428,28 @@ reviewed. Numbering continues.
      has a real label as well as its placeholder, `autoComplete` and `autoFocus`
      are set, the submit disables while sending, and the resend has a cooldown.
      Nothing to change.
+335. [x] **P1** The undo toast could disappear into the board. It was
+     `--popover` — #111111 — edged with `--border`, and a board card is also
+     #111111, so the toast floated over one at a 1.20:1 edge. That is the undo
+     toast: the way back from the action this whole app is built around. My own
+     calendar repaint made it worse by moving in-month cells to the same colour.
+     `docs/04` bans shadows on everything but the modal, so the separation comes
+     from the ramp instead — one step up to `--surface-hover`, and `--control` at
+     3.14:1 for the edge, which is the token DECISIONS already assigns to the
+     boundary of an interactive control. A toast carrying « Annuler » is one.
+336. [x] **P1** `/stats` had no `G` shortcut while every other route did, and `/`
+     was never in the `?` sheet at all. A route reachable only by pointer is
+     half-built in an app whose own doc calls keyboard a primary input method.
+     `G puis P`, for palmarès — C and L, the letters « Classement » offers, are
+     the calendar and the list. `docs/07` carries both, and its `/` row no longer
+     describes the composer behaviour that no longer exists.
+337. **NO** The stats page does not update live while it is open. Everything else
+     in the app does, so this is worth stating rather than leaving as an
+     inconsistency somebody finds: Next 15 does not client-cache dynamic routes,
+     so arriving at the page always shows current numbers, and the only stale
+     case is leaving it open while somebody finishes something. Polling it would
+     contradict the restraint that put this on its own route in the first place.
+338. **NO** `app/(app)/error.tsx` audits clean: it reports with the digest, shows
+     that digest, offers `reset()` rather than a reload, and says plainly that
+     nothing is lost — which is the thing a crash screen most needs to say in an
+     app people keep their work in.

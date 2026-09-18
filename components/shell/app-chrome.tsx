@@ -75,6 +75,13 @@ export function AppChrome() {
     a: () => router.push("/activity"),
     // S alone cycles a row's status; behind G there is no collision
     s: () => router.push("/settings"),
+    /*
+      P for palmarès. C and L — the letters « Classement » actually offers — are
+      already the calendar and the list, and a route without a shortcut is the
+      one nobody reaches by keyboard. The sheet spells it out, which is what
+      makes an imperfect mnemonic workable.
+    */
+    p: () => router.push("/stats"),
   });
 
   return (

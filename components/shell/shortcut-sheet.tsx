@@ -10,6 +10,7 @@ const GROUPS: { scope: string; rows: [string, string][] }[] = [
     rows: [
       ["⌘K", copy.palette.placeholder],
       ["C", copy.composer.placeholder],
+      ["/", copy.search.placeholder],
       // only meaningful while the composer has something in it, but this is the
       // sheet somebody opens to find out that it exists at all
       ["Maj+Entrée", copy.composer.openHint],
@@ -18,6 +19,7 @@ const GROUPS: { scope: string; rows: [string, string][] }[] = [
       ["G puis B", copy.nav.board],
       ["G puis C", copy.nav.calendar],
       ["G puis A", copy.nav.activity],
+      ["G puis P", copy.nav.stats],
       ["G puis S", copy.nav.settings],
       ["⌘Z", copy.toast.undo],
       ["?", copy.shortcuts.title],

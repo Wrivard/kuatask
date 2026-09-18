@@ -10,7 +10,7 @@ The app is fully operable without a mouse. This is not an accessibility checkbox
 | `C` | Focus the composer | Global |
 | `Enter` | Create and clear for the next one | Composer |
 | `Shift+Enter` | Create, and open it to add notes | Composer |
-| `/` | Focus the composer in search mode | Global |
+| `/` | Focus the search box in the header | Global |
 | `J` / `↓` | Move row focus down | List |
 | `K` / `↑` | Move row focus up | List |
 | `X` or `Enter` | Toggle the focused task | List |
@@ -21,6 +21,7 @@ The app is fully operable without a mouse. This is not an accessibility checkbox
 | `⌫` | Delete the focused task | List |
 | `1` `2` `3` `4` | Aujourd'hui / Demain / Semaine / Mois | Global |
 | `G` then `C` | Go to calendar | Global |
+| `G` then `P` | Go to the leaderboard | Global |
 | `G` then `L` | Go to list | Global |
 | `T` | Jump to today | Calendar |
 | `⌘Z` | Undo | Global |
