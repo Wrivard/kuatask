@@ -28,11 +28,14 @@ function BoardCardImpl({
   onOpen,
   onGrab,
   onMove,
+  onSelectLabel,
 }: {
   task: Task;
   dragging: boolean;
   onOpen: (id: string) => void;
   onGrab: (id: string, e: React.PointerEvent) => void;
+  /** Narrows to that tag, which on the board means going to the list for it. */
+  onSelectLabel?: (label: string) => void;
   /** Move one column left or right — the keyboard equivalent of a drag. */
   onMove?: (id: string, direction: -1 | 1) => void;
 }) {
@@ -165,9 +168,25 @@ function BoardCardImpl({
       </div>
 
       {(task.label || dateText || task.important || assignee || hasNotes || task.status === "doing") && (
-        <div className="flex items-center gap-1.5 pl-[26px]">
+        /*
+          Indented past the checkbox so the metadata lines up under the
+          title. Written as the arithmetic rather than its answer: 18px is
+          the checkbox (§ 8.1) and 0.5rem is the `gap-2` above. As a bare
+          26 it was a number that silently stopped being right the moment
+          either of those moved.
+        */
+        <div className="flex items-center gap-1.5 pl-[calc(18px+0.5rem)]">
           {task.status === "doing" && <StatusChip />}
-          {task.label && <LabelChip label={task.label} />}
+          {/*
+            Clickable here too. The chip on a list row has narrowed the
+            list to a tag since it was built; on a board card it was
+            decoration, so the one obvious way to ask « show me
+            everything tagged this » did nothing on the view where the
+            tags are most visible.
+          */}
+          {task.label && (
+            <LabelChip label={task.label} onSelect={onSelectLabel} />
+          )}
           {/* same glyph as the row: whether there is more to read, nothing else */}
           {hasNotes && (
             <AlignLeft

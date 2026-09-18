@@ -1327,3 +1327,23 @@ reviewed. Numbering continues.
      would ignore an explicit light choice held in localStorage, which reading
      before paint is the complexity that file exists to avoid. An honest dark
      beats a half-right theme on the last screen before nothing.
+315. [x] **P0** Search was reachable from one screen in five, and not the one the
+     owner works on. `/` dispatches a window event that only `list-view` listens
+     for, so pressing it on the board, the calendar, the activity log or settings
+     did nothing whatsoever — no feedback, no field, nothing. The matcher fixed in
+     294 was correct and unreachable. Same shape as item 201, where the calendar
+     never subscribed to the open-task event: a window event is only a channel if
+     something is listening at the other end.
+316. [x] **P0** And clicking a tag on a board card did nothing either.
+     `BoardCard` rendered `LabelChip` without `onSelect`, so on the view where
+     tags are most visible the one obvious gesture for « show me everything
+     tagged this » was decoration. Two ways to search a tag from the board, both
+     dead — which is exactly what « I still cannot search tags » describes.
+317. [x] **P1** Search is a URL now: `/?q=…`. Any surface can ask for one by
+     navigating, which is what the board's chips and `/` from anywhere both do,
+     and the result is a link that can be kept. The list reads it once on
+     arrival and clears it, so the query is a starting point rather than
+     something that springs back the moment you edit it.
+318. [x] **P2** That effect is keyed on the parameter's *string*, not on the
+     params object. It writes to the router, so a dependency changing identity
+     without changing value would not be a wasted render but a loop.

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
 /*
@@ -19,12 +19,13 @@ const ShortcutSheet = dynamic(
   { ssr: false },
 );
 import { useHotkeys, useSequence } from "@/lib/hotkeys";
-import { focusComposer, openTask, startSearch } from "@/lib/events";
+import { focusComposer, openTask, searchHref, startSearch } from "@/lib/events";
 import { useStore } from "@/lib/store";
 
 /** Global keyboard layer plus the two dialogs it opens. */
 export function AppChrome() {
   const router = useRouter();
+  const pathname = usePathname();
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const undo = useStore((s) => s.undo);
@@ -50,7 +51,16 @@ export function AppChrome() {
       setSheetOpen(false);
     },
     c: () => focusComposer(),
-    "/": () => startSearch(),
+    /*
+      On the list the composer is right there, so this is just a focus change.
+      Anywhere else there is no composer to turn into a search box, and this
+      used to dispatch an event that nothing was listening for — `/` on the
+      board did nothing whatsoever.
+    */
+    "/": () => {
+      if (pathname === "/") startSearch();
+      else router.push(searchHref(""));
+    },
     "?": () => setSheetOpen(true),
     "1": () => goToSection("today"),
     "2": () => goToSection("tomorrow"),

@@ -39,7 +39,13 @@ import { useScrollMemory } from "@/lib/scroll-memory";
 import { useClearedToday } from "@/lib/clear-out";
 import { useToday } from "@/lib/day";
 import { useLocalLens } from "@/lib/lens";
-import { useTaskModal, useStartSearch, focusComposer } from "@/lib/events";
+import {
+  useTaskModal,
+  useStartSearch,
+  focusComposer,
+  SEARCH_PARAM,
+} from "@/lib/events";
+import { useRouter, useSearchParams } from "next/navigation";
 import { nextDay } from "date-fns";
 import { matches, parseQuery } from "@/lib/search";
 import { copy } from "@/lib/copy";
@@ -72,10 +78,42 @@ export function ListView() {
   const [searching, setSearching] = React.useState(false);
   const [query, setQuery] = React.useState("");
 
-  useStartSearch(() => {
+  useStartSearch((incoming) => {
     setSearching(true);
+    if (incoming) setQuery(incoming);
     focusComposer();
   });
+
+  /*
+    A search asked for by URL, which is how every other view asks.
+
+    `?q=` exists because search lives in this composer and can only be started
+    where this composer is mounted — pressing `/` on the board dispatched an
+    event nothing was listening for. Read once on arrival and then removed from
+    the address bar, so the query is a starting point rather than a thing that
+    springs back the moment you edit it.
+  */
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  /*
+    Keyed on the string, not the params object. The effect clears the parameter
+    it just read, so anything that made the dependency change identity without
+    changing value would re-enter it — and this one writes to the router, which
+    is how that becomes a loop rather than a wasted render.
+  */
+  const incoming = searchParams.has(SEARCH_PARAM)
+    ? (searchParams.get(SEARCH_PARAM) ?? "")
+    : null;
+
+  React.useEffect(() => {
+    if (incoming === null) return;
+
+    setSearching(true);
+    setQuery(incoming);
+    focusComposer();
+    router.replace("/", { scroll: false });
+  }, [incoming, router]);
 
   // searching rewrites the list, so restoring an old offset would be wrong
   useScrollMemory("list", !searching);

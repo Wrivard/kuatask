@@ -102,7 +102,8 @@ export function ActivityClient({
               : formatDueLabel(day)}
           </h2>
 
-          <ul>
+          {/* no rule under the last entry — see components/views/list-section.tsx */}
+          <ul className="[&>li:last-child]:border-b-0">
             {group.map((entry) => {
               const who = people.find((p) => p.id === entry.actor_id);
               const Icon = ICON[entry.action];
@@ -114,7 +115,8 @@ export function ActivityClient({
                 >
                   <Icon
                     className={cn(
-                      "size-3.5 shrink-0",
+                      // docs/04: 16px in rows and buttons
+                      "size-4 shrink-0",
                       entry.action === "completed" ? "text-accent" : "text-fg-faint",
                       entry.action === "deleted" && "text-danger",
                     )}
@@ -134,9 +136,17 @@ export function ActivityClient({
                     <span className="truncate text-[12px] text-fg-faint">
                       {copy.activity.verb[entry.action]}
                       {who && ` · ${who.display_name}`}
+                      {/*
+                        `> 0`, not the length itself. `cond && length && text`
+                        evaluates to `0` when the array is empty, and React
+                        renders `0` as the character zero — so an entry with an
+                        empty `changed` would print a bare "0" beside its verb.
+                        The trigger never writes one today, which is exactly what
+                        makes it the kind of bug that arrives later.
+                      */}
                       {entry.action === "updated" &&
-                        entry.changed?.length &&
-                        ` · ${entry.changed
+                        (entry.changed?.length ?? 0) > 0 &&
+                        ` · ${entry.changed!
                           .map((f) => copy.activity.field[f] ?? f)
                           .join(", ")}`}
                     </span>

@@ -43,20 +43,46 @@ export function useFocusComposer(handler: () => void) {
   }, []);
 }
 
-/** `/` turns the composer into a search box rather than opening a second UI. */
-export function startSearch() {
-  window.dispatchEvent(new CustomEvent(START_SEARCH));
+/**
+ * `/` turns the composer into a search box rather than opening a second UI.
+ *
+ * Optionally with a query already in it, which is what clicking a label chip
+ * does — « chercher #facture » should arrive at results, not at an empty box
+ * somebody then has to retype the tag into.
+ */
+export function startSearch(query?: string) {
+  window.dispatchEvent(new CustomEvent(START_SEARCH, { detail: query ?? null }));
 }
 
-export function useStartSearch(handler: () => void) {
+export function useStartSearch(handler: (query: string | null) => void) {
   const ref = React.useRef(handler);
   ref.current = handler;
 
   React.useEffect(() => {
-    const listener = () => ref.current();
+    const listener = (e: Event) =>
+      ref.current((e as CustomEvent<string | null>).detail ?? null);
     window.addEventListener(START_SEARCH, listener);
     return () => window.removeEventListener(START_SEARCH, listener);
   }, []);
+}
+
+/**
+ * The query parameter the list reads on arrival.
+ *
+ * Search lives in the list's composer, so it can only be *started* where that
+ * composer is mounted. Everywhere else — the board, the calendar, the activity
+ * log — the event fell on nothing: pressing `/` on the board did nothing at all,
+ * and the owner reasonably concluded search was broken. It was reachable from
+ * exactly one of five screens.
+ *
+ * A URL carries it instead, so any surface can ask for a search by navigating,
+ * and the result is also a link somebody can keep.
+ */
+export const SEARCH_PARAM = "q";
+
+/** Where to go to search for something, from anywhere. */
+export function searchHref(query: string): string {
+  return `/?${SEARCH_PARAM}=${encodeURIComponent(query)}`;
 }
 
 export function useOpenTask(handler: (id: string, focus?: OpenFocus) => void) {

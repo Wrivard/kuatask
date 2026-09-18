@@ -25,7 +25,8 @@ import {
   useAssignWithFeedback,
   useRescheduleWithFeedback,
 } from "@/lib/completion";
-import { useTaskModal } from "@/lib/events";
+import { searchHref, useTaskModal } from "@/lib/events";
+import { useRouter } from "next/navigation";
 import { useCompletionHold } from "@/lib/hold";
 import { useClearedToday } from "@/lib/clear-out";
 import { ClearOut } from "./clear-out";
@@ -67,6 +68,7 @@ export function BoardView() {
   const day = useToday();
   const reduced = useReducedMotion();
   const modal = useTaskModal();
+  const router = useRouter();
 
   // the grouping is a lens, like the assignee filter, so it persists locally
   const [groupBy, chooseGroup] = useLocalLens<GroupBy>(
@@ -435,6 +437,7 @@ export function BoardView() {
                           onOpen={modal.open}
                           onGrab={grab}
                           onMove={move}
+                          onSelectLabel={(label) => router.push(searchHref(`#${label}`))}
                         />
                       </motion.div>
                     ))}
