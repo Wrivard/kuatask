@@ -286,6 +286,17 @@ export type Database = {
     }
     Functions: {
       completion_days: { Args: { days_back?: number }; Returns: string[] }
+      person_stats: {
+        Args: { days_back?: number }
+        Returns: {
+          user_id: string
+          done_today: number
+          done_week: number
+          done_month: number
+          done_total: number
+          days: string[]
+        }[]
+      }
       restack_tasks: { Args: { ids: string[]; positions: number[] }; Returns: number }
       is_admin: { Args: { ws: string }; Returns: boolean }
       is_member: { Args: { ws: string }; Returns: boolean }

@@ -1032,5 +1032,57 @@ section("Search — a tag filters, text finds, and together they narrow");
   check("whitespace is not a query", !hit("   ", tagged));
 }
 
+/*
+  The best run, which is a different question from the current one.
+
+  `streakFromDays` walks back from today and goes to zero the day after a streak
+  breaks. A record has to survive that, so it looks for the longest run anywhere
+  in the history and never depends on what day it is.
+*/
+section("Longest streak — the best run anywhere, not the one ending today");
+{
+  const { longestStreakFromDays: longest } = time;
+
+  eq("no history is no streak", longest([]), 0);
+  eq("a single day is a run of one", longest(["2026-06-16"]), 1);
+
+  eq("consecutive days count",
+     longest(["2026-06-16", "2026-06-17", "2026-06-18"]), 3);
+
+  eq("order does not matter",
+     longest(["2026-06-18", "2026-06-16", "2026-06-17"]), 3);
+
+  eq("a repeated day is still one day",
+     longest(["2026-06-16", "2026-06-16", "2026-06-17"]), 2);
+
+  eq("a gap ends the run",
+     longest(["2026-06-16", "2026-06-17", "2026-06-19"]), 2);
+
+  eq("and the longest of several wins",
+     longest(["2026-06-01", "2026-06-03", "2026-06-04", "2026-06-05", "2026-06-09"]), 3);
+
+  /*
+    The record does not care about today, which is the whole difference. These
+    days are long past and still count.
+  */
+  eq("a run that ended months ago still counts",
+     longest(["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"]), 4);
+
+  // month and year boundaries are where naive date arithmetic fails
+  eq("a run across a month boundary is unbroken",
+     longest(["2026-01-30", "2026-01-31", "2026-02-01"]), 3);
+  eq("a run across a year boundary is unbroken",
+     longest(["2025-12-31", "2026-01-01"]), 2);
+  eq("and across a leap day",
+     longest(["2028-02-28", "2028-02-29", "2028-03-01"]), 3);
+
+  /*
+    Spring forward is the case that breaks anything doing UTC arithmetic on
+    dates: 2026-03-08 is 23 hours long in Montreal.
+  */
+  eq("a DST day does not break the run",
+     longest(["2026-03-07", "2026-03-08", "2026-03-09"]), 3);
+}
+
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);
 process.exit(failures ? 1 : 0);

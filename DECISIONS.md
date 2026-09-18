@@ -1124,3 +1124,33 @@ edge beside the ring already there.
 The board card's lift while dragging is the other shadow, and it is deliberate
 and noted in place — a card being carried is the one other thing that is
 genuinely above the page.
+
+## A leaderboard, and where it is allowed to live
+
+Asked for directly. It runs against `docs/08` and the tension is worth stating
+rather than hiding: § 8.3 calls the progress ring "the only piece of persistent
+state feedback in the interface" and says not to add a second; § 8.5 rules out
+badges and trophies; § 8.6 warns that a streak which pressures you is one you
+eventually resent and then abandon.
+
+Those rules are about the **list** — the surface you are in all day — and they
+still hold there. Nothing from this page appears anywhere else: no rank beside a
+task, no badge on a row, no notification. It is a route you go and look at.
+
+Inside it, the same restraint decides the design. Numbers, not medals. No "1st"
+and "2nd", no trophy beside whoever is ahead — the bigger number already says
+it. The bar is proportional to the leader rather than to a target, because there
+is no right number of tasks to finish in a day and drawing a bar against a goal
+invents one, which is how a scoreboard starts shaping which tasks are worth
+writing down.
+
+Everybody appears, including whoever has completed nothing. `person_stats`
+groups over completions so a person with none is absent from the result; the
+page fills them back in at zero, because a leaderboard that omits last place is
+editorialising rather than reporting.
+
+**What it counts:** tasks that are done *and still exist*. A completed task
+deleted afterwards is gone from `tasks` and is not counted. The alternative is
+reconstructing history from the activity log, which only began in migration 0012
+and coalesces its own entries — a number that is explainable beats a number that
+is bigger. The page says so in a footnote.

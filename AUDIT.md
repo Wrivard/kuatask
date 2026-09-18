@@ -1371,3 +1371,21 @@ reviewed. Numbering continues.
      nothing. In the composer it sat under an empty box saying `#étiquette` to
      somebody who had not typed anything yet; the moment worth explaining the
      syntax is the moment a query returned nothing.
+324. [x] **P2** Added a leaderboard, asked for directly, against the grain of
+     § 8.3 (« do not add a second » persistent progress indicator), § 8.5 (no
+     badges, no trophies) and § 8.6 (a streak that pressures you is one you
+     resent). Resolved by where it lives rather than by refusing it: those rules
+     govern the list, nothing from this page appears on any other surface, and
+     you have to go and look at it. Recorded in `DECISIONS.md` with the tension
+     stated rather than smoothed over.
+325. [x] **P1** `person_stats()` aggregates in Postgres for the same reason
+     `completion_days` does: the browser holds one week of completions and cannot
+     answer « how many each, ever ». It returns the distinct days as an array so
+     streaks are computed by `streakFromDays`, which is already written and
+     tested — counting consecutive days twice, once in SQL and once in
+     TypeScript, is two implementations of one rule and the unwatched one drifts.
+326. [x] **P1** `longestStreakFromDays` is new and separate from
+     `streakFromDays`: one answers « how many in a row right now » and goes to
+     zero the day after a streak breaks, the other has to survive that. Twelve
+     assertions, including the three places naive date arithmetic fails — a month
+     boundary, a year boundary, a leap day — and the 23-hour spring-forward day.

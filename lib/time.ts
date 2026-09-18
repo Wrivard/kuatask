@@ -429,3 +429,34 @@ export function streakFromDays(
 
   return streak;
 }
+
+/**
+ * The longest run of consecutive days anywhere in the history.
+ *
+ * `streakFromDays` answers "how many in a row *right now*", which goes to zero
+ * the day after one breaks. A best-ever needs the other question, and the two
+ * are different enough that sharing an implementation would only make both
+ * harder to read.
+ *
+ * Sorted and walked rather than probed day by day from a cursor: the run can
+ * start anywhere, so there is no single point to walk back from, and sorting
+ * n days costs less than testing every day between the first and the last —
+ * which for a two-year history is most of seven hundred lookups.
+ */
+export function longestStreakFromDays(dayList: DayString[]): number {
+  if (dayList.length === 0) return 0;
+
+  // dates sort correctly as strings, which is the whole point of DayString
+  const days = [...new Set(dayList)].sort();
+
+  let longest = 1;
+  let run = 1;
+
+  for (let i = 1; i < days.length; i += 1) {
+    const previous = toDayString(addDays(toDate(days[i]), -1));
+    run = previous === days[i - 1] ? run + 1 : 1;
+    if (run > longest) longest = run;
+  }
+
+  return longest;
+}

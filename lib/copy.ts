@@ -34,6 +34,7 @@ export const copy = {
     undated: "Sans date",
     calendar: "Calendrier",
     activity: "Activité",
+    stats: "Classement",
     prevMonth: "Mois précédent",
     nextMonth: "Mois suivant",
     board: "Tableau",
@@ -80,6 +81,21 @@ export const copy = {
       completed_at: "complétion",
       completed_by: "complétion",
     } as Record<string, string>,
+  },
+
+  stats: {
+    period: {
+      today: "Aujourd'hui",
+      week: "7 jours",
+      month: "30 jours",
+      total: "Depuis le début",
+    },
+    streak: "Série",
+    best: "Record",
+    allTime: "Total",
+    /* Says what is counted, so a number nobody expected has an explanation. */
+    footnote:
+      "Compte les tâches terminées qui existent encore. Une tâche supprimée après coup n'est plus comptée.",
   },
 
   search: {

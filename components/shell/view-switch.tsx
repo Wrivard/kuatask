@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { List, Columns3, CalendarDays, History, type LucideIcon } from "lucide-react";
+import {
+  List,
+  Columns3,
+  CalendarDays,
+  History,
+  BarChart3,
+  type LucideIcon,
+} from "lucide-react";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +30,13 @@ export const VIEWS: { href: string; icon: LucideIcon; label: string }[] = [
     which is a question about the work, not about the workspace.
   */
   { href: "/activity", icon: History, label: copy.nav.activity },
+  /*
+    And a fifth for the figures, deliberately behind its own route. `docs/08`
+    keeps persistent progress feedback to the one ring, so a comparison
+    between two people is something you go and look at rather than something
+    that follows you around the list all day.
+  */
+  { href: "/stats", icon: BarChart3, label: copy.nav.stats },
 ];
 
 export function ViewSwitch() {
