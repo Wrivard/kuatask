@@ -297,7 +297,7 @@ export function TaskModal({
             onChange={(e) => setBuf((b) => ({ ...b, title: e.target.value }))}
             placeholder={copy.task.titlePlaceholder}
             rows={1}
-            className="min-h-0 resize-none overflow-hidden rounded-none border-0 bg-transparent p-0 text-[17px] font-medium leading-[1.35] tracking-[-0.014em] text-fg shadow-none focus-visible:ring-0 dark:bg-transparent"
+            className="min-h-0 resize-none overflow-hidden rounded-none border-0 bg-transparent p-0 text-[17px] font-medium leading-[1.35] tracking-[-0.014em] text-fg shadow-none focus-visible:ring-0"
           />
 
           <Textarea
@@ -307,7 +307,7 @@ export function TaskModal({
             onChange={(e) => setBuf((b) => ({ ...b, notes: e.target.value }))}
             placeholder={copy.task.notesPlaceholder}
             rows={1}
-            className="mt-2 min-h-0 resize-none overflow-hidden rounded-none border-0 bg-transparent p-0 text-[13px] leading-[1.55] text-fg-muted shadow-none focus-visible:ring-0 dark:bg-transparent"
+            className="mt-2 min-h-0 resize-none overflow-hidden rounded-none border-0 bg-transparent p-0 text-[13px] leading-[1.55] text-fg-muted shadow-none focus-visible:ring-0"
           />
 
           {/*

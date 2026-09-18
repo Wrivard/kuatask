@@ -1298,3 +1298,32 @@ reviewed. Numbering continues.
      untruncated title in a 280px column can run to a dozen lines on a 500-char
      title the length check allows, and a column you have to scroll past one card
      to read is not a board.
+309. [x] **P1** `Button` had both defects `Input` had, in ten call sites.
+     `rounded-lg` is 10px — the modal's radius — while its size variants reached
+     for `--radius-md`, the task-row radius; `docs/04` gives buttons 6px, so of
+     the three roles it managed to use the two it is not. And
+     `focus-visible:ring-3` stacked a second indicator on the accent outline
+     `globals.css` already draws. `text-sm font-medium` was left alone: 14px/500
+     is exactly what the doc asks, and shadcn happened to agree.
+310. [x] **P1** Swept for the rest rather than stopping at Button: `Textarea` and
+     `Switch` carried the same double ring. Zero `focus-visible:ring-3` remain in
+     the app — every focusable element now has exactly the one indicator
+     `docs/04` § Focus specifies, which is what it said all along.
+311. [x] **P2** `Textarea` also carried `dark:bg-input/30`, the translucent grey
+     the modal's title and notes had to patch out with `dark:bg-transparent` at
+     their call sites. The default is honest now, so both patches came off — two
+     fewer overrides existing only to undo a default.
+312. **NO** Radii across the app now read 61 × 6px controls, 7 × 8px rows,
+     9 × 10px modals, 16 × full for dots and avatars. The only off-scale value
+     left is on `DialogFooter`, which item 281 already recorded as dead.
+313. [x] **P2** A long name wrapped to three lines in the sidebar's assignee
+     lens. `FilterItem` did not truncate, while the signed-in name eighty lines
+     below in the same file did — and a display name is the only text in that
+     rail somebody else chose, so it is the only one that can be long.
+314. **NO** `global-error.tsx` hardcodes a dark palette and will show a dark
+     screen to somebody on the light theme. Left alone deliberately: it renders
+     its own `<html>` when the root layout has already failed, so it cannot lean
+     on tokens that may be exactly what broke — and matching `prefers-color-scheme`
+     would ignore an explicit light choice held in localStorage, which reading
+     before paint is the complexity that file exists to avoid. An honest dark
+     beats a half-right theme on the last screen before nothing.

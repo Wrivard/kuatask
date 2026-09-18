@@ -6,7 +6,17 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
     <textarea
       data-slot="textarea"
       className={cn(
-        "flex field-sizing-content min-h-16 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
+        /*
+          Same two corrections `Input` and `Button` needed: 6px rather than the
+          modal's 10px, and one focus indicator rather than a 3px ring stacked on
+          the accent outline `globals.css` already draws.
+
+          `bg-transparent` stays and `dark:bg-input/30` goes. That translucent
+          grey is the box the modal's title and notes had to patch out with
+          `dark:bg-transparent` at their call sites — the patch can come off now
+          that the default is honest.
+        */
+        "flex field-sizing-content min-h-16 w-full rounded-sm border border-control bg-transparent px-2.5 py-2 text-[13px] transition-colors outline-none placeholder:text-fg-faint focus-visible:border-accent disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-danger",
         className
       )}
       {...props}

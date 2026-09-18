@@ -357,7 +357,13 @@ function FilterItem({
       ) : (
         <span className="size-1.5 shrink-0" />
       )}
-      {children}
+      {/*
+        A name is the only text in this rail that somebody else chose, so it is
+        the only one that can be long. Without this a two-barrelled name wrapped
+        to three lines and broke the rhythm of every row below it — while the
+        signed-in name, eighty lines down in this same file, truncated correctly.
+      */}
+      <span className="min-w-0 truncate">{children}</span>
     </button>
   );
 }
