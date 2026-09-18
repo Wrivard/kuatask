@@ -39,12 +39,7 @@ import { useScrollMemory } from "@/lib/scroll-memory";
 import { useClearedToday } from "@/lib/clear-out";
 import { useToday } from "@/lib/day";
 import { useLocalLens } from "@/lib/lens";
-import {
-  useTaskModal,
-  useStartSearch,
-  focusComposer,
-  SEARCH_PARAM,
-} from "@/lib/events";
+import { useTaskModal, SEARCH_PARAM, searchHref } from "@/lib/events";
 import { useRouter, useSearchParams } from "next/navigation";
 import { nextDay } from "date-fns";
 import { matches, parseQuery } from "@/lib/search";
@@ -75,45 +70,19 @@ export function ListView() {
   // the calendar means re-opening it every time you want yesterday's context
   const [doneOpenRaw, setDoneOpen] = useLocalLens<"0" | "1" | "7">("kua-done-open", "0");
   const doneOpen = doneOpenRaw !== "0";
-  const [searching, setSearching] = React.useState(false);
-  const [query, setQuery] = React.useState("");
-
-  useStartSearch((incoming) => {
-    setSearching(true);
-    if (incoming) setQuery(incoming);
-    focusComposer();
-  });
-
   /*
-    A search asked for by URL, which is how every other view asks.
+    What is being searched comes from the URL, not from state here.
 
-    `?q=` exists because search lives in this composer and can only be started
-    where this composer is mounted — pressing `/` on the board dispatched an
-    event nothing was listening for. Read once on arrival and then removed from
-    the address bar, so the query is a starting point rather than a thing that
-    springs back the moment you edit it.
+    The header's search box writes `?q=` and this reads it, so one place decides
+    what the question is. It used to be local state fed by an event the composer
+    raised, which meant search only existed where that composer was mounted —
+    the list — and did nothing on the board, the calendar or anywhere else.
+
+    A consequence worth having: a result set is a link, and Back leaves a search.
   */
   const searchParams = useSearchParams();
-  const router = useRouter();
-
-  /*
-    Keyed on the string, not the params object. The effect clears the parameter
-    it just read, so anything that made the dependency change identity without
-    changing value would re-enter it — and this one writes to the router, which
-    is how that becomes a loop rather than a wasted render.
-  */
-  const incoming = searchParams.has(SEARCH_PARAM)
-    ? (searchParams.get(SEARCH_PARAM) ?? "")
-    : null;
-
-  React.useEffect(() => {
-    if (incoming === null) return;
-
-    setSearching(true);
-    setQuery(incoming);
-    focusComposer();
-    router.replace("/", { scroll: false });
-  }, [incoming, router]);
+  const query = searchParams.get(SEARCH_PARAM) ?? "";
+  const searching = query.trim() !== "";
 
   // searching rewrites the list, so restoring an old offset would be wrong
   useScrollMemory("list", !searching);
@@ -278,10 +247,16 @@ export function ListView() {
   const setFilter = useStore((s) => s.setAssigneeFilter);
 
   // reuses the search box rather than adding a second kind of filter to the app
-  const searchLabel = React.useCallback((label: string) => {
-    setSearching(true);
-    setQuery(`#${label}`);
-  }, []);
+  const router = useRouter();
+
+  /*
+    The same navigation the board's chips do. It used to set local state, which
+    is why the two behaved differently from surfaces that look identical.
+  */
+  const searchLabel = React.useCallback(
+    (label: string) => router.push(searchHref(`#${label}`), { scroll: false }),
+    [router],
+  );
 
   const [focusedId, setFocusedId] = React.useState<string | null>(null);
   const toggle = useToggleWithFeedback();
@@ -394,18 +369,10 @@ export function ListView() {
 
   return (
     <div className="max-w-[760px] px-6 py-6">
+      {/* capture only: searching is the header's box now */}
       <TaskComposer
         // § 6 — capturing while the lens is on a person assigns it to them
         defaultAssigneeId={filter}
-        search={{
-          active: searching,
-          query,
-          onQuery: setQuery,
-          onExit: () => {
-            setSearching(false);
-            setQuery("");
-          },
-        }}
       />
 
       {results ? (
@@ -455,7 +422,15 @@ export function ListView() {
         />
       ) : (
         (results ? results.length === 0 : visibleCount === 0) && (
-          <p className="text-[13px] text-fg-muted">{emptyMessage}</p>
+          <div>
+            <p className="text-[13px] text-fg-muted">{emptyMessage}</p>
+            {/* only where it helps: a search that found nothing */}
+            {searching && (
+              <p className="mt-1 text-[12px] text-fg-faint">
+                {copy.empty.searchTagHint}
+              </p>
+            )}
+          </div>
         )
       )}
 

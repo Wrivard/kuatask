@@ -33,7 +33,11 @@ Counts update optimistically with everything else. A count that lags behind the 
 
 ### Header
 
-Page title on the left. On the right, the progress ring and the remaining count (see `docs/08-satisfaction.md`). Nothing else — no search field (that is `⌘K`), no avatar menu (that is in settings), no "+ New" button (that is the composer, always visible).
+Page title on the left. Then **a search box**, then the progress ring and the remaining count (see `docs/08-satisfaction.md`). No avatar menu (that is in settings), no "+ New" button (that is the composer, always visible).
+
+The search box is a correction. This originally said "no search field (that is `⌘K`)", and search turned the *composer* into a search box — so starting it changed a placeholder and a border colour on a field that already looked like a field, and on every screen except the list it did nothing at all, because the composer it needed was not mounted there. Reported twice as "I cannot search". `⌘K` and `/` both still work; they now focus a box you can see.
+
+What is being searched lives in `?q=`, so one place decides the question: the box writes it, the list reads it, a result set is a link, and Back leaves a search.
 
 ## List view — the default route
 

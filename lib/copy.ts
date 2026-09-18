@@ -83,6 +83,8 @@ export const copy = {
   },
 
   search: {
+    placeholder: "Chercher une tâche…",
+    clear: "Effacer la recherche",
     title: "Résultats",
     count: (n: number) => plural(n, "résultat"),
   },
@@ -118,9 +120,6 @@ export const copy = {
 
   composer: {
     placeholder: "Ajouter une tâche…",
-    searchPlaceholder: "Chercher…",
-    /* Shown while searching: the tag syntax is not guessable from an empty box. */
-    searchHint: "#étiquette pour filtrer par étiquette",
     hint: "Entrée pour ajouter",
     hintOpen: "Maj+Entrée pour ajouter des notes",
     openHint: "Ajouter et ouvrir pour des notes",
@@ -168,6 +167,8 @@ export const copy = {
     filtered: (name: string) => `Rien pour ${name}.`,
     day: "Rien ce jour-là.",
     search: "Aucun résultat.",
+    /* The moment the tag syntax is worth knowing is the moment nothing matched. */
+    searchTagHint: "Essaie #étiquette pour filtrer par étiquette.",
   },
 
   // Rotate through these in the clear-out state. Keep them flat — no praise.

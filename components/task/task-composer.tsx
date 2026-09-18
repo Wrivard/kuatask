@@ -34,7 +34,6 @@ export function TaskComposer({
   takeFocus = false,
   onDone,
   onCancel,
-  search,
 }: {
   defaultDueOn?: string | null;
   defaultAssigneeId?: string | null;
@@ -77,19 +76,6 @@ export function TaskComposer({
    * something in a specific day.
    */
   takeFocus?: boolean;
-  /**
-   * When present the composer is a search box instead of a capture box.
-   *
-   * One field with two modes rather than two fields: the composer already owns
-   * the top of the list and the keyboard focus, and a separate search input
-   * would compete with it for both.
-   */
-  search?: {
-    active: boolean;
-    query: string;
-    onQuery: (value: string) => void;
-    onExit: () => void;
-  };
 }) {
   // survives a glance at the calendar; see lib/draft.ts
   const draftKey = "composer:" + (draftScope ?? defaultDueOn ?? "main");
@@ -154,14 +140,13 @@ export function TaskComposer({
     });
   }
 
-  // C and the palette focus the composer; / switches it to search first
+  // C and the palette focus the composer; / focuses the header's search box
   useFocusComposer(() => inputRef.current?.focus());
 
   React.useEffect(() => {
     if (takeFocus) inputRef.current?.focus();
   }, [takeFocus]);
 
-  const searching = search?.active ?? false;
   const finalTitle = composed.title;
 
   /*
@@ -178,7 +163,6 @@ export function TaskComposer({
     each line goes through exactly the same path a typed one does.
   */
   function onPaste(e: React.ClipboardEvent<HTMLInputElement>) {
-    if (searching) return;
 
     const text = e.clipboardData.getData("text");
     const lines = text
@@ -299,28 +283,13 @@ export function TaskComposer({
       <input
         ref={inputRef}
         type="text"
-        value={searching ? search!.query : value}
+        value={value}
         onChange={(e) => {
-          if (searching) {
-            search!.onQuery(e.target.value);
-            return;
-          }
           setValue(e.target.value);
           setCursor(e.target.selectionStart ?? e.target.value.length);
           setDismissed(new Set());
         }}
         onKeyDown={(e) => {
-          if (searching) {
-            // Escape is the only way out, and it clears as it goes
-            if (e.key === "Escape") {
-              e.preventDefault();
-              search!.onExit();
-            }
-            // Enter would otherwise create a task named after the query
-            if (e.key === "Enter") e.preventDefault();
-            return;
-          }
-
           /*
             Suggestions borrow Enter only while they are open. Everywhere else
             Enter still creates the task — capture speed is the point, and a
@@ -364,15 +333,14 @@ export function TaskComposer({
         onPaste={onPaste}
         onKeyUp={(e) => setCursor(e.currentTarget.selectionStart ?? 0)}
         onClick={(e) => setCursor(e.currentTarget.selectionStart ?? 0)}
-        placeholder={searching ? copy.composer.searchPlaceholder : copy.composer.placeholder}
-        aria-label={searching ? copy.composer.searchPlaceholder : copy.composer.placeholder}
+        placeholder={copy.composer.placeholder}
+        aria-label={copy.composer.placeholder}
         className={cn(
           "h-10 w-full rounded-sm border border-control bg-surface px-3",
           "text-[15px] leading-[1.4] tracking-[-0.011em]",
           "placeholder:text-fg-faint focus:border-accent focus:outline-none",
-          searching && "border-accent",
           // room for the open-and-edit button when there is one
-          !searching && value.trim() !== "" ? "pr-10" : "pr-3",
+          value.trim() !== "" ? "pr-10" : "pr-3",
         )}
       />
 
@@ -388,7 +356,7 @@ export function TaskComposer({
         suggestion list above: the input must not lose focus first, or the blur
         reorders against the click.
       */}
-      {!searching && value.trim() !== "" && (
+      {value.trim() !== "" && (
         <button
           type="button"
           onMouseDown={(e) => {
@@ -413,20 +381,8 @@ export function TaskComposer({
         keyboard exists. docs/07-keyboard.md: no keyboard hints on touch, decided
         by a pointer media query rather than by sniffing the user agent.
       */}
-      {/*
-        The tag syntax, while the box is a search box.
 
-        It is not guessable from an empty field, and clicking a label chip is
-        the only other way to discover that `#` means anything here — which
-        only helps if a task already carries the tag you want.
-      */}
-      {searching && (
-        <p className="mt-1 hidden text-right text-[12px] text-fg-faint [@media(pointer:fine)]:block">
-          {copy.composer.searchHint}
-        </p>
-      )}
-
-      {!searching && suggestions.length === 0 && value.trim() !== "" && (
+      {suggestions.length === 0 && value.trim() !== "" && (
         <p className="mt-1 hidden text-right text-[12px] text-fg-faint [@media(pointer:fine)]:block">
           {copy.composer.hint}
           {" · "}
@@ -434,7 +390,7 @@ export function TaskComposer({
         </p>
       )}
 
-      {!searching && suggestions.length > 0 && (
+      {suggestions.length > 0 && (
         <ul className="mt-1 overflow-hidden rounded-sm border border-border bg-surface">
           {suggestions.map((suggestion, i) => (
             <li key={suggestion.value}>
@@ -458,7 +414,7 @@ export function TaskComposer({
         </ul>
       )}
 
-      {!searching && chips.length > 0 && (
+      {chips.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {/*
             What the title will be, shown before what was taken out of it. Words

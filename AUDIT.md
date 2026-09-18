@@ -1347,3 +1347,27 @@ reviewed. Numbering continues.
 318. [x] **P2** That effect is keyed on the parameter's *string*, not on the
      params object. It writes to the router, so a dependency changing identity
      without changing value would not be a wasted render but a loop.
+319. [x] **P0** Search had no visible control. It turned the *composer* into a
+     search box, so starting it changed a placeholder and a border colour on a
+     field that already looked like a field — and on four of five screens it did
+     nothing at all, because the composer it needed only exists on the list.
+     Reported twice as « I cannot search », the second time after the matcher and
+     the reachability were both already fixed and deployed. Both fixes were
+     right; neither was findable. A thing people need to find has to be visible.
+320. [x] **P1** There is a real search box in the header now, on every page.
+     `docs/06` said the header holds a title and the ring and that search is
+     `⌘K`; that has been corrected in the doc rather than left to contradict the
+     app. `⌘K` and `/` both still work — they focus a box you can see.
+321. [x] **P1** `?q=` is the state. One place decides what the question is: the
+     box writes it, the list reads it. Previously it was local state in
+     `list-view` fed by an event the composer raised, which is precisely why
+     search could not exist anywhere the composer was not. Two consequences worth
+     having: a result set is a link, and Back leaves a search.
+322. [x] **P2** The composer's search mode is gone — fourteen branches threaded
+     through a component whose job is capture, all dead once the header owned
+     search. Two copy keys went with it. Keeping both would have meant two search
+     UIs with separate state, which is how they drift.
+323. [x] **P2** The tag hint moved to where it is needed: a search that found
+     nothing. In the composer it sat under an empty box saying `#étiquette` to
+     somebody who had not typed anything yet; the moment worth explaining the
+     syntax is the moment a query returned nothing.
