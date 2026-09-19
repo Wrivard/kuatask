@@ -9,6 +9,7 @@ import { DeleteAccount } from "./delete-account";
 import { useStore } from "@/lib/store";
 import { completionTone } from "@/lib/sound";
 import { Avatar } from "@/components/task/avatar";
+import { Chip } from "@/components/ui/chip";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -119,9 +120,13 @@ export function ProfileClient() {
                 type="button"
                 disabled={isTaken}
                 onClick={() => updateProfile({ accent: key })}
-                aria-label={key}
+                aria-label={copy.settings.accentNames[key] ?? key}
                 aria-pressed={isMine}
-                title={isTaken ? copy.settings.accentTaken : key}
+                title={
+                  isTaken
+                    ? copy.settings.accentTaken
+                    : (copy.settings.accentNames[key] ?? key)
+                }
                 className={cn(
                   "grid size-7 place-items-center rounded-sm border",
                   isMine ? "border-accent" : "border-border",
@@ -155,21 +160,20 @@ export function ProfileClient() {
       </Field>
 
       <Field label={copy.settings.theme}>
+        {/*
+          The same chip the board's grouping and the calendar's month/week use.
+          This was a fourth hand-rolled "pick one of N" — the three that were
+          unified in item 258 were the three I happened to be looking at.
+        */}
         <div className="flex gap-1.5">
           {(["dark", "light"] as const).map((option) => (
-            <button
+            <Chip
               key={option}
-              type="button"
+              active={theme === option}
               onClick={() => chooseTheme(option)}
-              className={cn(
-                "rounded-sm border px-2 py-1 text-[12px]",
-                theme === option
-                  ? "border-accent text-fg"
-                  : "border-border text-fg-muted hover:text-fg",
-              )}
             >
               {option === "dark" ? copy.settings.themeDark : copy.settings.themeLight}
-            </button>
+            </Chip>
           ))}
         </div>
         <p className="mt-1.5 text-[12px] text-fg-faint">{copy.settings.themeHint}</p>
@@ -189,10 +193,28 @@ export function ProfileClient() {
   );
 }
 
+/**
+ * A labelled section of the form.
+ *
+ * Deliberately not the modal's `Field`, which shares this name and does a
+ * different job: there a label sits over one field inside a scrolling band and
+ * takes the micro-label treatment, here it heads a region of the page and is a
+ * real `<h2>` at the section-header size `docs/04` gives that role.
+ *
+ * What it was missing is what the modal's was missing until item 300: the
+ * heading named nothing. Fixing "every labelled field in the app" touched only
+ * the component I was looking at, and this one kept announcing a group of
+ * controls with no name — the six accent swatches being the worst of it, since
+ * without the group they are six buttons called Vert, Bleu, Violet and nothing
+ * saying what choosing one does.
+ */
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const id = React.useId();
   return (
-    <section className="mb-7">
-      <h2 className="mb-2 text-[13px] font-medium text-fg-muted">{label}</h2>
+    <section className="mb-7" role="group" aria-labelledby={id}>
+      <h2 id={id} className="mb-2 text-[13px] font-medium text-fg-muted">
+        {label}
+      </h2>
       {children}
     </section>
   );

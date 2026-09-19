@@ -1453,3 +1453,27 @@ reviewed. Numbering continues.
      that digest, offers `reset()` rather than a reload, and says plainly that
      nothing is lost — which is the thing a crash screen most needs to say in an
      app people keep their work in.
+339. [x] **P1** Item 300 said "every labelled field in the app" and fixed one
+     component. Settings has its *own* `Field`, same name, same job, and its
+     heading named nothing — so a screen reader still met the six accent
+     swatches as six buttons called Vert, Bleu, Violet with nothing saying what
+     choosing one does. Fixing what was in front of me and describing it as
+     everywhere is the mistake worth recording here, not the missing attribute.
+340. **NO** The two `Field` components stay separate. They look different for a
+     reason: the modal's labels one field inside a scrolling band and takes the
+     micro-label, settings' heads a region of the page and is a real `<h2>` at
+     the section-header size `docs/04` gives that role. Same name, different job
+     — the duplication is in the name, and merging them would force one context
+     to wear the other's treatment.
+341. [x] **P1** The theme picker was a fourth hand-rolled "pick one of N". Item
+     258 unified three and called it done; the three were the ones I was looking
+     at. It is a `Chip` now, which serves five surfaces — the modal, the board's
+     grouping, the calendar's mode, the leaderboard's period and this.
+342. [x] **P2** The accent swatches announced their storage key: a screen reader
+     in a French interface saying "green". CLAUDE.md requires every user-facing
+     string to come from `lib/copy.ts`, and this was the one place in the app
+     that did not.
+343. **NO** Swept the rest rather than waiting to trip over a fifth. Every other
+     `border-accent` is a drop target, a display chip, an input focus or the
+     done-toggle. The accent swatches are genuinely one-of-N and stay bespoke:
+     they are colour squares, and a text chip is the wrong shape for a colour.

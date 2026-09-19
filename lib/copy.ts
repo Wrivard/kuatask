@@ -285,6 +285,20 @@ export const copy = {
     soundOff: "Son désactivé",
     accent: "Ta couleur",
     accentTaken: "Déjà prise par ton associé",
+    /*
+      The six identity colours, named. The swatches used to announce themselves
+      with their storage key — a screen reader in a French interface saying
+      "green", and the one place in the app where a user-facing string did not
+      come from this file.
+    */
+    accentNames: {
+      green: "Vert",
+      blue: "Bleu",
+      purple: "Violet",
+      amber: "Ambre",
+      pink: "Rose",
+      cyan: "Cyan",
+    } as Record<string, string>,
     displayName: "Nom affiché",
     displayNameHint: "C'est ce nom qui apparaît sur les tâches et dans @mentions.",
   },
