@@ -119,6 +119,29 @@ export function CalendarView() {
   const [openDay, setOpenDay] = React.useState<string | null>(null);
   const modal = useTaskModal();
 
+  /*
+    The days in rows of seven, for the markup only.
+
+    Both grids below declare `role="grid"` and fill it with `gridcell`s, which is
+    malformed: ARIA wants grid → row → gridcell, and without the row layer there
+    is no reason for assistive technology to treat either as a grid — which is
+    the whole point of having built them as ones, with arrow keys and a single
+    tab stop.
+
+    The rows carry `display: contents`, so they exist for ARIA and not for CSS.
+    The month is one `grid-cols-7 grid-rows-6`; real row boxes would become its
+    items and collapse each week into a single column. `contents` also leaves the
+    cells as the only boxes, so the drag code's hit-testing for
+    `[data-drop-target]` is untouched.
+  */
+  const weeksOf = React.useCallback(
+    (list: string[]) =>
+      Array.from({ length: Math.ceil(list.length / 7) }, (_, i) =>
+        list.slice(i * 7, i * 7 + 7),
+      ),
+    [],
+  );
+
   // read inside the key handler, which is bound once
   const modeRef = React.useRef(mode);
   modeRef.current = mode;
@@ -319,7 +342,9 @@ export function CalendarView() {
           ref={gridRef}
           className="grid min-h-0 flex-1 grid-cols-7 grid-rows-6"
         >
-          {days.map((day) => (
+          {weeksOf(days).map((week, w) => (
+            <div key={w} role="row" className="contents">
+            {week.map((day) => (
             <CalendarDayCell
               key={day}
               day={day}
@@ -334,6 +359,8 @@ export function CalendarView() {
               onGrabTask={grab}
               onOpenTask={modal.open}
             />
+            ))}
+            </div>
           ))}
         </motion.div>
       ) : (
@@ -352,7 +379,9 @@ export function CalendarView() {
           onKeyDown={onGridKeyDown}
           className="grid min-h-0 flex-1 grid-cols-7"
         >
-          {days.map((day) => (
+          {weeksOf(days).map((week, w) => (
+            <div key={w} role="row" className="contents">
+            {week.map((day) => (
             <div
               key={day}
               data-drop-target={day}
@@ -392,6 +421,8 @@ export function CalendarView() {
                   ))}
                 </React.Fragment>
               ))}
+            </div>
+            ))}
             </div>
           ))}
         </div>

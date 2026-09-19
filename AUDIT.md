@@ -1492,3 +1492,19 @@ reviewed. Numbering continues.
      somebody notices. One press arms it, the next does it; it disarms after four
      seconds so an abandoned click does not stay loaded, and nothing on the page
      moves because the label changes inside the same button.
+346. [x] **P1** Three `role="grid"`s were malformed. The date picker and both
+     calendar grids declared a grid and filled it with `gridcell`s, with no
+     `role="row"` between — ARIA wants grid → row → gridcell, and without the row
+     layer assistive technology has no reason to treat any of them as a grid.
+     Which is the whole point of having built them as grids: the arrow keys, the
+     single tab stop and the roving tabindex were all work done for a structure
+     that was not being announced.
+347. **NO** The rows carry `display: contents`, so they exist for ARIA and not
+     for CSS. The month is one `grid-cols-7 grid-rows-6`; real row boxes would
+     become its items and collapse each week into a single column. `contents`
+     also leaves the day cells as the only boxes, so the drag code's hit-testing
+     for `[data-drop-target]` is untouched — checked, because a row wrapper that
+     swallowed the pointer would have broken dragging silently.
+348. [x] **P2** The date picker's month chevrons were 14px where `docs/04` says
+     16px in buttons, and its cells restated the focus ring `globals.css` already
+     provides. Both the same slips found on the row's edit buttons in 256.

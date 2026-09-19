@@ -97,6 +97,16 @@ export function DatePicker({
     End: "weekEnd",
   };
 
+  /*
+    Six rows of seven. The flat list is what the arrow-key arithmetic works on —
+    `stepInGrid` moves by 1 and by 7 — so the grouping exists only for the markup
+    and is derived here rather than replacing it.
+  */
+  const weeks = React.useMemo(
+    () => Array.from({ length: days.length / 7 }, (_, i) => days.slice(i * 7, i * 7 + 7)),
+    [days],
+  );
+
   function onKeyDown(e: React.KeyboardEvent) {
     const step = BY_KEY[e.key];
     if (step) {
@@ -121,7 +131,7 @@ export function DatePicker({
           aria-label={copy.nav.prevMonth}
           className="rounded-sm p-1 text-fg-muted hover:text-fg"
         >
-          <ChevronLeft className="size-3.5" strokeWidth={1.5} />
+          <ChevronLeft className="size-4" strokeWidth={1.5} />
         </button>
         <span aria-live="polite" className="text-[12px] text-fg">
           {formatMonthYear(anchor)}
@@ -132,7 +142,7 @@ export function DatePicker({
           aria-label={copy.nav.nextMonth}
           className="rounded-sm p-1 text-fg-muted hover:text-fg"
         >
-          <ChevronRight className="size-3.5" strokeWidth={1.5} />
+          <ChevronRight className="size-4" strokeWidth={1.5} />
         </button>
       </div>
 
@@ -143,48 +153,65 @@ export function DatePicker({
         onKeyDown={onKeyDown}
         className="grid grid-cols-7 gap-px"
       >
-        {WEEKDAYS.map((d, i) => (
-          <span
-            key={i}
-            role="columnheader"
-            aria-hidden
-            className="py-1 text-center text-[11px] text-fg-faint"
-          >
-            {d}
-          </span>
-        ))}
+        {/*
+          `role="row"` with `display: contents`.
 
-        {days.map((day) => {
-          const outside = !isSameMonth(day, anchor);
-          const selected = day === value;
-          return (
-            <button
-              key={day}
-              type="button"
-              role="gridcell"
-              data-day={day}
-              // the grid is one tab stop; arrows move within it
-              tabIndex={day === focusedDay ? 0 : -1}
-              onClick={() => onSelect(day)}
-              onFocus={() => setFocusedDay(day)}
-              aria-selected={selected}
-              aria-current={isToday(day, today) ? "date" : undefined}
-              aria-label={formatDueLabel(day)}
-              className={cn(
-                "aspect-square rounded-sm font-mono text-[12px] tabular-nums",
-                outside ? "text-fg-faint" : "text-fg-muted",
-                "hover:bg-surface-hover hover:text-fg",
-                "focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent",
-                // today is outlined, the chosen day is filled: two different
-                // facts, so two different treatments rather than two colours
-                isToday(day, today) && !selected && "text-accent",
-                selected && "bg-accent font-medium text-bg hover:bg-accent hover:text-bg",
-              )}
+          A grid whose children are gridcells is malformed: ARIA wants
+          grid → row → gridcell, and without the row layer assistive technology
+          has no reason to treat this as a grid at all — which is the whole point
+          of having built it as one, with arrow keys and a single tab stop.
+
+          `contents` is what lets the rows exist for ARIA and not for CSS. The
+          layout is one `grid-cols-7` and real row elements would become its
+          items, collapsing seven columns into one per week.
+        */}
+        <div role="row" className="contents">
+          {WEEKDAYS.map((d, i) => (
+            <span
+              key={i}
+              role="columnheader"
+              aria-hidden
+              className="py-1 text-center text-[11px] text-fg-faint"
             >
-              {day.slice(-2)}
-            </button>
-          );
-        })}
+              {d}
+            </span>
+          ))}
+        </div>
+
+        {weeks.map((week, w) => (
+          <div key={w} role="row" className="contents">
+            {week.map((day) => {
+              const outside = !isSameMonth(day, anchor);
+              const selected = day === value;
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  role="gridcell"
+                  data-day={day}
+                  // the grid is one tab stop; arrows move within it
+                  tabIndex={day === focusedDay ? 0 : -1}
+                  onClick={() => onSelect(day)}
+                  onFocus={() => setFocusedDay(day)}
+                  aria-selected={selected}
+                  aria-current={isToday(day, today) ? "date" : undefined}
+                  aria-label={formatDueLabel(day)}
+                  className={cn(
+                    "aspect-square rounded-sm font-mono text-[12px] tabular-nums",
+                    outside ? "text-fg-faint" : "text-fg-muted",
+                    "hover:bg-surface-hover hover:text-fg",
+                    // today is outlined, the chosen day is filled: two different
+                    // facts, so two different treatments rather than two colours
+                    isToday(day, today) && !selected && "text-accent",
+                    selected && "bg-accent font-medium text-bg hover:bg-accent hover:text-bg",
+                  )}
+                >
+                  {day.slice(-2)}
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );
