@@ -1538,3 +1538,23 @@ reviewed. Numbering continues.
      switching Mois → Semaine changed what a day looks like. Every cell in a week
      is in the week, so there is no recessed variant to mirror — one surface,
      one chip.
+354. [x] **P1** The Terminé strip was the wrong green on the light theme.
+     `STATUS_ACCENTS.done` was `#3ecf8e` — the dark theme's `--green` written out
+     as a literal — while the light theme's accent is `#197f50`. Accent means
+     finished everywhere in this app, so the one strip that should have been *the*
+     accent was the only green that did not follow the theme. It is the token now.
+355. **NO** And the rest of those strips reuse the identity palette outright:
+     `#4a9eff` is Bleu on a person and « Cette semaine » on a column, against
+     `docs/04`'s "identity dots are the only other colour". Bounded rather than
+     resolved, and written into `DECISIONS.md` with the boundary named — a bucket
+     colour is a 2px rule above a header that says the bucket in words, identity
+     is a 20px face on a card. What would make it a real bug is a bucket colour
+     landing on a *task*, so that is stated too. Not fixed by inventing six more
+     hexes to keep legible on two themes, chosen without being able to see them;
+     if it is ever worth doing, the answer is one ordered ramp rather than six
+     unrelated hues, because due-date buckets are sequential and a ramp says so.
+356. **NO** Cross-view consistency audited. The calendar card omits the notes
+     glyph and the label that the row and the board both show — a real omission,
+     and the right one: the card is a 4mm bar, clicking it now opens the full
+     modal, and the view had just been called hard on the eyes. Adding glyphs to
+     the densest surface to reach parity with the loosest is the wrong direction.

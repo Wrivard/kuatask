@@ -1154,3 +1154,31 @@ deleted afterwards is gone from `tasks` and is not counted. The alternative is
 reconstructing history from the activity log, which only began in migration 0012
 and coalesces its own entries — a number that is explainable beats a number that
 is bigger. The page says so in a footnote.
+
+## Column strips reuse the identity palette, and where that stops being allowed
+
+The board's due-date and status strips are the identity palette's own hexes:
+`#4a9eff` is Bleu on a person and « Cette semaine » on a column. That collides
+with `docs/04`'s "identity dots are the only other colour", and it is bounded
+rather than resolved.
+
+Bounded by where each appears. A bucket colour is a 2px rule above a column
+whose header names the bucket in words; identity is a 20px face on a card.
+Nobody reads a strip above « Cette semaine » as a person.
+
+**Where it would become a real bug:** the moment a bucket colour lands on a
+*task*. A card edged in Bleu because it is due this week, beside one edged in
+Bleu because it is Guillaume's, is a colour that has stopped meaning anything.
+The calendar card's left rule is identity and must stay identity.
+
+Not resolved by inventing a second six-colour palette, because that is six more
+hexes to keep legible on two themes, chosen without being able to look at the
+result — and the collision costs nothing today. If it is ever worth resolving,
+the better answer is not six new hues but one ordered ramp: due-date buckets are
+sequential, and a ramp would say so where six unrelated hues do not.
+
+`done` was the one part that had to be fixed rather than noted. It was the dark
+theme's `--green` written out as `#3ecf8e`, so on the light theme — where the
+accent is `#197f50` — the Terminé strip was a green the app uses nowhere else.
+Accent means finished throughout this app, so it is now the accent token and
+follows the theme with everything else.

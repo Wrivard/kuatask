@@ -58,11 +58,31 @@ const DUE_ORDER: Bucket[] = ["today", "tomorrow", "week", "month", "later", "und
   they only ever appear on the header, never on a card, so they cannot be
   confused with whose task it is.
 */
+/*
+  Column strips, and a note on what these colours mean.
+
+  These are the identity palette's own hexes, reused: #4a9eff is Bleu on a
+  person and « Cette semaine » on a column strip. That is a real collision with
+  `docs/04`'s « identity dots are the only other colour », and it is bounded
+  rather than resolved — a bucket colour appears only as a 2px rule above a
+  column whose header names the bucket in words, while identity appears as a
+  20px face on a card. Context separates them.
+
+  Where it would become a genuine bug is the moment a bucket colour lands on a
+  *task*: a card edged in Bleu because it is due this week, sitting next to one
+  edged in Bleu because it is Guillaume's. Do not do that. The calendar card's
+  left rule is identity, and it should stay identity.
+
+  `done` is the exception that had to be fixed rather than noted. It was the
+  dark theme's `--green` written out as #3ecf8e, so on the light theme, where
+  the accent is #197f50, the Terminé strip was a green the app uses nowhere.
+  Accent means finished everywhere in this app, so it should be *the* accent and
+  follow the theme with it.
+*/
 const STATUS_ACCENTS: Record<string, string> = {
   todo: "#4a9eff",
   doing: "#e0a244",
-  // the accent green, which everywhere else in the app means finished
-  done: "#3ecf8e",
+  done: "var(--color-accent)",
 };
 
 const DUE_ACCENTS: Record<Bucket, string | undefined> = {
