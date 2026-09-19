@@ -1477,3 +1477,18 @@ reviewed. Numbering continues.
      `border-accent` is a drop target, a display chip, an input focus or the
      done-toggle. The accent swatches are genuinely one-of-N and stay bespoke:
      they are colour squares, and a text chip is the wrong shape for a colour.
+344. [x] **P1** The trailing hairline, for the fifth time — both lists on the
+     people page and the skeleton rows I wrote myself. Recorded as a pattern
+     rather than another item: five surfaces stack rows with `border-b`, I fixed
+     them one at a time as I met them, and each time believed it was the last.
+     Swept the whole tree this time. What is left with `border-b` is a header, a
+     tab bar and the modal's band separator — boundaries, not dividers.
+345. [x] **P1** « Retirer » removed a member on one click, sitting next to
+     « Promouvoir » as an identical 12px ghost button. `docs/03` asks for a
+     remove action and does not ask for a confirmation, which is right — removing
+     somebody is undone by inviting them again, not from a backup, so the typed
+     address `DeleteAccount` demands would be ceremony. But a mis-click between
+     two identical adjacent buttons costs your partner their access until
+     somebody notices. One press arms it, the next does it; it disarms after four
+     seconds so an abandoned click does not stay loaded, and nothing on the page
+     moves because the label changes inside the same button.

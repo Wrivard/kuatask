@@ -521,7 +521,8 @@ function Skeleton() {
       {/* the composer: same height, same radius, same control border */}
       <div className="mb-4 h-10 w-full rounded-sm border border-control bg-surface" />
 
-      <div className="mb-6">
+      {/* including the missing last rule, which is part of matching it */}
+      <div className="mb-6 [&>div:last-child]:border-b-0">
         {/* a section header is 13px on a 4px baseline, with mb-1 under it */}
         <div className="mb-1 flex h-[18px] items-center">
           <div className="h-3 w-24 rounded-sm bg-surface" />

@@ -247,6 +247,8 @@ export const copy = {
     inviteSent: (email: string) => `Invitation envoyée à ${email}`,
     revoke: "Révoquer",
     remove: "Retirer",
+    /* The second press. Sits in the same button, so nothing moves. */
+    removeConfirm: "Confirmer",
     resend: "Renvoyer",
     promote: "Nommer admin",
     demote: "Retirer admin",

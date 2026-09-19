@@ -14,6 +14,7 @@ import {
   setRole,
 } from "./actions";
 import { formatDueLabel, instantToDay } from "@/lib/time";
+import { cn } from "@/lib/utils";
 import { copy } from "@/lib/copy";
 
 type MemberRow = {
@@ -67,7 +68,8 @@ export function PeopleClient({
         <h2 className="mb-2 text-[13px] font-medium text-fg-muted">
           {copy.people.members}
         </h2>
-        <ul>
+        {/* no rule under the last row — see components/views/list-section.tsx */}
+        <ul className="[&>li:last-child]:border-b-0">
           {members.map((m) => (
             <li
               key={m.userId}
@@ -126,15 +128,10 @@ export function PeopleClient({
                 </Button>
               )}
               {isAdmin && (
-                <Button
-                  type="button"
-                  variant="ghost"
+                <ConfirmRemove
                   disabled={busy}
-                  onClick={() => void run(() => removeMember(m.userId))}
-                  className="h-7 px-2 text-[12px] text-fg-muted hover:text-danger"
-                >
-                  {copy.people.remove}
-                </Button>
+                  onConfirm={() => void run(() => removeMember(m.userId))}
+                />
               )}
             </li>
           ))}
@@ -146,7 +143,7 @@ export function PeopleClient({
           <h2 className="mb-2 text-[13px] font-medium text-fg-muted">
             {copy.people.pending}
           </h2>
-          <ul>
+          <ul className="[&>li:last-child]:border-b-0">
             {invites.map((i) => (
               <li
                 key={i.id}
@@ -241,5 +238,58 @@ export function PeopleClient({
         </section>
       )}
     </div>
+  );
+}
+
+
+/**
+ * Remove, on the second press.
+ *
+ * `docs/03` asks for a remove action and does not ask for a confirmation, and
+ * it is right that this is not the typed-address ceremony `DeleteAccount` uses:
+ * removing somebody is undone by inviting them again, not by a restore from
+ * backup. But it sits next to « Promouvoir » as an identical 12px ghost button,
+ * which makes a mis-click between the two plausible — and the cost of that
+ * mis-click is your partner losing access until somebody notices.
+ *
+ * So: one press arms it, the next one does it. No dialog, nothing moves on the
+ * page, and it disarms itself after a few seconds so a click abandoned halfway
+ * does not stay loaded for the rest of the session.
+ */
+function ConfirmRemove({
+  disabled,
+  onConfirm,
+}: {
+  disabled: boolean;
+  onConfirm: () => void;
+}) {
+  const [armed, setArmed] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!armed) return;
+    const id = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(id);
+  }, [armed]);
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      disabled={disabled}
+      onClick={() => {
+        if (!armed) {
+          setArmed(true);
+          return;
+        }
+        setArmed(false);
+        onConfirm();
+      }}
+      className={cn(
+        "h-7 px-2 text-[12px]",
+        armed ? "text-danger" : "text-fg-muted hover:text-danger",
+      )}
+    >
+      {armed ? copy.people.removeConfirm : copy.people.remove}
+    </Button>
   );
 }
