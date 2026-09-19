@@ -1508,3 +1508,16 @@ reviewed. Numbering continues.
 348. [x] **P2** The date picker's month chevrons were 14px where `docs/04` says
      16px in buttons, and its cells restated the focus ring `globals.css` already
      provides. Both the same slips found on the row's edit buttons in 256.
+349. [x] **P1** A test had a fuse on it. `verify:logic` asserted that parsing
+     « demain » produced a date *different* from a hardcoded default of
+     `"2026-09-20"` — true until the clock reached 2026-09-19, when tomorrow
+     became the literal and the assertion failed with nothing in the app having
+     changed. Now derived: a default thirty days out, and the parsed value
+     asserted to *equal* `tomorrow()`, which tests the intent rather than a proxy
+     and cannot be overtaken by the calendar.
+350. [x] **P0** And I pushed while it was red. The suite printed « 1 FAILED », my
+     command chained it with `&&` so the exit code stopped nothing, and I read
+     the tail of a later command instead. Recorded because the failure mode is
+     mine rather than the code's: a verification run I do not read is worth less
+     than no verification run, since it converts an unknown into a false
+     assurance. Fixed and green before this entry was written.

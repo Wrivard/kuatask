@@ -509,11 +509,25 @@ section("Composing — what a typed line becomes");
      notation.title, "envoyer la facture");
   eq("but it does drop the label", notation.label, null);
 
+  /*
+    A default far from today, derived rather than written.
+
+    This used to pass `"2026-09-20"` as the default and assert that parsing
+    « demain » produced something *different* from it. That held until the clock
+    reached 2026-09-19, when tomorrow became the literal and the test failed
+    without anything in the app changing — a date-dependent assertion with a
+    fuse on it.
+
+    Asserting the parsed value *equals* tomorrow is both stronger and immune to
+    the calendar: it tests the intent rather than a proxy for it.
+  */
+  const { addDays: plusDays } = await import("date-fns");
+  const farOff = time.toDayString(plusDays(time.nowTz(), 30));
   eq("a composer pre-dated to a day uses it",
-     make("ranger le bureau", none, { defaultDueOn: "2026-09-20" }).due_on, "2026-09-20");
-  check("and a parsed date wins over that default",
-        make("ranger le bureau demain", none, { defaultDueOn: "2026-09-20" }).due_on
-          !== "2026-09-20");
+     make("ranger le bureau", none, { defaultDueOn: farOff }).due_on, farOff);
+  eq("and a parsed date wins over that default",
+     make("ranger le bureau demain", none, { defaultDueOn: farOff }).due_on,
+     time.tomorrow());
   eq("a lens on a person assigns to them",
      make("ranger le bureau", none, { defaultAssigneeId: "u1" }).assignee_id, "u1");
 
