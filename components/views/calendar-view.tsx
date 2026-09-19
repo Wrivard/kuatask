@@ -393,14 +393,24 @@ export function CalendarView() {
               onClick={() => setOpenDay(day)}
               className={cn(
                 "flex min-h-0 cursor-pointer flex-col gap-1 overflow-y-auto border-b border-r border-border p-1.5",
+                /*
+                  The same surface the month's in-month cells got. The week view
+                  kept the old treatment when the month was repainted, so
+                  switching mode changed what a day looks like — every cell here
+                  is in the week, so there is no recessed variant to mirror.
+                */
+                "bg-surface hover:bg-surface-hover",
                 "focus-visible:outline focus-visible:-outline-offset-1 focus-visible:outline-accent",
                 dropDay === day && dragId !== null && "ring-1 ring-accent ring-inset",
               )}
             >
+              {/* and the same filled chip, rather than a coloured numeral */}
               <span
                 className={cn(
-                  "font-mono text-[12px] tabular-nums",
-                  isToday(day, today) ? "text-accent" : "text-fg-muted",
+                  "grid size-5 shrink-0 place-items-center rounded-full font-mono text-[12px] tabular-nums",
+                  isToday(day, today)
+                    ? "bg-accent font-medium text-bg"
+                    : "text-fg-muted",
                 )}
               >
                 {day.slice(-2)}

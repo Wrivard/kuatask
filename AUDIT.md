@@ -1521,3 +1521,20 @@ reviewed. Numbering continues.
      mine rather than the code's: a verification run I do not read is worth less
      than no verification run, since it converts an unknown into a false
      assurance. Fixed and green before this entry was written.
+351. [x] **P1** One of ten components using `motion` never asked the preference,
+     and what it animates is height — the completed-tasks footer expanding. That
+     is exactly the movement somebody turns `prefers-reduced-motion` on to stop,
+     and its sibling `ListSection` handles it correctly two files away.
+352. **NO** Worth recording *why* only that one slipped: `globals.css` carries a
+     global `prefers-reduced-motion` rule that zeroes every CSS animation and
+     transition, so the `animate-in`, `animate-pulse` and `transition-transform`
+     uses are all covered without asking. `motion/react` writes inline styles
+     per frame rather than using CSS transitions, so that rule cannot reach it —
+     JS-driven motion is the only kind that needs the hook, which is the thing to
+     check rather than the component list.
+353. [x] **P1** The calendar's two modes had stopped agreeing. Repainting the
+     month grid gave in-month cells a surface, a hover and a filled accent chip
+     for today; the week view kept a coloured numeral and no surface, so
+     switching Mois → Semaine changed what a day looks like. Every cell in a week
+     is in the week, so there is no recessed variant to mirror — one surface,
+     one chip.

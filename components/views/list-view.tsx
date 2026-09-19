@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ChevronRight } from "lucide-react";
 import { TaskComposer } from "@/components/task/task-composer";
 import dynamic from "next/dynamic";
@@ -66,6 +66,7 @@ export function ListView() {
   const me = useStore((s) => s.me);
   const filter = useStore((s) => s.assigneeFilter);
   const modal = useTaskModal();
+  const reduced = useReducedMotion();
   // expanded is a preference, not a transient: closing it on every trip to
   // the calendar means re-opening it every time you want yesterday's context
   const [doneOpenRaw, setDoneOpen] = useLocalLens<"0" | "1" | "7">("kua-done-open", "0");
@@ -458,10 +459,20 @@ export function ListView() {
 
           <AnimatePresence initial={false}>
             {doneOpen && (
+              /*
+                Opacity only under reduced motion, like `ListSection` next door.
+
+                This was the one component in the app that imported `motion` and
+                never asked the preference — and what it animates is height,
+                which is exactly the kind of movement somebody turns that
+                preference on to stop. `docs/04`: reduced motion replaces every
+                transform with an opacity crossfade. The transition is kept, so
+                the section still fades rather than snapping.
+              */
               <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
+                initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                animate={reduced ? { opacity: 1 } : { height: "auto", opacity: 1 }}
+                exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
                 transition={exit}
                 style={{ overflow: "hidden" }}
                 // the same trailing hairline the sections drop; `last-of-type`
