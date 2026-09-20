@@ -13,6 +13,7 @@ import {
 import { useStore } from "@/lib/store";
 import { parseFr } from "@/lib/parse-fr";
 import { bucketOf } from "@/lib/time";
+import { VIEWS } from "./view-switch";
 import { copy } from "@/lib/copy";
 
 const BUCKET_LABEL: Record<string, string> = {
@@ -159,15 +160,21 @@ export function CommandPalette({
         </CommandGroup>
 
         <CommandGroup heading={copy.palette.groupGo}>
-          <CommandItem value="liste aujourdhui" onSelect={() => open_(() => router.push("/"))}>
-            {copy.nav.list}
-          </CommandItem>
-          <CommandItem value="tableau board kanban" onSelect={() => open_(() => router.push("/board"))}>
-            {copy.nav.board}
-          </CommandItem>
-          <CommandItem value="calendrier" onSelect={() => open_(() => router.push("/calendar"))}>
-            {copy.nav.calendar}
-          </CommandItem>
+          {/*
+            From VIEWS, so a new route is reachable here by existing. Three were
+            not: /activity, /stats and /notes were all in the rail and none of
+            them in this list, because this was a second place to remember.
+          */}
+          {VIEWS.map((view) => (
+            <CommandItem
+              key={view.href}
+              value={view.keywords}
+              onSelect={() => open_(() => router.push(view.href))}
+            >
+              {view.label}
+            </CommandItem>
+          ))}
+
           <CommandItem value="reglages profil" onSelect={() => open_(() => router.push("/settings"))}>
             {copy.nav.settings}
           </CommandItem>

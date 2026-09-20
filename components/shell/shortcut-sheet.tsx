@@ -1,6 +1,7 @@
 "use client";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { VIEWS } from "./view-switch";
 import { copy } from "@/lib/copy";
 
 /** A reference, not a feature. No animation beyond the standard dialog spring. */
@@ -15,11 +16,13 @@ const GROUPS: { scope: string; rows: [string, string][] }[] = [
       // sheet somebody opens to find out that it exists at all
       ["Maj+Entrée", copy.composer.openHint],
       ["1 2 3 4", `${copy.nav.today} / ${copy.nav.tomorrow} / ${copy.nav.week} / ${copy.nav.month}`],
-      ["G puis L", copy.nav.list],
-      ["G puis B", copy.nav.board],
-      ["G puis C", copy.nav.calendar],
-      ["G puis A", copy.nav.activity],
-      ["G puis P", copy.nav.stats],
+      /*
+        From VIEWS as well. A sheet that lists five of six shortcuts is worse
+        than one that lists none, because it reads as complete.
+      */
+      ...VIEWS.map(
+        (v) => [`G puis ${v.key.toUpperCase()}`, v.label] as [string, string],
+      ),
       ["G puis S", copy.nav.settings],
       ["⌘Z", copy.toast.undo],
       ["?", copy.shortcuts.title],

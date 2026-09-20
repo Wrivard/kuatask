@@ -20,6 +20,7 @@ const ShortcutSheet = dynamic(
 );
 import { useHotkeys, useSequence } from "@/lib/hotkeys";
 import { focusComposer, openTask, searchHref, startSearch } from "@/lib/events";
+import { VIEWS } from "./view-switch";
 import { useStore } from "@/lib/store";
 
 /** Global keyboard layer plus the two dialogs it opens. */
@@ -68,20 +69,16 @@ export function AppChrome() {
     "4": () => goToSection("month"),
   });
 
+  /*
+    Built from VIEWS rather than listed again, so a new route gets its shortcut
+    by existing. Two of the last three did not: `/stats` was added without one
+    and `/notes` after it, each time because this was a second list to remember.
+    `s` stays hand-written — settings is not a view.
+  */
   useSequence("g", {
-    c: () => router.push("/calendar"),
-    b: () => router.push("/board"),
-    l: () => router.push("/"),
-    a: () => router.push("/activity"),
+    ...Object.fromEntries(VIEWS.map((v) => [v.key, () => router.push(v.href)])),
     // S alone cycles a row's status; behind G there is no collision
     s: () => router.push("/settings"),
-    /*
-      P for palmarès. C and L — the letters « Classement » actually offers — are
-      already the calendar and the list, and a route without a shortcut is the
-      one nobody reaches by keyboard. The sheet spells it out, which is what
-      makes an imperfect mnemonic workable.
-    */
-    p: () => router.push("/stats"),
   });
 
   return (

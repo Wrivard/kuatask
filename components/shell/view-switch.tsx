@@ -11,6 +11,7 @@ import {
   NotebookPen,
   type LucideIcon,
 } from "lucide-react";
+import { ROUTES } from "@/lib/routes";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -22,30 +23,26 @@ import { cn } from "@/lib/utils";
  * none of them fetches. They are real routes so the back button and deep links
  * still work.
  */
-export const VIEWS: { href: string; icon: LucideIcon; label: string }[] = [
-  /*
-    First, because it comes before a task does. Dumping is the step where
-    nothing has been decided yet, and a rail is read top-down: what you reach
-    for before anything is sorted belongs above the sorted views, not after
-    them.
-  */
-  { href: "/notes", icon: NotebookPen, label: copy.nav.notes },
-  { href: "/", icon: List, label: copy.nav.list },
-  { href: "/board", icon: Columns3, label: copy.nav.board },
-  { href: "/calendar", icon: CalendarDays, label: copy.nav.calendar },
-  /*
-    A fourth view rather than a settings page: it answers « what happened »,
-    which is a question about the work, not about the workspace.
-  */
-  { href: "/activity", icon: History, label: copy.nav.activity },
-  /*
-    And a fifth for the figures, deliberately behind its own route. `docs/08`
-    keeps persistent progress feedback to the one ring, so a comparison
-    between two people is something you go and look at rather than something
-    that follows you around the list all day.
-  */
-  { href: "/stats", icon: BarChart3, label: copy.nav.stats },
-];
+/**
+ * The routes, with an icon each.
+ *
+ * The data lives in `lib/routes.ts` so it can be loaded without React — which
+ * is what lets `verify:logic` assert that no two routes claim the same `g` key.
+ * This file only adds the part that needs a component.
+ */
+const ICONS: Record<string, LucideIcon> = {
+  "/notes": NotebookPen,
+  "/": List,
+  "/board": Columns3,
+  "/calendar": CalendarDays,
+  "/activity": History,
+  "/stats": BarChart3,
+};
+
+export const VIEWS = ROUTES.map((route) => ({
+  ...route,
+  icon: ICONS[route.href] ?? List,
+}));
 
 export function ViewSwitch() {
   const pathname = usePathname();

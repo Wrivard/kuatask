@@ -20,13 +20,24 @@ The app is fully operable without a mouse. This is not an accessibility checkbox
 | `!` | Toggle important on the focused task | List |
 | `⌫` | Delete the focused task | List |
 | `1` `2` `3` `4` | Aujourd'hui / Demain / Semaine / Mois | Global |
-| `G` then `C` | Go to calendar | Global |
-| `G` then `P` | Go to the leaderboard | Global |
+| `G` then `D` | Go to braindump | Global |
 | `G` then `L` | Go to list | Global |
+| `G` then `B` | Go to the board | Global |
+| `G` then `C` | Go to calendar | Global |
+| `G` then `A` | Go to activity | Global |
+| `G` then `P` | Go to the leaderboard | Global |
+| `G` then `S` | Go to settings | Global |
 | `T` | Jump to today | Calendar |
 | `⌘Z` | Undo | Global |
 | `Esc` | Close modal / palette / clear focus | Contextual |
 | `?` | Shortcut sheet | Global |
+
+The `G` rows above are not written anywhere in the UI. They come from
+`lib/routes.ts`, which the rail, the command palette and the shortcut sheet all
+read; adding a route there gives it a shortcut, a palette entry and a printed
+row at once. `verify:logic` asserts no two routes claim the same letter — a
+collision costs one of them its keyboard path silently, since the sequence just
+lands on whichever entry was enumerated last.
 
 ## Focus model
 
@@ -50,7 +61,8 @@ One `cmdk` dialog, fuzzy-matched, arrow-key driven. Groups in this order:
 
 **Créer** — `Nouvelle tâche` plus, when the query does not match an existing task, `Créer « {query} »` which runs the same French parsing as the composer.
 
-**Aller à** — the four buckets, the calendar, settings.
+**Aller à** — every route in `lib/routes.ts`, generated, plus settings. It was
+hand-listed and fell three routes behind.
 
 **Filtrer** — `Tout` / `Moi` / partner's name.
 

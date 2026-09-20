@@ -31,6 +31,7 @@ const NEEDED = [
   "motion.ts",
   "search.ts",
   "calendar.ts",
+  "routes.ts",
 ];
 
 // inside the project, so node resolves date-fns from the local node_modules
@@ -57,6 +58,7 @@ const { textPatch } = await load("edit.ts");
 const motion = await load("motion.ts");
 const search = await load("search.ts");
 const calendar = await load("calendar.ts");
+const routes = await load("routes.ts");
 const reset = await load("session-reset.ts");
 const sound = await load("sound.ts");
 
@@ -1132,6 +1134,53 @@ section("Calendar — a month cell shows the days it promised");
         `${CELL_CHROME} of ${CELL_MIN_HEIGHT}`);
   check("and a card is smaller than the chrome", CARD_PITCH < CELL_CHROME,
         `${CARD_PITCH} vs ${CELL_CHROME}`);
+}
+
+/*
+  The route table, which four things now read.
+
+  The rail, the command palette, the `g` sequence and the shortcut sheet all
+  come from one list — they did not, and every route added after the first four
+  was wired into the rail and forgotten elsewhere: /activity, /stats and /notes
+  were each missing from the palette, and two of the three had no shortcut at
+  all. One list fixes that. What one list cannot fix by itself is two entries
+  claiming the same key, which costs a route its keyboard path and shows
+  nothing — `g` simply lands on whichever the object enumerated last.
+*/
+section("Routes — one table, and no two claim the same key");
+{
+  const { ROUTES, RESERVED_SEQUENCE_KEYS } = routes;
+
+  const keys = ROUTES.map((r) => r.key);
+  const dupes = keys.filter((k, i) => keys.indexOf(k) !== i);
+  check("no two routes share a g key", dupes.length === 0, dupes.join(", ") || "none");
+
+  check("and none takes one that is already spoken for",
+        keys.every((k) => !RESERVED_SEQUENCE_KEYS.includes(k)),
+        keys.filter((k) => RESERVED_SEQUENCE_KEYS.includes(k)).join(", ") || "none");
+
+  check("every key is a single letter",
+        keys.every((k) => /^[a-z]$/.test(k)), keys.join(","));
+
+  const hrefs = ROUTES.map((r) => r.href);
+  check("no route is listed twice",
+        new Set(hrefs).size === hrefs.length, hrefs.join(", "));
+
+  // the palette matches on these, so an empty one is a route nobody can find
+  check("every route has something to search it by",
+        ROUTES.every((r) => r.keywords.trim().length > 0 && r.label.trim().length > 0));
+
+  /*
+    A route's own label should be findable by its keywords. Typing the name of
+    the thing you can see in the rail is the first thing anybody tries.
+  */
+  check("and its keywords include its own name",
+        ROUTES.every((r) =>
+          r.keywords.toLowerCase().includes(r.label.toLowerCase().slice(0, 4)),
+        ),
+        ROUTES.filter((r) => !r.keywords.toLowerCase().includes(r.label.toLowerCase().slice(0, 4)))
+          .map((r) => r.label)
+          .join(", ") || "all fine");
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);
