@@ -1580,3 +1580,16 @@ reviewed. Numbering continues.
      coloured fill mixes at 22% against the identity wash's 10%, because a colour
      somebody set by hand is meant to be found and drawing both at one strength
      would hide the deliberate one among the automatic ones.
+360. [x] **P2** The sidebar's bucket counts sat between the views and the lens —
+     something that is not navigation, separating the two blocks that are. They
+     are a read rather than a destination, so they moved to the foot with
+     `mt-auto`, which puts the counts, Réglages and who you are together as one
+     bottom group instead of three things scattered down the rail.
+361. [x] **P2** That left a divider under the lens with the flexible gap beneath
+     it — a rule dividing nothing, which is the same defect swept out of five
+     list surfaces earlier. Removed rather than left to be found again.
+362. [x] **P1** Nearly inserted the counts above the *workspace name*: it links
+     to `/settings` too, so matching on `href="/settings"` found it first.
+     Anchored on the `Users` icon instead. Worth recording because the mistake
+     was invisible in the diff and obvious in a list of block positions — which
+     is the check that caught it.

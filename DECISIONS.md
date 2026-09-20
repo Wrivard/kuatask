@@ -1183,7 +1183,7 @@ accent is `#197f50` — the Terminé strip was a green the app uses nowhere else
 Accent means finished throughout this app, so it is now the accent token and
 follows the theme with everything else.
 
-## Vrac — a dump that is not a task list
+## Braindump — a dump that is not a task list
 
 Asked for as "daily quick notes, a brain dump — it doesn't save or anything and
 gets deleted after a week". Those two halves pull apart, so the first is read as
@@ -1212,7 +1212,9 @@ so RLS limits it to the caller's own rows — a `security definer` version would
 have been a function that empties anybody's dump if its argument were ever
 wrong. The page states the seven days on screen, because it is a promise.
 
-**On the mobile bar, not behind « Plus ».** Six tabs at 375px is 62px each,
+**First in the rail, and on the mobile bar rather than behind « Plus ».** It
+comes before a task does: a rail is read top-down, and what you reach for before
+anything is sorted belongs above the sorted views. Six tabs at 375px is 62px each,
 which « Calendrier » fits at 12px; seven did not, which is why the overflow
 exists at all. Dumping on a phone is the workflow this was asked for, so hiding
 it one tap deeper would be hiding it from its own use case.

@@ -158,9 +158,49 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
         })}
       </nav>
 
+
       <div className="mx-4 my-3 border-t border-border" />
 
+      {/* the assignee lens */}
       <div className="flex flex-col gap-px px-2">
+        <FilterItem active={filter === null} onClick={() => chooseFilter(null, copy.filter.all)}>
+          {copy.filter.all}
+        </FilterItem>
+
+        {me && (
+          <FilterItem
+            active={filter === me.id}
+            onClick={() => chooseFilter(me.id, copy.filter.mine)}
+            color={accentColor(me.accent)}
+          >
+            {copy.filter.mine}
+          </FilterItem>
+        )}
+
+        {partner && (
+          <FilterItem
+            active={filter === partner.id}
+            onClick={() => chooseFilter(partner.id, partner.display_name)}
+            color={accentColor(partner.accent)}
+          >
+            {partner.display_name}
+          </FilterItem>
+        )}
+      </div>
+
+      {/*
+        The day's shape, at the foot of the rail.
+
+        These sat under the nav, between the views and the lens — which put
+        something that is not navigation between the two blocks that are. They
+        are a read rather than a destination: how much is on today, how much is
+        waiting.
+
+        `mt-auto` here rather than on the name below, so everything from this
+        point down sits against the bottom as one group — the counts, then
+        Réglages, then who you are.
+      */}
+      <div className="mt-auto flex flex-col gap-px px-2">
         {BUCKETS.map((b) => {
           const count = counts.get(b.bucket) ?? 0;
           const empty = count === 0;
@@ -194,35 +234,6 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
 
       <div className="mx-4 my-3 border-t border-border" />
 
-      {/* the assignee lens */}
-      <div className="flex flex-col gap-px px-2">
-        <FilterItem active={filter === null} onClick={() => chooseFilter(null, copy.filter.all)}>
-          {copy.filter.all}
-        </FilterItem>
-
-        {me && (
-          <FilterItem
-            active={filter === me.id}
-            onClick={() => chooseFilter(me.id, copy.filter.mine)}
-            color={accentColor(me.accent)}
-          >
-            {copy.filter.mine}
-          </FilterItem>
-        )}
-
-        {partner && (
-          <FilterItem
-            active={filter === partner.id}
-            onClick={() => chooseFilter(partner.id, partner.display_name)}
-            color={accentColor(partner.accent)}
-          >
-            {partner.display_name}
-          </FilterItem>
-        )}
-      </div>
-
-      <div className="mx-4 my-3 border-t border-border" />
-
       <Link
         href="/settings"
         className={cn(
@@ -242,7 +253,8 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
         bounced to a login screen and back — and with two people sharing a board
         it decides what "Moi" means.
       */}
-      <div className="mt-auto flex items-center gap-2 px-4 py-4">
+      {/* directly under Réglages, which is what makes them read as one block */}
+      <div className="flex items-center gap-2 px-4 pb-4 pt-2">
         {me && (
           <>
             <span

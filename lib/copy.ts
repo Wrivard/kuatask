@@ -35,7 +35,7 @@ export const copy = {
     calendar: "Calendrier",
     activity: "Activité",
     stats: "Classement",
-    notes: "Vrac",
+    notes: "Braindump",
     /* The mobile overflow: six routes, five slots on the bar. */
     more: "Plus",
     prevMonth: "Mois précédent",
@@ -89,11 +89,11 @@ export const copy = {
   notes: {
     placeholder: "Vide-toi la tête… Entrée pour garder, Maj+Entrée pour une ligne",
     hint: "Entrée pour garder",
-    empty: "Rien en vrac. Écris ce qui traîne, trie plus tard.",
+    empty: "Rien ici. Écris ce qui traîne, trie plus tard.",
     toTask: "En faire une tâche",
     discard: "Jeter",
     expiry: (days: number) =>
-      `Le vrac se vide tout seul après ${days} jours. Ce qui compte devient une tâche.`,
+      `Tout se vide tout seul après ${days} jours. Ce qui compte devient une tâche.`,
   },
 
   stats: {
