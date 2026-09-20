@@ -30,6 +30,7 @@ const NEEDED = [
   "edit.ts",
   "motion.ts",
   "search.ts",
+  "calendar.ts",
 ];
 
 // inside the project, so node resolves date-fns from the local node_modules
@@ -55,6 +56,7 @@ const { extractLinks } = await load("links.ts");
 const { textPatch } = await load("edit.ts");
 const motion = await load("motion.ts");
 const search = await load("search.ts");
+const calendar = await load("calendar.ts");
 const reset = await load("session-reset.ts");
 const sound = await load("sound.ts");
 
@@ -1096,6 +1098,40 @@ section("Longest streak — the best run anywhere, not the one ending today");
   */
   eq("a DST day does not break the run",
      longest(["2026-03-07", "2026-03-08", "2026-03-09"]), 3);
+}
+
+/*
+  How many tasks a day shows in the month grid.
+
+  A promise to the people using this — "at least five, then « +2 »" — and one
+  got wrong twice from opposite directions: once by capping the count at a
+  constant that ignored the window, and once by sizing the grid's rows in a way
+  that never reached the cells. Both times the app looked fine and showed one
+  task a day, which is why this is a number rather than a judgement.
+*/
+section("Calendar — a month cell shows the days it promised");
+{
+  const { cardsPerCell, CELL_MIN_HEIGHT, CELL_CHROME, CARD_PITCH } = calendar;
+
+  check("a cell at its minimum shows at least five", cardsPerCell() >= 5,
+        `${cardsPerCell()} cards in ${CELL_MIN_HEIGHT}px`);
+
+  // a taller window earns more, which is the point of measuring rather than capping
+  check("a taller cell shows more", cardsPerCell(CELL_MIN_HEIGHT * 2) > cardsPerCell(),
+        `${cardsPerCell(CELL_MIN_HEIGHT * 2)} at double height`);
+
+  /*
+    Never zero. A cell short enough to fit nothing would render as a date and a
+    « +3 » with no tasks under it, which is worse than showing one and hiding
+    the rest.
+  */
+  check("and a cell too short for any still shows one", cardsPerCell(10) === 1,
+        String(cardsPerCell(10)));
+
+  check("the chrome is smaller than the cell it sits in", CELL_CHROME < CELL_MIN_HEIGHT,
+        `${CELL_CHROME} of ${CELL_MIN_HEIGHT}`);
+  check("and a card is smaller than the chrome", CARD_PITCH < CELL_CHROME,
+        `${CARD_PITCH} vs ${CELL_CHROME}`);
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);

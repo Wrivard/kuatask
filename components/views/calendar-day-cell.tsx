@@ -1,55 +1,24 @@
 "use client";
 
 import { CalendarCard } from "./calendar-card";
+import { CELL_MIN_HEIGHT } from "@/lib/calendar";
 import { formatDueLabel, isSameMonth, isToday } from "@/lib/time";
 import { copy } from "@/lib/copy";
 import type { Profile, Task } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
-/**
- * A guess at the card's pitch, used for exactly one frame.
- *
- * `useRowsThatFit` reads the real distance between two rendered cards, so this
- * only has to be close enough for the first paint, before any card exists to
- * measure. An earlier version of this file called the same number "measured"
- * and divided by it for ever; it was an estimate, and it would have drifted
- * silently the moment the card's padding changed.
- *
- * 22 rather than 20 since the card's title went from 11px to 12px. Being low
- * costs one overfilled frame before the measurement lands; being high costs one
- * card that could have fitted. Neither is visible for long, which is the whole
- * reason this is allowed to be a guess.
- */
-export const CARD_PITCH_GUESS = 22;
+
+/*
+  The numbers moved to lib/calendar.ts so `verify:logic` can hold them to the
+  promise they encode. Re-exported here because the grid reads them from the
+  component that owns the cell, which is the honest place to look for them.
+*/
+export { CARD_PITCH as CARD_PITCH_GUESS, CELL_CHROME, CELL_MIN_HEIGHT } from "@/lib/calendar";
 
 /** Marks a card as a row the fitting measurement can take its height from. */
 export const CARD_ROW = "data-cal-card";
 
-/**
- * The date above the cards, the cell padding, and room for a « +N ».
- *
- * 44 rather than 40 since the date became a 20px chip instead of a 16px line of
- * text. Undercounting here does not fail loudly — the grid simply fits one card
- * too many and clips the last one against the cell's bottom edge.
- */
-export const CELL_CHROME = 44;
 
-/**
- * The shortest a month cell may be.
- *
- * Six rows used to share whatever height the window had, which on a laptop is
- * about 130px a cell — room for three cards, and in practice often one or two,
- * so a day with anything on it said « +2 de plus » and showed almost nothing.
- * The owner asked to see six or seven before the overflow starts.
- *
- * Seven cards at a ~22px pitch plus the 44px of chrome is 198. The consequence
- * is that the month no longer fits a viewport and scrolls, which is the trade:
- * a grid you scroll and can read beats one that fits and cannot.
- *
- * `minmax(_, 1fr)` rather than a fixed height, so a tall display still spreads
- * the six rows out instead of leaving empty space below them.
- */
-export const CELL_MIN_HEIGHT = 198;
 
 /**
  * One month cell. Numerals are Geist Mono with tabular figures — mono is a data
@@ -108,8 +77,10 @@ export function CalendarDayCell({
       aria-label={copy.calendar.cell(formatDueLabel(day), tasks.length)}
       aria-current={isToday(day, today) ? "date" : undefined}
       onClick={() => onOpenDay(day)}
+      // the floor that makes the row tall enough to be worth scrolling to
+      style={{ minHeight: CELL_MIN_HEIGHT }}
       className={cn(
-        "group/cell flex min-h-0 cursor-pointer flex-col gap-0.5 border-b border-r border-border p-1.5",
+        "group/cell flex cursor-pointer flex-col gap-0.5 border-b border-r border-border p-1.5",
         "focus-visible:outline focus-visible:-outline-offset-1 focus-visible:outline-accent",
         /*
           The grid used to be hairlines on the page background — every cell the

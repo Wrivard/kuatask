@@ -13,12 +13,7 @@ const TaskModal = dynamic(
   { ssr: false },
 );
 import { CalendarCard } from "./calendar-card";
-import {
-  CARD_PITCH_GUESS,
-  CARD_ROW,
-  CELL_CHROME,
-  CELL_MIN_HEIGHT,
-} from "./calendar-day-cell";
+import { CARD_PITCH_GUESS, CARD_ROW, CELL_CHROME } from "./calendar-day-cell";
 import { useRowsThatFit } from "@/lib/fit";
 import { useTaskModal } from "@/lib/events";
 import { Chip } from "@/components/ui/chip";
@@ -357,8 +352,9 @@ export function CalendarView() {
           animate={{ opacity: 1, y: 0 }}
           transition={snap}
           ref={gridRef}
-          className="grid grid-cols-7 auto-rows-[minmax(var(--cell-min),1fr)]"
-          style={{ "--cell-min": `${CELL_MIN_HEIGHT}px` } as React.CSSProperties}
+          // rows size to their tallest cell, and a cell has a floor — see
+          // CELL_MIN_HEIGHT, which is where the height actually comes from
+          className="grid grid-cols-7"
         >
           {weeksOf(days).map((week, w) => (
             <div key={w} role="row" className="contents">

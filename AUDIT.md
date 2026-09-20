@@ -1593,3 +1593,18 @@ reviewed. Numbering continues.
      Anchored on the `Users` icon instead. Worth recording because the mistake
      was invisible in the diff and obvious in a list of block positions — which
      is the check that caught it.
+363. [x] **P0** The cell height never arrived. `grid-auto-rows: minmax(198px,1fr)`
+     compiled — the class is in the stylesheet, the variable was set — and cells
+     stayed at a sixth of the viewport, so the owner reported three tasks a day
+     where seven were intended. Checked the deployed commit and the emitted CSS
+     first, which is what ruled out the two obvious explanations and left the one
+     that mattered: a row sizes to its tallest item, and the item carried
+     `min-h-0`. The floor belongs to the cell, which is the shorter causal chain
+     and does not depend on how `fr` resolves in an auto-height grid.
+364. [x] **P1** The numbers moved to `lib/calendar.ts` and the promise became a
+     test. "At least five, then « +2 »" has now been got wrong twice from
+     opposite directions — once by a constant that ignored the window, once by
+     sizing rows that never reached the cells — and both times the app looked
+     fine while showing one task a day. `cardsPerCell()` runs the same
+     arithmetic `useRowsThatFit` does, against the floor, so a browser is not
+     needed to know the answer: six at 176px, asserted.
