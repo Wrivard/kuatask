@@ -21,6 +21,12 @@ export type Note = { id: string; body: string; created_at: string };
 /** How long a note lives. Stated on screen, because it is a promise to keep. */
 const KEEPS_FOR_DAYS = 7;
 
+/** Where a pushed note stops being a title and starts being its own notes. */
+const TITLE_MAX = 120;
+
+/** Where the draft box stops growing and starts scrolling. About ten lines. */
+const DRAFT_MAX_HEIGHT = 260;
+
 /**
  * The dump.
  *
@@ -48,6 +54,27 @@ export function NotesClient({
   const [notes, setNotes] = React.useState(initial);
   const [draft, setDraft] = React.useState("");
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
+  /** Inserts still in the air, so a delete can wait for its own row. */
+  const inflight = React.useRef(new Map<string, Promise<void>>());
+
+  /*
+    Measured rather than counted: wrapping means the number of lines in the
+    string is not the number of rows on screen. Reset to auto first, or
+    scrollHeight only ever reports back the height we last set.
+
+    Written to the element rather than held in state, because state would
+    not survive a keystroke that does not change the height: React sees the
+    same number, skips the render, and the "auto" this effect just wrote
+    stays — collapsing a five-line draft to two the moment you type in it.
+  */
+  React.useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const wanted = Math.min(el.scrollHeight, DRAFT_MAX_HEIGHT);
+    el.style.height = `${wanted}px`;
+    el.style.overflowY = el.scrollHeight > wanted ? "auto" : "hidden";
+  }, [draft]);
 
   const day = useToday();
   const modal = useTaskModal();
@@ -68,19 +95,36 @@ export function NotesClient({
     setDraft("");
     inputRef.current?.focus();
 
-    void (async () => {
+    const landed = (async () => {
       const { error } = await supabase
         .from("notes")
         .insert({ id: note.id, workspace_id: workspaceId, user_id: userId, body });
       if (error) setNotes((n) => n.filter((x) => x.id !== note.id));
     })();
+    inflight.current.set(note.id, landed);
+    void landed.finally(() => inflight.current.delete(note.id));
   }
 
   function remove(id: string) {
-    const before = notes;
-    setNotes((n) => n.filter((x) => x.id !== id));
+    /*
+      Functional, not a snapshot of `notes`: two removes in one frame would
+      otherwise have the second one restore what the first took away.
+    */
+    let before: Note[] = [];
+    setNotes((n) => {
+      before = n;
+      return n.filter((x) => x.id !== id);
+    });
 
     void (async () => {
+      /*
+        Dump something and discard it in the same breath and the delete used
+        to race its own insert: it found no row, reported success, and the
+        insert landed after it. The note came back on the next load, having
+        been thrown away. Wait for the write that is creating it.
+      */
+      await inflight.current.get(id);
+
       const { error } = await supabase.from("notes").delete().eq("id", id);
       if (error) setNotes(before);
     })();
@@ -95,7 +139,20 @@ export function NotesClient({
     already dealt with is the part that makes the rest hard to read.
   */
   function push(note: Note) {
-    const id = createTask({ title: note.body.split("\n")[0].slice(0, 200) });
+    /*
+      A dump is often several lines, and only the first is a title. The rest
+      goes into the task's notes rather than nowhere — dropping it would make
+      "dump everything, reorganise later" a lie at exactly the reorganising
+      step, and it is the part you were least likely to still remember.
+    */
+    const [first, ...rest] = note.body.split("\n");
+    const body = rest.join("\n").trim();
+
+    const id = createTask({
+      title: first.slice(0, TITLE_MAX),
+      // the overflow of a very long single line is body too, not lost
+      notes: [first.slice(TITLE_MAX).trim(), body].filter(Boolean).join("\n") || null,
+    });
     if (!id) return;
 
     remove(note.id);
@@ -113,6 +170,13 @@ export function NotesClient({
 
   return (
     <div className="max-w-[760px] px-6 py-6">
+      {/*
+        Two rows to start and it grows from there. A dump that ran to a
+        paragraph used to scroll inside a two-line box while you were still
+        writing it, which is the one thing this page cannot afford to make
+        awkward. The cap keeps a very long one from pushing the list it is
+        being added to off the screen.
+      */}
       <textarea
         ref={inputRef}
         value={draft}

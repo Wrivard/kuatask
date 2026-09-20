@@ -1183,5 +1183,40 @@ section("Routes — one table, and no two claim the same key");
           .join(", ") || "all fine");
 }
 
+/*
+  The six colours, which live in two places that cannot import each other.
+
+  ACCENTS is a client component's export; the CHECK constraint is SQL. Both the
+  profile picker and the task colour picker iterate ACCENTS, so adding a seventh
+  entry there puts it on screen immediately — and the insert then fails the
+  constraint. Optimistically, which is the bad way: the colour paints, the write
+  is rejected, and the task reverts a beat later with nothing said. Reading both
+  as text is crude, but it is the only place the two can be compared at all.
+*/
+section("Colours — the picker offers what the database accepts");
+{
+  const dot = fs.readFileSync("components/task/assignee-dot.tsx", "utf8");
+  const block = dot.slice(
+    dot.indexOf("export const ACCENTS"),
+    dot.indexOf("};", dot.indexOf("export const ACCENTS")),
+  );
+  const offered = [...block.matchAll(/^\s{2}([a-z]+):/gm)].map((m) => m[1]);
+
+  const sql = fs.readFileSync("supabase/migrations/0020_task_color.sql", "utf8");
+  const list = sql.slice(sql.indexOf("color in ("), sql.indexOf(")", sql.indexOf("color in (")));
+  const accepted = [...list.matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
+
+  check("six of them", offered.length === 6, offered.join(","));
+  check(
+    "and the constraint takes exactly those",
+    offered.length === accepted.length && offered.every((c) => accepted.includes(c)),
+    `picker ${offered.join(",")} vs sql ${accepted.join(",")}`,
+  );
+  check(
+    "every one is a hex the CSS can use",
+    [...block.matchAll(/"(#[0-9a-f]{6})"/g)].length === offered.length,
+  );
+}
+
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);
 process.exit(failures ? 1 : 0);
