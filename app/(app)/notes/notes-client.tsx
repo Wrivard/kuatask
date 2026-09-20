@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import dynamic from "next/dynamic";
+import { TaskModal } from "@/components/task/task-modal-lazy";
 import { ArrowUpRight, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useStore } from "@/lib/store";
@@ -10,11 +10,6 @@ import { useToday } from "@/lib/day";
 import { formatDueLabel, instantToDay, now } from "@/lib/time";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
-
-const TaskModal = dynamic(
-  () => import("@/components/task/task-modal").then((m) => m.TaskModal),
-  { ssr: false },
-);
 
 export type Note = { id: string; body: string; created_at: string };
 

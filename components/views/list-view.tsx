@@ -4,10 +4,9 @@ import * as React from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ChevronRight } from "lucide-react";
 import { TaskComposer } from "@/components/task/task-composer";
-import dynamic from "next/dynamic";
+import { TaskModal } from "@/components/task/task-modal-lazy";
 
 // opened, not shown: kept off the first load
-const TaskModal = dynamic(() => import("@/components/task/task-modal").then((m) => m.TaskModal), { ssr: false });
 import { TaskRow } from "@/components/task/task-row";
 import { ListSection } from "./list-section";
 import { ClearOut } from "./clear-out";
@@ -218,8 +217,15 @@ export function ListView() {
     Three states rather than two. Shut, today, and the week the browser is
     already holding — the footer used to show a count of today's and stop, so
     « what did we finish yesterday » meant reaching for the search box.
+
+    The week also stands in whenever today is empty, which is every morning:
+    the day rolls over at midnight and this section went on claiming to be
+    « Terminé aujourd'hui » with a 0 beside it, a heading for a thing that
+    was not there. Yesterday's work is the honest answer to what it is
+    holding, and the count then means something.
   */
-  const doneShows = doneOpenRaw === "7" ? completedRecently : completedToday;
+  const showsWeek = doneOpenRaw === "7" || completedToday.length === 0;
+  const doneShows = showsWeek ? completedRecently : completedToday;
 
   const visibleCount = sections.reduce((n, s) => n + s.tasks.length, 0);
 
@@ -339,7 +345,6 @@ export function ListView() {
     escape: () => setFocusedId(null),
   });
 
-
   const completionDays = useStore((s) => s.completionDays);
   const streak = React.useMemo(() => {
     // server history plus this session, so ticking the last task moves it now
@@ -351,7 +356,6 @@ export function ListView() {
   }, [completionDays, allTasks, day]);
 
   const { cleared, done: clearedCount } = useClearedToday(day, holding.size);
-
 
   const emptyMessage = (() => {
     if (searching && query.trim() !== "") return copy.empty.search;
@@ -450,7 +454,7 @@ export function ListView() {
               strokeWidth={1.5}
             />
             <span className="text-[13px] font-medium text-fg-muted">
-              {doneOpenRaw === "7" ? copy.nav.doneRecent : copy.nav.doneToday}
+              {showsWeek ? copy.nav.doneRecent : copy.nav.doneToday}
             </span>
             <span className="ml-auto font-mono text-[12px] tabular-nums text-fg-faint">
               {doneShows.length}
@@ -489,7 +493,7 @@ export function ListView() {
                   the section is open — a control for something you cannot see
                   is a control you have to think about.
                 */}
-                {doneOpenRaw === "1" && completedRecently.length > completedToday.length && (
+                {!showsWeek && completedRecently.length > completedToday.length && (
                   <button
                     type="button"
                     onClick={() => setDoneOpen("7")}
@@ -558,5 +562,4 @@ function Skeleton() {
     </div>
   );
 }
-
 

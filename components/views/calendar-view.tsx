@@ -5,13 +5,10 @@ import { addMonths, addDays, startOfWeek } from "date-fns";
 import { motion, useReducedMotion } from "motion/react";
 import { CalendarDayCell } from "./calendar-day-cell";
 import dynamic from "next/dynamic";
+import { TaskModal } from "@/components/task/task-modal-lazy";
 
-// both are opened rather than shown, so neither belongs in the first load
+// opened rather than shown, so it does not belong in the first load
 const DaySheet = dynamic(() => import("./day-sheet").then((m) => m.DaySheet), { ssr: false });
-const TaskModal = dynamic(
-  () => import("@/components/task/task-modal").then((m) => m.TaskModal),
-  { ssr: false },
-);
 import { CalendarCard } from "./calendar-card";
 import { CARD_PITCH_GUESS, CARD_ROW, CELL_CHROME } from "./calendar-day-cell";
 import { useRowsThatFit } from "@/lib/fit";
@@ -245,7 +242,6 @@ export function CalendarView() {
       setOpenDay(from);
     }
   }
-
 
   // arrows move by month, T returns to today
   React.useEffect(() => {

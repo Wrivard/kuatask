@@ -4,10 +4,9 @@ import * as React from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { BoardCard } from "./board-card";
 import { TaskComposer } from "@/components/task/task-composer";
-import dynamic from "next/dynamic";
+import { TaskModal } from "@/components/task/task-modal-lazy";
 
 // opened, not shown: kept off the first load
-const TaskModal = dynamic(() => import("@/components/task/task-modal").then((m) => m.TaskModal), { ssr: false });
 import { useDragToTarget } from "@/lib/drag";
 import {
   buildColumns,
@@ -103,7 +102,6 @@ export function BoardView() {
   // not a flick, and it scrolls sideways so the window-level memory cannot see it
   const scrollRef = React.useRef<HTMLDivElement>(null);
   useElementScrollMemory(`board:${groupBy}`, scrollRef);
-
 
   /*
     Grouping by person already separates the two of you, so the assignee lens
