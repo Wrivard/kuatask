@@ -1216,3 +1216,47 @@ wrong. The page states the seven days on screen, because it is a promise.
 which « Calendrier » fits at 12px; seven did not, which is why the overflow
 exists at all. Dumping on a phone is the workflow this was asked for, so hiding
 it one tap deeper would be hiding it from its own use case.
+
+## A colour on a task, and where it is allowed to show
+
+Asked for "like Google Calendar": a colour you set so a task is recognisable at
+a glance in the month grid, and only there. The list and the board keep their
+current treatment — those views are already sorted by whatever you are looking
+for, and a colour there would compete with the identity face and the status
+chip rather than add to them. The modal's field says so on screen, because a
+control whose effect is invisible from where you set it gets set once and never
+touched again.
+
+Stored as a palette key, not a hex. The theme decides what each key renders as;
+a hex in that column would be a colour chosen on one theme and shipped to the
+other, which is exactly the bug the Terminé strip carried. The check constraint
+lists the six because a column that accepts anything eventually holds something
+the renderer has to handle.
+
+**Two colours on one card, kept on two elements.** The left rule is identity —
+or the accent while somebody is on it, since "in progress" outranks "whose" on a
+4mm bar — and the fill is the task's own colour. That is the same boundary the
+board's column strips rely on: the same six hexes can mean two things as long as
+each meaning owns an element. A 2px rule is always a person; a fill is always the
+task's colour. If they are ever merged, one of them has to change palette.
+
+A coloured task mixes at 22% where the automatic identity wash mixes at 10%. The
+identity wash exists to make a month scannable by person without any card
+becoming a block of colour; a colour set by hand is meant to be found, and
+drawing both at the same strength would hide the deliberate one among the
+automatic ones.
+
+## The month scrolls
+
+Six rows shared the viewport, which on a laptop is about 130px a cell — three
+cards at best, often one, so any day with real work on it said « +2 de plus »
+and showed almost nothing. Cells now have a floor of 198px: seven cards at a
+~22px pitch plus 44px of chrome.
+
+The consequence is that the month no longer fits a screen. That is the trade the
+owner asked for, and it is the right one — a grid you scroll and can read beats
+one that fits and cannot. `minmax(198px, 1fr)` rather than a fixed height, so a
+tall display still spreads six rows out instead of leaving space under them. The
+weekday header stays outside the scroll so the columns keep their labels, and
+`scrollableAncestor` in `lib/drag.ts` finds the new container on its own, so
+dragging to a day below the fold still auto-scrolls.

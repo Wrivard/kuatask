@@ -50,11 +50,25 @@ export function CalendarCard({
   const done = task.status === "done";
   const doing = task.status === "doing";
   const time = formatTime(task.due_time);
-  const colour = doing
+  /*
+    Two colours, two jobs, two elements.
+
+    The left rule is who it belongs to — or the accent when somebody is on it
+    right now, since "in progress" outranks "whose" on a 4mm bar. The fill is
+    the task's own colour, set in the modal and shown only here.
+
+    Keeping them on separate elements is what lets both use the same six hexes
+    without the ambiguity DECISIONS warns about for the board's column strips: a
+    2px rule always means a person, a fill always means the task's own colour.
+    If they ever share an element, one of them has to change.
+  */
+  const rule = doing
     ? "var(--color-accent)"
     : member
       ? accentColor(member.accent)
       : "var(--color-border)";
+
+  const fill = task.color ? accentColor(task.color) : rule;
 
   return (
     <div
@@ -87,14 +101,21 @@ export function CalendarCard({
         every one of them is competing for the same glance.
       */
       style={{
-        borderLeftColor: colour,
+        borderLeftColor: rule,
         /*
           `color-mix` rather than an alpha suffix on the hex, because `colour` is
           only sometimes a hex: En cours and the unowned case are CSS variables,
           and `var(--color-accent)1a` is not a colour. Mixing works for all three
           and follows the theme, which a baked hex would not.
         */
-        backgroundColor: `color-mix(in srgb, ${colour} 10%, var(--color-surface-hover))`,
+        /*
+          A coloured task is mixed harder than an uncoloured one: 22% against
+          10%. The identity wash exists to make a month scannable by person
+          without any card becoming a block of colour; a colour somebody set by
+          hand is meant to be found, and answering both at the same strength
+          would make the deliberate one invisible among the automatic ones.
+        */
+        backgroundColor: `color-mix(in srgb, ${fill} ${task.color ? 22 : 10}%, var(--color-surface-hover))`,
       }}
     >
       {/*

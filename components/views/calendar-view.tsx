@@ -13,7 +13,12 @@ const TaskModal = dynamic(
   { ssr: false },
 );
 import { CalendarCard } from "./calendar-card";
-import { CARD_PITCH_GUESS, CARD_ROW, CELL_CHROME } from "./calendar-day-cell";
+import {
+  CARD_PITCH_GUESS,
+  CARD_ROW,
+  CELL_CHROME,
+  CELL_MIN_HEIGHT,
+} from "./calendar-day-cell";
 import { useRowsThatFit } from "@/lib/fit";
 import { useTaskModal } from "@/lib/events";
 import { Chip } from "@/components/ui/chip";
@@ -325,6 +330,18 @@ export function CalendarView() {
       </div>
 
       {mode === "month" ? (
+        /*
+          The month scrolls now. Cells have a floor tall enough for seven cards
+          (see CELL_MIN_HEIGHT), so six rows no longer fit a viewport — which is
+          the trade the owner asked for: a grid you scroll and can read beats one
+          that fits and shows « +2 de plus ».
+
+          The weekday header stays above this, outside the scroll, so the columns
+          keep their labels on the way down. `scrollableAncestor` in lib/drag.ts
+          walks up from the drop target, so dragging near the bottom edge
+          auto-scrolls this container without being told about it.
+        */
+        <div className="min-h-0 flex-1 overflow-y-auto">
         <motion.div
           /*
             Keyed on the month so React remounts and the enter animation runs.
@@ -340,7 +357,8 @@ export function CalendarView() {
           animate={{ opacity: 1, y: 0 }}
           transition={snap}
           ref={gridRef}
-          className="grid min-h-0 flex-1 grid-cols-7 grid-rows-6"
+          className="grid grid-cols-7 auto-rows-[minmax(var(--cell-min),1fr)]"
+          style={{ "--cell-min": `${CELL_MIN_HEIGHT}px` } as React.CSSProperties}
         >
           {weeksOf(days).map((week, w) => (
             <div key={w} role="row" className="contents">
@@ -363,6 +381,7 @@ export function CalendarView() {
             </div>
           ))}
         </motion.div>
+        </div>
       ) : (
         /*
           The same grid contract as the month, so switching mode does not

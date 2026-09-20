@@ -35,6 +35,23 @@ export const CARD_ROW = "data-cal-card";
 export const CELL_CHROME = 44;
 
 /**
+ * The shortest a month cell may be.
+ *
+ * Six rows used to share whatever height the window had, which on a laptop is
+ * about 130px a cell — room for three cards, and in practice often one or two,
+ * so a day with anything on it said « +2 de plus » and showed almost nothing.
+ * The owner asked to see six or seven before the overflow starts.
+ *
+ * Seven cards at a ~22px pitch plus the 44px of chrome is 198. The consequence
+ * is that the month no longer fits a viewport and scrolls, which is the trade:
+ * a grid you scroll and can read beats one that fits and cannot.
+ *
+ * `minmax(_, 1fr)` rather than a fixed height, so a tall display still spreads
+ * the six rows out instead of leaving empty space below them.
+ */
+export const CELL_MIN_HEIGHT = 198;
+
+/**
  * One month cell. Numerals are Geist Mono with tabular figures — mono is a data
  * treatment here, not a style choice. Today is a filled accent chip; days
  * outside the month drop to fg-faint and sit on the page background rather than

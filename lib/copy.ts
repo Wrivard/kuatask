@@ -167,6 +167,10 @@ export const copy = {
     filterByLabel: (label: string) => `Chercher #${label}`,
     filterByPerson: (name: string) => `Voir les tâches de ${name}`,
     edit: "Modifier",
+    color: "Couleur",
+    /* Said plainly, because a colour that only shows in one view is surprising. */
+    colorHint: "Visible dans le calendrier seulement.",
+    colorNone: "Aucune",
     titlePlaceholder: "Titre",
     notesPlaceholder: "Notes…",
     dueDate: "Échéance",

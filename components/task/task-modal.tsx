@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { addDays, nextDay } from "date-fns";
-import { CalendarDays, Link as LinkIcon, X } from "lucide-react";
+import { CalendarDays, Link as LinkIcon, Slash, X } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Chip } from "@/components/ui/chip";
 import { DatePicker } from "./date-picker";
 import { Avatar } from "./avatar";
+import { ACCENTS } from "./assignee-dot";
 import { useStore, type Task } from "@/lib/store";
 import { useSetStatusWithFeedback, useDeleteWithFeedback } from "@/lib/completion";
 import { useAutoGrow } from "@/lib/auto-grow";
@@ -20,6 +21,7 @@ import { MICRO_LABEL } from "@/lib/type";
 import { labelsInUse } from "@/lib/suggest";
 import { extractLinks } from "@/lib/links";
 import { copy } from "@/lib/copy";
+import { cn } from "@/lib/utils";
 import {
   today,
   tomorrow,
@@ -437,6 +439,47 @@ export function TaskModal({
                 </Chip>
               ))}
             </div>
+          </Field>
+
+          {/*
+            Only the calendar shows this, and the field says so. A control whose
+            effect is invisible from where you are using it is the kind of thing
+            somebody sets once, sees nothing, and never touches again.
+          */}
+          <Field label={copy.task.color}>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => updateTask(task.id, { color: null })}
+                aria-pressed={!task.color}
+                title={copy.task.colorNone}
+                aria-label={copy.task.colorNone}
+                className={cn(
+                  "grid size-7 place-items-center rounded-sm border",
+                  !task.color ? "border-accent" : "border-border",
+                )}
+              >
+                <Slash className="size-3.5 text-fg-faint" strokeWidth={1.5} aria-hidden />
+              </button>
+
+              {Object.entries(ACCENTS).map(([key, hex]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => updateTask(task.id, { color: key })}
+                  aria-pressed={task.color === key}
+                  title={copy.settings.accentNames[key] ?? key}
+                  aria-label={copy.settings.accentNames[key] ?? key}
+                  className={cn(
+                    "grid size-7 place-items-center rounded-sm border",
+                    task.color === key ? "border-accent" : "border-border",
+                  )}
+                >
+                  <span className="size-2.5 rounded-full" style={{ backgroundColor: hex }} />
+                </button>
+              ))}
+            </div>
+            <p className="text-[12px] text-fg-faint">{copy.task.colorHint}</p>
           </Field>
 
           <Field label={copy.task.label}>

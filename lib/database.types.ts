@@ -167,6 +167,7 @@ export type Database = {
       tasks: {
         Row: {
           assignee_id: string | null
+          color: string | null
           completed_at: string | null
           completed_by: string | null
           created_at: string
@@ -185,6 +186,7 @@ export type Database = {
         }
         Insert: {
           assignee_id?: string | null
+          color?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
@@ -203,6 +205,7 @@ export type Database = {
         }
         Update: {
           assignee_id?: string | null
+          color?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string

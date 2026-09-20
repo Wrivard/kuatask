@@ -1558,3 +1558,25 @@ reviewed. Numbering continues.
      and the right one: the card is a 4mm bar, clicking it now opens the full
      modal, and the view had just been called hard on the eyes. Adding glyphs to
      the densest surface to reach parity with the loosest is the wrong direction.
+357. [x] **P1** The month grid showed one or two tasks a day. Six rows shared
+     the viewport — about 130px a cell on a laptop — so `useRowsThatFit`
+     correctly concluded that three fitted and often only one did, and any real
+     day read « +2 de plus » with almost nothing above it. The measurement was
+     right; the space it was measuring was the problem. Cells have a 198px floor
+     now — seven cards at a ~22px pitch plus 44px of chrome — and the month
+     scrolls, which is the trade: a grid you scroll and can read beats one that
+     fits and cannot.
+358. [x] **P1** Tasks can carry a colour, shown only in the calendar. Stored as a
+     palette key rather than a hex, so the theme decides what it renders as — a
+     hex would be a colour chosen on one theme and shipped to the other, which is
+     the bug the Terminé strip had until item 354. The six are constrained in the
+     database too, verified by asking it to accept a seventh and watching it
+     refuse: a column that accepts anything eventually holds something the
+     renderer has to handle.
+359. **NO** Two colours now meet on one calendar card, and they stay on separate
+     elements: the left rule is identity, the fill is the task's colour. That is
+     the same boundary `DECISIONS` set for the board's column strips — the same
+     six hexes may mean two things as long as each meaning owns an element. The
+     coloured fill mixes at 22% against the identity wash's 10%, because a colour
+     somebody set by hand is meant to be found and drawing both at one strength
+     would hide the deliberate one among the automatic ones.
