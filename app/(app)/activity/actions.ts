@@ -57,10 +57,14 @@ export async function restoreTask(activityId: string): Promise<ActionResult> {
     and it means a second press finds the row above rather than making a
     duplicate — the check and the insert agree on what "already back" means.
 
-    `created_by` is whoever made it originally, unless that account is gone, in
-    which case the column is already null in the snapshot and stays that way.
-    The insert policy requires created_by = auth.uid(), so a task restored on
-    somebody else's behalf has to be attributed to the person doing it.
+    `created_by` is whoever pressed restore, not whoever wrote the task. The
+    insert policy requires `created_by = auth.uid()`, so there is no choice: a
+    task brought back on somebody else's behalf is attributed to the person
+    bringing it back. The snapshot's original author is preserved in the log
+    entry either way, which is where the question "who wrote this" is answered.
+
+    This comment used to open by claiming the opposite and correct itself three
+    lines later, which is worse than either version alone.
   */
   const { error } = await supabase.from("tasks").insert({
     id: entry.task_id,

@@ -1182,3 +1182,37 @@ theme's `--green` written out as `#3ecf8e`, so on the light theme — where the
 accent is `#197f50` — the Terminé strip was a green the app uses nowhere else.
 Accent means finished throughout this app, so it is now the accent token and
 follows the theme with everything else.
+
+## Vrac — a dump that is not a task list
+
+Asked for as "daily quick notes, a brain dump — it doesn't save or anything and
+gets deleted after a week". Those two halves pull apart, so the first is read as
+*low ceremony* rather than *no persistence*: a note survives a reload and
+follows you from a phone to a laptop, which is the whole point of dumping on one
+and reorganising on the other. localStorage would have satisfied "doesn't save"
+literally and broken that.
+
+**Private to its author.** The exception to a deliberately shared app. Knowing
+somebody else can read unfinished thinking changes what gets written down, which
+costs exactly the thing this page is for. The workspace is still recorded, so a
+note can become a task in the right place.
+
+**No task machinery.** No due date, no assignee, no status, no undo stack, no
+activity entry, and not in `lib/store.ts`. The store gives undo, realtime and
+cross-view derivation; notes need none of the three, and it is the most
+load-bearing file in the app. A note becomes a task by being pushed into one —
+`createTask` returns the id it made on that frame, the same modal opens on it,
+and the note is removed, because a dump you have already dealt with is what
+makes the rest of it hard to read.
+
+**It empties itself.** Seven days, swept when the page loads rather than on a
+schedule: the free plan has no `pg_cron`, and a note nobody has come back to
+look at harms nothing in the meantime. `purge_old_notes` is `security invoker`
+so RLS limits it to the caller's own rows — a `security definer` version would
+have been a function that empties anybody's dump if its argument were ever
+wrong. The page states the seven days on screen, because it is a promise.
+
+**On the mobile bar, not behind « Plus ».** Six tabs at 375px is 62px each,
+which « Calendrier » fits at 12px; seven did not, which is why the overflow
+exists at all. Dumping on a phone is the workflow this was asked for, so hiding
+it one tap deeper would be hiding it from its own use case.

@@ -35,6 +35,7 @@ export const copy = {
     calendar: "Calendrier",
     activity: "Activité",
     stats: "Classement",
+    notes: "Vrac",
     /* The mobile overflow: six routes, five slots on the bar. */
     more: "Plus",
     prevMonth: "Mois précédent",
@@ -83,6 +84,16 @@ export const copy = {
       completed_at: "complétion",
       completed_by: "complétion",
     } as Record<string, string>,
+  },
+
+  notes: {
+    placeholder: "Vide-toi la tête… Entrée pour garder, Maj+Entrée pour une ligne",
+    hint: "Entrée pour garder",
+    empty: "Rien en vrac. Écris ce qui traîne, trie plus tard.",
+    toTask: "En faire une tâche",
+    discard: "Jeter",
+    expiry: (days: number) =>
+      `Le vrac se vide tout seul après ${days} jours. Ce qui compte devient une tâche.`,
   },
 
   stats: {

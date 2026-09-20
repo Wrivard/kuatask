@@ -68,6 +68,30 @@ export type Database = {
           },
         ]
       }
+      notes: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       pending_invites: {
         Row: {
           created_at: string
@@ -286,6 +310,7 @@ export type Database = {
     }
     Functions: {
       completion_days: { Args: { days_back?: number }; Returns: string[] }
+      purge_old_notes: { Args: { days_back?: number }; Returns: number }
       person_stats: {
         Args: { days_back?: number }
         Returns: {

@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  List,
-  Columns3,
-  CalendarDays,
-  History,
   BarChart3,
+  CalendarDays,
+  Columns3,
+  History,
+  List,
+  NotebookPen,
   type LucideIcon,
 } from "lucide-react";
 import { copy } from "@/lib/copy";
@@ -29,6 +30,12 @@ export const VIEWS: { href: string; icon: LucideIcon; label: string }[] = [
     A fourth view rather than a settings page: it answers « what happened »,
     which is a question about the work, not about the workspace.
   */
+  /*
+    Before the list, because it comes before a task does. Dumping is the
+    step where nothing has been decided yet; putting it after the finished
+    views would place it where you look back rather than where you start.
+  */
+  { href: "/notes", icon: NotebookPen, label: copy.nav.notes },
   { href: "/activity", icon: History, label: copy.nav.activity },
   /*
     And a fifth for the figures, deliberately behind its own route. `docs/08`

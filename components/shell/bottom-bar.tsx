@@ -4,14 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as React from "react";
 import {
-  List,
-  Columns3,
+  BarChart3,
   CalendarDays,
+  Columns3,
+  History,
+  List,
+  MoreHorizontal,
+  NotebookPen,
   Plus,
   Users,
-  History,
-  BarChart3,
-  MoreHorizontal,
   type LucideIcon,
 } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -28,6 +29,13 @@ import { cn } from "@/lib/utils";
  */
 const ITEMS: { href: string; icon: LucideIcon; label: string }[] = [
   { href: "/", icon: List, label: copy.nav.list },
+  /*
+    On the bar rather than behind « Plus », because dumping on a phone and
+    reorganising on a laptop is the workflow this page was asked for. Six
+    tabs at 375px is 62px each, which « Calendrier » fits at 12px with a
+    little to spare — seven did not, which is why the overflow exists.
+  */
+  { href: "/notes", icon: NotebookPen, label: copy.nav.notes },
   { href: "/board", icon: Columns3, label: copy.nav.board },
   { href: "/calendar", icon: CalendarDays, label: copy.nav.calendar },
 ];

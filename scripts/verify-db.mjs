@@ -323,6 +323,75 @@ try {
     actually disagree: either side of both DST boundaries, and the evenings that
     are already tomorrow in UTC.
   */
+  /*
+    Notes are the one thing in this app that is *not* shared.
+
+    Everything else is deliberately visible to both people; a brain dump is not,
+    because unfinished thinking somebody else can read is thinking you edit as
+    you write it. That is a claim RLS has to actually enforce, and the only way
+    to know is to ask as a second person rather than as the service role, which
+    bypasses policies and would agree with anything.
+  */
+  section("Notes — private to their author, even inside one workspace");
+  {
+    const other = await makeMember(WS, "member", "n");
+
+    const mine = await member.client
+      .from("notes")
+      .insert({ workspace_id: WS, user_id: member.id, body: "probe: mine" })
+      .select("id")
+      .single();
+    check("a member can write their own note", !mine.error, mine.error?.message ?? "ok");
+
+    const theirs = await other.client
+      .from("notes")
+      .insert({ workspace_id: WS, user_id: other.id, body: "probe: theirs" })
+      .select("id")
+      .single();
+    check("and so can the other one", !theirs.error, theirs.error?.message ?? "ok");
+
+    // the whole point: a workspace-mate cannot read it
+    const { data: seen } = await other.client.from("notes").select("id, body");
+    check("a member sees only their own notes",
+          (seen ?? []).length === 1 && seen[0].body === "probe: theirs",
+          (seen ?? []).map((n) => n.body).join(" | ") || "nothing");
+
+    // nor write one in somebody else's name
+    const spoof = await other.client
+      .from("notes")
+      .insert({ workspace_id: WS, user_id: member.id, body: "probe: spoofed" });
+    check("and cannot write a note as somebody else", Boolean(spoof.error),
+          spoof.error?.code ?? "accepted");
+
+    // nor reach it with a delete, which `using` decides separately from select
+    const { count: wiped } = await other.client
+      .from("notes")
+      .delete({ count: "exact" })
+      .eq("id", mine.data?.id ?? "00000000-0000-0000-0000-000000000000");
+    check("and cannot delete one", (wiped ?? 0) === 0, String(wiped));
+
+    /*
+      The purge is `security invoker`, so it can only ever reach the caller's own
+      rows — worth proving, because a `security definer` version of this function
+      would empty anybody's dump if its argument were ever wrong.
+    */
+    await admin
+      .from("notes")
+      .update({ created_at: new Date(Date.now() - 9 * 86400000).toISOString() })
+      .eq("id", mine.data?.id);
+
+    const { data: purged } = await other.client.rpc("purge_old_notes");
+    check("purging reaches none of somebody else's, however old", purged === 0,
+          String(purged));
+
+    const { data: own } = await member.client.rpc("purge_old_notes");
+    check("and does reach your own once they are past the window", own === 1,
+          String(own));
+
+    await admin.from("notes").delete().ilike("body", "probe:%");
+    created.users.push(other.id);
+  }
+
   section("Montreal days — Postgres and lib/time.ts agree");
   {
     const { instantToDay } = await import("../lib/time.ts");
