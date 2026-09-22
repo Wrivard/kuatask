@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Chip } from "@/components/ui/chip";
@@ -52,10 +52,70 @@ export function BillingDashboard({
     ignored by a useState that only reads its initial value once.
   */
   const [created, setCreated] = React.useState<Client[]>([]);
+  /*
+    Status changes made from this list, ahead of the server. A client archived
+    here leaves « Actifs » on the click, not after the round trip.
+  */
+  const [statusOf, setStatusOf] = React.useState<Record<string, string | null>>({});
   const clients = React.useMemo(() => {
     const known = new Set(initialClients.map((c) => c.id));
-    return [...initialClients, ...created.filter((c) => !known.has(c.id))];
-  }, [initialClients, created]);
+    return [...initialClients, ...created.filter((c) => !known.has(c.id))].map((c) =>
+      c.id in statusOf ? { ...c, archived_at: statusOf[c.id] } : c,
+    );
+  }, [initialClients, created, statusOf]);
+
+  // once the server agrees, the override has done its job; keeping it would
+  // hide a later change made from the other screen
+  React.useEffect(() => {
+    setStatusOf((s) => {
+      const left = Object.fromEntries(
+        // archived or not is what matters; the server's timestamp is formatted
+        // differently from ours and would never compare equal as text
+        Object.entries(s).filter(([id, v]) => {
+          const server = initialClients.find((c) => c.id === id);
+          return !server || (server.archived_at !== null) !== (v !== null);
+        }),
+      );
+      return Object.keys(left).length === Object.keys(s).length ? s : left;
+    });
+  }, [initialClients]);
+
+  function setStatus(client: Client, archived: boolean) {
+    const before = client.archived_at;
+    const next = archived ? new Date().toISOString() : null;
+    setStatusOf((s) => ({ ...s, [client.id]: next }));
+
+    const put = (value: string | null) =>
+      supabase.from("clients").update({ archived_at: value }).eq("id", client.id);
+
+    void (async () => {
+      const { error } = await put(next);
+      if (error) {
+        setStatusOf((s) => ({ ...s, [client.id]: before }));
+        toast.error(copy.billing.saveFailed);
+        return;
+      }
+      /*
+        The row just left the tab you are looking at, so say where it went and
+        offer it back — the same promise every other move in the app makes.
+      */
+      toast(
+        copy.billing.statusChanged(
+          client.name,
+          archived ? copy.billing.clientStatus.archived : copy.billing.clientStatus.active,
+        ),
+        {
+          action: {
+            label: copy.toast.undo,
+            onClick: () => {
+              setStatusOf((s) => ({ ...s, [client.id]: before }));
+              void put(before);
+            },
+          },
+        },
+      );
+    })();
+  }
 
   const [showArchived, setShowArchived] = React.useState(false);
   const [draft, setDraft] = React.useState("");
@@ -296,6 +356,7 @@ export function BillingDashboard({
                 <th className={cn(MICRO_LABEL, "py-2 pr-3 text-right font-medium")}>{copy.billing.status.paid}</th>
                 {/* the one column a phone can do without; the money is what it is opened for */}
                 <th className={cn(MICRO_LABEL, "hidden py-2 pr-3 text-right font-medium sm:table-cell")}>{copy.billing.lastEntry}</th>
+                <th className={cn(MICRO_LABEL, "py-2 pr-3 font-medium")}>{copy.billing.statusLabel}</th>
                 <th className="w-6" aria-hidden />
               </tr>
             </thead>
@@ -306,7 +367,7 @@ export function BillingDashboard({
                   onClick={(e) => {
                     // the name is a real link and navigates on its own; a second
                     // push from the row would put the page in history twice
-                    if ((e.target as HTMLElement).closest("a")) return;
+                    if ((e.target as HTMLElement).closest("a, select")) return;
                     router.push(`/billing/${client.id}`);
                   }}
                   className="group cursor-pointer border-b border-border last:border-b-0 hover:bg-surface-hover"
@@ -328,6 +389,12 @@ export function BillingDashboard({
                   <MoneyCell value={t.paid} />
                   <td className="hidden py-2.5 pr-3 text-right text-[12px] tabular-nums text-fg-faint sm:table-cell">
                     {last ? formatLedgerDate(last) : copy.billing.never}
+                  </td>
+                  <td className="py-1.5 pr-3">
+                    <StatusSelect
+                      archived={client.archived_at !== null}
+                      onChange={(archived) => setStatus(client, archived)}
+                    />
                   </td>
                   <td className="py-2.5 text-fg-faint">
                     <ChevronRight className="size-4 opacity-0 group-hover:opacity-100" strokeWidth={1.5} aria-hidden />
@@ -373,5 +440,53 @@ function MoneyCell({ value, emphasis = false }: { value: number; emphasis?: bool
     >
       {value === 0 ? copy.billing.never : formatMoney(value)}
     </td>
+  );
+}
+
+/**
+ * Actif / Archivé, as a pill you can change without opening the client.
+ *
+ * It lived only in the client's settings, two clicks deep behind a button
+ * that did not say « modifier » — so it was not found at all.
+ */
+function StatusSelect({
+  archived,
+  onChange,
+}: {
+  archived: boolean;
+  onChange: (archived: boolean) => void;
+}) {
+  const color = archived ? "var(--color-fg-muted)" : "var(--color-accent)";
+  return (
+    <span className="relative inline-block">
+      <select
+        value={archived ? "archived" : "active"}
+        onChange={(e) => onChange(e.target.value === "archived")}
+        aria-label={copy.billing.statusLabel}
+        className={cn(
+          "h-7 cursor-pointer appearance-none rounded-full pl-6 pr-7 text-[12px] font-medium",
+          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent",
+        )}
+        style={{ color, backgroundColor: `color-mix(in srgb, ${color} 13%, transparent)` }}
+      >
+        <option value="active" style={{ color: "initial" }}>
+          {copy.billing.clientStatus.active}
+        </option>
+        <option value="archived" style={{ color: "initial" }}>
+          {copy.billing.clientStatus.archived}
+        </option>
+      </select>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute left-2.5 top-1/2 size-1.5 -translate-y-1/2 rounded-full"
+        style={{ backgroundColor: color }}
+      />
+      <ChevronDown
+        aria-hidden
+        className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2"
+        style={{ color }}
+        strokeWidth={2}
+      />
+    </span>
   );
 }
