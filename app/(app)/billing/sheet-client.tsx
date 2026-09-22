@@ -3,13 +3,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, ArchiveRestore, ArrowLeft, Plus, Trash2, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, ChevronDown, Plus, Settings2, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Chip } from "@/components/ui/chip";
 import { ACCENTS } from "@/components/task/assignee-dot";
 import {
   amountOf,
+  formatAmount,
   formatMoney,
   formatNumber,
   isComputed,
@@ -19,7 +20,7 @@ import {
   totals,
   type BillingStatus,
 } from "@/lib/billing";
-import { today } from "@/lib/time";
+import { formatLedgerDate, today } from "@/lib/time";
 import { MICRO_LABEL } from "@/lib/type";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
@@ -41,11 +42,15 @@ const SHOWS: Record<Filter, (s: BillingStatus) => boolean> = {
   on somebody else), and à facturer is plain — it is the default state of work,
   not a warning.
 */
-const STATUS_COLOR: Record<BillingStatus, string | undefined> = {
-  pending: undefined,
+const STATUS_COLOR: Record<BillingStatus, string> = {
+  pending: "var(--color-fg-muted)",
   invoiced: ACCENTS.amber,
   paid: "var(--color-accent)",
 };
+
+/** The status as a tinted wash, the way the calendar tints a task: colour without shouting. */
+const statusWash = (s: BillingStatus) =>
+  `color-mix(in srgb, ${STATUS_COLOR[s]} ${s === "pending" ? 10 : 14}%, transparent)`;
 
 /** The columns Enter moves down through, in order. The date and status are pickers. */
 type Col = "title" | "detail" | "hours" | "rate" | "amount";
@@ -79,6 +84,13 @@ export function ClientSheet({
   const [entries, setEntries] = React.useState(initial);
   const [filter, setFilter] = React.useState<Filter>("all");
   const [focusId, setFocusId] = React.useState<string | null>(null);
+  /*
+    Name, rate, archive and delete are set once per client and then left alone,
+    so they live behind one button. They sat in the toolbar at full size, which
+    put the client's name on screen three times — title, switcher, rename box —
+    and made the first thing you read on every sheet a row of form fields.
+  */
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   /*
     Rows whose status was changed while a filter would now hide them. Marking a
@@ -491,87 +503,118 @@ export function ClientSheet({
           </span>
         )}
 
-        <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
-          {/* a typo in a client's name should not need a trip to the database */}
-          <div className="h-8 w-full rounded-sm border border-control sm:w-[180px]">
-            <TextInput
-              value={client.name}
-              onCommit={(name) => name && patchClient({ name })}
-              label={copy.billing.rename}
-              maxLength={120}
-            />
-          </div>
-
-          <label className="flex h-8 items-center gap-1.5 text-[13px] text-fg-muted">
-            {copy.billing.rate}
-            <span className="inline-block w-16 rounded-sm border border-control">
-              <NumberInput
-                value={client.default_rate}
-                onCommit={(n) => {
-                  // a client always has a rate; clearing the box keeps the old one
-                  if (n !== null) patchClient({ default_rate: n });
-                }}
-                label={copy.billing.rate}
-                keepOnEmpty
-              />
-            </span>
-            {copy.billing.rateSuffix}
-          </label>
-
-          <button
-            type="button"
-            onClick={() => patchClient({ archived_at: archived ? null : new Date().toISOString() })}
-            className="flex h-8 items-center gap-1.5 rounded-sm border border-border px-2.5 text-[13px] text-fg-muted hover:border-control hover:text-fg"
-          >
-            {archived ? (
-              <ArchiveRestore className="size-4" strokeWidth={1.5} aria-hidden />
-            ) : (
-              <Archive className="size-4" strokeWidth={1.5} aria-hidden />
-            )}
-            {archived ? copy.billing.unarchive : copy.billing.archive}
-          </button>
-
-          {deletable && (
-            <button
-              type="button"
-              onClick={removeClient}
-              title={copy.billing.deleteClient}
-              aria-label={copy.billing.deleteClient}
-              className="grid size-8 place-items-center rounded-sm border border-border text-fg-faint hover:border-danger hover:text-danger"
-            >
-              <Trash2 className="size-4" strokeWidth={1.5} aria-hidden />
-            </button>
+        <button
+          type="button"
+          onClick={() => setSettingsOpen((o) => !o)}
+          aria-expanded={settingsOpen}
+          className={cn(
+            "ml-auto flex h-8 items-center gap-1.5 rounded-sm px-2.5 text-[13px] text-fg-muted hover:bg-surface-hover hover:text-fg",
+            settingsOpen && "bg-surface-hover text-fg",
           )}
-        </div>
+        >
+          <Settings2 className="size-4" strokeWidth={1.5} aria-hidden />
+          {copy.billing.settings}
+          <span className="tabular-nums text-fg-faint">
+            · {formatNumber(client.default_rate)} {copy.billing.rateSuffix}
+          </span>
+        </button>
       </div>
 
-      <dl className="mb-5 grid grid-cols-2 gap-x-8 gap-y-3 sm:flex sm:flex-wrap">
-        {STATUSES.map((s) => (
-          <div key={s}>
-            <dt className={MICRO_LABEL}>{copy.billing.status[s]}</dt>
-            <dd
-              className="mt-0.5 font-mono text-[18px] tabular-nums text-fg-muted"
-              style={{ color: sums[s] > 0 ? STATUS_COLOR[s] : undefined }}
+      {settingsOpen && (
+        <div className="mb-5 flex flex-wrap items-end gap-3 rounded-md border border-border bg-surface px-4 py-3">
+          <label className="flex flex-col gap-1">
+            <span className={MICRO_LABEL}>{copy.billing.rename}</span>
+            {/* a typo in a client's name should not need a trip to the database */}
+            <span className="block h-8 w-[220px] rounded-sm border border-control bg-bg">
+              <TextInput
+                value={client.name}
+                onCommit={(name) => name && patchClient({ name })}
+                label={copy.billing.rename}
+                maxLength={120}
+              />
+            </span>
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className={MICRO_LABEL}>{copy.billing.rate}</span>
+            <span className="flex h-8 items-center gap-1.5 text-[13px] text-fg-muted">
+              <span className="inline-block w-20 rounded-sm border border-control bg-bg">
+                <NumberInput
+                  value={client.default_rate}
+                  onCommit={(n) => {
+                    // a client always has a rate; clearing the box keeps the old one
+                    if (n !== null) patchClient({ default_rate: n });
+                  }}
+                  label={copy.billing.rate}
+                  keepOnEmpty
+                />
+              </span>
+              {copy.billing.rateSuffix}
+            </span>
+          </label>
+
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => patchClient({ archived_at: archived ? null : new Date().toISOString() })}
+              className="flex h-8 items-center gap-1.5 rounded-sm border border-border bg-bg px-2.5 text-[13px] text-fg-muted hover:border-control hover:text-fg"
             >
-              {formatMoney(sums[s])}
+              {archived ? (
+                <ArchiveRestore className="size-4" strokeWidth={1.5} aria-hidden />
+              ) : (
+                <Archive className="size-4" strokeWidth={1.5} aria-hidden />
+              )}
+              {archived ? copy.billing.unarchive : copy.billing.archive}
+            </button>
+
+            {deletable && (
+              <button
+                type="button"
+                onClick={removeClient}
+                title={copy.billing.deleteClient}
+                aria-label={copy.billing.deleteClient}
+                className="grid size-8 place-items-center rounded-sm border border-border bg-bg text-fg-faint hover:border-danger hover:text-danger"
+              >
+                <Trash2 className="size-4" strokeWidth={1.5} aria-hidden />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/*
+        The same three tiles as the dashboard, so the two pages read as one
+        place. « À recevoir » is not a fourth: it is the footer of the « À payer »
+        filter, where it is a sum of rows you can see.
+      */}
+      <dl className="mb-6 grid grid-cols-3 gap-2">
+        {STATUSES.map((st) => (
+          <div key={st} className="min-w-0 rounded-md border border-border px-3 py-2.5 sm:px-4 sm:py-3">
+            <dt className={cn(MICRO_LABEL, "flex items-center gap-1.5")}>
+              <span
+                aria-hidden
+                className="size-1.5 rounded-full"
+                style={{ backgroundColor: STATUS_COLOR[st] }}
+              />
+              {copy.billing.status[st]}
+            </dt>
+            <dd
+              className={cn(
+                "mt-1 text-[15px] font-medium tabular-nums tracking-[-0.01em] sm:text-[20px]",
+                sums[st] > 0 ? "text-fg" : "text-fg-faint",
+              )}
+            >
+              {formatMoney(sums[st])}
             </dd>
           </div>
         ))}
-        <div>
-          <dt className={MICRO_LABEL} title={copy.billing.outstandingHint}>
-            {copy.billing.outstanding}
-          </dt>
-          <dd className="mt-0.5 font-mono text-[18px] font-medium tabular-nums text-fg">
-            {formatMoney(sums.outstanding)}
-          </dd>
-        </div>
       </dl>
 
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
         {FILTERS.map((f) => (
           <Chip key={f} active={filter === f} onClick={() => changeFilter(f)}>
             {copy.billing.filter[f]}
-            <span className="font-mono tabular-nums text-fg-faint">
+            <span className="tabular-nums text-fg-faint">
               {entries.filter((e) => SHOWS[f](e.status)).length}
             </span>
           </Chip>
@@ -592,10 +635,10 @@ export function ClientSheet({
         Wider than a phone on purpose — seven columns of money do not reflow into
         something readable — so it scrolls sideways there instead of the page.
       */}
-      <div className="overflow-x-auto rounded-md border border-border">
-        <table ref={tableRef} className="w-full min-w-[900px] border-collapse text-[14px]">
+      <div className="overflow-x-auto rounded-md border border-border bg-bg">
+        <table ref={tableRef} className="w-full min-w-[900px] border-collapse text-[14px] [&_tbody_tr:last-child_td]:border-b-0">
           <colgroup>
-            <col className="w-[140px]" />
+            <col className="w-[128px]" />
             <col className="w-[22%]" />
             <col />
             <col className="w-[76px]" />
@@ -688,10 +731,11 @@ export function ClientSheet({
                     // what it will be if left alone, shown in the empty cell
                     placeholder={
                       isComputed(e) && e.hours !== null
-                        ? formatNumber(amountOf(e, rate))
+                        ? formatAmount(amountOf(e, rate))
                         : undefined
                     }
                     title={isComputed(e) ? copy.billing.computed : copy.billing.fixed}
+                    format={formatAmount}
                     onCommit={(amount) => patchEntry(e.id, { amount })}
                     onMove={(step) => move(e.id, "amount", step)}
                     col="amount"
@@ -700,19 +744,30 @@ export function ClientSheet({
                   />
                 </Td>
                 <Td>
-                  <select
-                    value={e.status}
-                    onChange={(ev) => patchEntry(e.id, { status: ev.target.value as BillingStatus })}
-                    aria-label={copy.billing.col.status}
-                    className={cn(CELL, "cursor-pointer font-medium")}
-                    style={{ color: STATUS_COLOR[e.status] }}
-                  >
-                    {STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {copy.billing.status[s]}
-                      </option>
-                    ))}
-                  </select>
+                  <span className="relative block">
+                    <select
+                      value={e.status}
+                      onChange={(ev) => patchEntry(e.id, { status: ev.target.value as BillingStatus })}
+                      aria-label={copy.billing.col.status}
+                      className={cn(
+                        "h-7 w-full cursor-pointer appearance-none rounded-full pl-3 pr-7 text-[12px] font-medium",
+                        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent",
+                      )}
+                      style={{ color: STATUS_COLOR[e.status], backgroundColor: statusWash(e.status) }}
+                    >
+                      {STATUSES.map((st) => (
+                        <option key={st} value={st} style={{ color: "initial" }}>
+                          {copy.billing.status[st]}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      aria-hidden
+                      className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2"
+                      style={{ color: STATUS_COLOR[e.status] }}
+                      strokeWidth={2}
+                    />
+                  </span>
                 </Td>
                 <td className="border-b border-border px-1 py-1.5 text-center">
                   <button
@@ -740,11 +795,11 @@ export function ClientSheet({
                 <td colSpan={3} className="px-3 py-2 text-[12px] text-fg-faint">
                   {copy.billing.shown(shown.length)}
                 </td>
-                <td className="px-3 py-2 text-right font-mono text-[13px] tabular-nums text-fg-muted">
+                <td className="px-3 py-2 text-right text-[13px] tabular-nums text-fg-muted">
                   {shownHours > 0 ? formatNumber(shownHours) : ""}
                 </td>
                 <td />
-                <td className="px-3 py-2 text-right font-mono text-[13px] font-medium tabular-nums text-fg">
+                <td className="px-3 py-2 text-right text-[13px] font-medium tabular-nums text-fg">
                   {formatMoney(shownSum)}
                 </td>
                 <td colSpan={2} />
@@ -776,7 +831,7 @@ function Th({ children, right = false }: { children: React.ReactNode; right?: bo
       scope="col"
       className={cn(
         MICRO_LABEL,
-        "border-b border-r border-border px-3 py-2 font-medium",
+        "border-b border-border px-3 py-2.5 font-medium",
         right ? "text-right" : "text-left",
       )}
     >
@@ -786,7 +841,9 @@ function Th({ children, right = false }: { children: React.ReactNode; right?: bo
 }
 
 function Td({ children }: { children: React.ReactNode }) {
-  return <td className="border-b border-r border-border px-1 py-1">{children}</td>;
+  // rows are ruled, columns are not: a line between every cell is what made
+  // this read as a form to fill in rather than a list of work
+  return <td className="border-b border-border px-1 py-1.5">{children}</td>;
 }
 
 /*
@@ -907,28 +964,45 @@ function DateInput({
     if (next !== value) onCommit(next);
   };
 
+  /*
+    « 24 juil. 2026 » until you touch it, then the browser's own date field.
+    The native field printed the ISO form with a calendar icon on every row —
+    a column of 2026-07-24 is the hardest way to read a date, and it was the
+    first column. Committed on leaving rather than on every change: typing a
+    year passes through 0002, 0020 and 0202 on its way to 2026, and each of
+    those is a valid date that was being saved.
+  */
   return (
-    <input
-      type="date"
-      value={draft}
-      aria-label={label}
-      onFocus={() => {
-        editing.current = true;
-        cancelled.current = false;
-      }}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => {
-        editing.current = false;
-        if (!cancelled.current) commit(draft);
-      }}
-      onKeyDown={(e) =>
-        sheetKeys(e, () => {
-          cancelled.current = true;
-          setDraft(value);
-        })
-      }
-      className={cn(CELL, "tabular-nums")}
-    />
+    <span className="relative block">
+      <input
+        type="date"
+        value={draft}
+        aria-label={label}
+        onClick={(e) => e.currentTarget.showPicker?.()}
+        onFocus={() => {
+          editing.current = true;
+          cancelled.current = false;
+        }}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          editing.current = false;
+          if (!cancelled.current) commit(draft);
+        }}
+        onKeyDown={(e) =>
+          sheetKeys(e, () => {
+            cancelled.current = true;
+            setDraft(value);
+          })
+        }
+        className={cn(CELL, "peer absolute inset-0 cursor-pointer tabular-nums opacity-0 focus:opacity-100")}
+      />
+      <span
+        aria-hidden
+        className="pointer-events-none block whitespace-nowrap px-2 py-1 text-[13px] tabular-nums text-fg-muted peer-focus:invisible"
+      >
+        {/^\d{4}-\d{2}-\d{2}$/.test(draft) ? formatLedgerDate(draft) : draft}
+      </span>
+    </span>
   );
 }
 
@@ -947,6 +1021,7 @@ function DetailInput({
   label: string;
 }) {
   const { draft, setDraft, editing, cancelled } = useDraft(value);
+  const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLTextAreaElement>(null);
 
   // grows with its lines, written to the element so a keystroke that leaves
@@ -956,11 +1031,37 @@ function DetailInput({
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
-  }, [draft]);
+  }, [draft, open]);
+
+  /*
+    Three lines until you open it. The sheet's details run to ten bullet points
+    (AXUM's landing page), and printed in full they made one row four hundred
+    pixels tall beside columns with nothing in them — the whole table became
+    the detail of one line. The full text is a click away, and on hover.
+  */
+  if (!open) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={label}
+        title={value || undefined}
+        data-col="detail"
+        onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
+        className={cn(CELL, "min-h-7 cursor-text text-[13px] leading-[1.45] text-fg-muted")}
+      >
+        {/* clamped inside the padding: on the padded box, a sliver of the
+            fourth line showed under the ellipsis */}
+        <span className="line-clamp-3 whitespace-pre-line">{value}</span>
+      </div>
+    );
+  }
 
   return (
     <textarea
       ref={ref}
+      autoFocus
       value={draft}
       rows={1}
       maxLength={4000}
@@ -973,6 +1074,7 @@ function DetailInput({
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
         editing.current = false;
+        setOpen(false);
         if (cancelled.current) return;
         const next = draft.replace(/\s+$/, "");
         if (next !== value) onCommit(next);
@@ -985,7 +1087,7 @@ function DetailInput({
           e.currentTarget.blur();
         }
       }}
-      className={cn(CELL, "block resize-none overflow-hidden text-[13px] leading-[1.45] text-fg-muted")}
+      className={cn(CELL, "block resize-none overflow-hidden text-[13px] leading-[1.45] text-fg")}
     />
   );
 }
@@ -1000,6 +1102,7 @@ function NumberInput({
   title,
   strong = false,
   keepOnEmpty = false,
+  format = formatNumber,
 }: {
   value: number | null;
   onCommit: (n: number | null) => void;
@@ -1011,21 +1114,23 @@ function NumberInput({
   strong?: boolean;
   /** For a value that cannot be blank: clearing the box puts it back. */
   keepOnEmpty?: boolean;
+  /** How it reads when you are not editing it; editing is always the plain number. */
+  format?: (n: number | null) => string;
 }) {
-  const { draft, setDraft, editing, cancelled } = useDraft(formatNumber(value));
+  const { draft, setDraft, editing, cancelled } = useDraft(format(value));
 
   const commit = () => {
     const parsed = parseAmount(draft);
     if (parsed === undefined) {
       toast.error(copy.billing.invalidNumber);
-      setDraft(formatNumber(value));
+      setDraft(format(value));
       return;
     }
     if (parsed === null && keepOnEmpty) {
-      setDraft(formatNumber(value));
+      setDraft(format(value));
       return;
     }
-    setDraft(formatNumber(parsed));
+    setDraft(format(parsed));
     if (parsed !== value) onCommit(parsed);
   };
 
@@ -1040,8 +1145,11 @@ function NumberInput({
       onFocus={(e) => {
         editing.current = true;
         cancelled.current = false;
-        // replacing a number is what you usually came to do, as in the sheet
-        e.currentTarget.select();
+        // the plain number to edit, selected: replacing it is what you usually
+        // came to do, as in the sheet
+        const el = e.currentTarget;
+        setDraft(formatNumber(value));
+        requestAnimationFrame(() => el.select());
       }}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
@@ -1053,14 +1161,14 @@ function NumberInput({
           e,
           () => {
             cancelled.current = true;
-            setDraft(formatNumber(value));
+            setDraft(format(value));
           },
           onMove,
         )
       }
       className={cn(
         CELL,
-        "text-right font-mono text-[13px] tabular-nums",
+        "text-right text-[13px] tabular-nums",
         // a typed price is ink; a computed one prints as the placeholder, a step lighter
         strong && "font-medium placeholder:font-normal placeholder:text-fg-muted",
       )}

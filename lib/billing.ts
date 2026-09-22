@@ -94,6 +94,13 @@ export function formatMoney(n: number): string {
   return money.format(n);
 }
 
+const cents = new Intl.NumberFormat('fr-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** « 2 500,00 » — money in a column already headed « ($) », so without the sign. */
+export function formatAmount(n: number | null): string {
+  return n === null ? '' : cents.format(n);
+}
+
 /** « 2,5 » — for hours and rates, which are numbers before they are money. */
 export function formatNumber(n: number | null): string {
   return n === null ? '' : plain.format(n);

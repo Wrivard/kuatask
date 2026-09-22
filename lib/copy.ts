@@ -149,6 +149,7 @@ export const copy = {
     deleteClient: "Supprimer le client (aucune ligne)",
     clientDeleted: (name: string) => `${name} supprimé`,
     rate: "Taux par défaut",
+    settings: "Réglages du client",
     rateSuffix: "$/h",
     rename: "Nom du client",
     archive: "Archiver le client",

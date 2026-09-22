@@ -7,6 +7,7 @@ import { ChevronRight, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Chip } from "@/components/ui/chip";
+import { ACCENTS } from "@/components/task/assignee-dot";
 import { DEFAULT_RATE, formatMoney, totals, type Totals } from "@/lib/billing";
 import { formatLedgerDate } from "@/lib/time";
 import { MICRO_LABEL } from "@/lib/type";
@@ -188,10 +189,10 @@ export function BillingDashboard({
         Three figures, in the order money moves: earned and not yet billed,
         billed and not yet paid, paid. The first two are what needs doing.
       */}
-      <dl className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <Tile label={copy.billing.status.pending} value={overall.pending} strong={overall.pending > 0} />
-        <Tile label={copy.billing.status.invoiced} value={overall.invoiced} strong={overall.invoiced > 0} />
-        <Tile label={copy.billing.status.paid} value={overall.paid} />
+      <dl className="mb-6 grid grid-cols-3 gap-2">
+        <Tile label={copy.billing.status.pending} value={overall.pending} color="var(--color-fg-muted)" />
+        <Tile label={copy.billing.status.invoiced} value={overall.invoiced} color={ACCENTS.amber} />
+        <Tile label={copy.billing.status.paid} value={overall.paid} color="var(--color-accent)" />
       </dl>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -241,14 +242,15 @@ export function BillingDashboard({
         )
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] border-collapse text-[14px]">
+          <table className="w-full min-w-[420px] sm:min-w-[560px] border-collapse text-[14px]">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className={cn(MICRO_LABEL, "py-2 pr-3 font-medium")}>{copy.billing.clients}</th>
                 <th className={cn(MICRO_LABEL, "py-2 pr-3 text-right font-medium")}>{copy.billing.status.pending}</th>
                 <th className={cn(MICRO_LABEL, "py-2 pr-3 text-right font-medium")}>{copy.billing.status.invoiced}</th>
                 <th className={cn(MICRO_LABEL, "py-2 pr-3 text-right font-medium")}>{copy.billing.status.paid}</th>
-                <th className={cn(MICRO_LABEL, "py-2 pr-3 text-right font-medium")}>{copy.billing.lastEntry}</th>
+                {/* the one column a phone can do without; the money is what it is opened for */}
+                <th className={cn(MICRO_LABEL, "hidden py-2 pr-3 text-right font-medium sm:table-cell")}>{copy.billing.lastEntry}</th>
                 <th className="w-6" aria-hidden />
               </tr>
             </thead>
@@ -279,7 +281,7 @@ export function BillingDashboard({
                   <MoneyCell value={t.pending} emphasis />
                   <MoneyCell value={t.invoiced} emphasis />
                   <MoneyCell value={t.paid} />
-                  <td className="py-2.5 pr-3 text-right text-[12px] tabular-nums text-fg-faint">
+                  <td className="hidden py-2.5 pr-3 text-right text-[12px] tabular-nums text-fg-faint sm:table-cell">
                     {last ? formatLedgerDate(last) : copy.billing.never}
                   </td>
                   <td className="py-2.5 text-fg-faint">
@@ -295,11 +297,20 @@ export function BillingDashboard({
   );
 }
 
-function Tile({ label, value, strong = false }: { label: string; value: number; strong?: boolean }) {
+/** Same tile as a client's sheet: a status dot, the label, the sum. */
+function Tile({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div className="rounded-md border border-border px-4 py-3">
-      <dt className={MICRO_LABEL}>{label}</dt>
-      <dd className={cn("mt-1 font-mono text-[20px] tabular-nums", strong ? "text-fg" : "text-fg-muted")}>
+    <div className="min-w-0 rounded-md border border-border px-3 py-2.5 sm:px-4 sm:py-3">
+      <dt className={cn(MICRO_LABEL, "flex items-center gap-1.5")}>
+        <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: color }} />
+        {label}
+      </dt>
+      <dd
+        className={cn(
+          "mt-1 text-[15px] font-medium tabular-nums tracking-[-0.01em] sm:text-[20px]",
+          value > 0 ? "text-fg" : "text-fg-faint",
+        )}
+      >
         {formatMoney(value)}
       </dd>
     </div>
@@ -311,7 +322,7 @@ function MoneyCell({ value, emphasis = false }: { value: number; emphasis?: bool
   return (
     <td
       className={cn(
-        "py-2.5 pr-3 text-right font-mono text-[13px] tabular-nums",
+        "py-2.5 pr-3 text-right text-[13px] tabular-nums",
         value === 0 ? "text-fg-faint" : emphasis ? "text-fg" : "text-fg-muted",
       )}
     >
