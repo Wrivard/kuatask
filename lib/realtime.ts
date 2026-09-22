@@ -77,7 +77,14 @@ export function useRealtimeTasks() {
           filter: `workspace_id=eq.${workspaceId}`,
         },
         (payload) => {
-          const row = (payload.new ?? payload.old) as Task;
+          /*
+            By event, not `new ?? old`. supabase-js hands a DELETE an empty
+            object as `new` — `{}`, which is not nullish — so the fallback never
+            reached `old`, the row arrived with no id, and the filter that
+            removes it matched nothing. The other person's deletes stayed on
+            screen until the next resync.
+          */
+          const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Task;
           applyRemote(payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE', row);
         },
       )
