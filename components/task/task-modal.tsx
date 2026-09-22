@@ -14,6 +14,7 @@ import { DatePicker } from "./date-picker";
 import { Avatar } from "./avatar";
 import { ACCENTS } from "./assignee-dot";
 import { useStore, type Task } from "@/lib/store";
+import { assign, assignmentOf, BOTH } from "@/lib/assignee";
 import { useSetStatusWithFeedback, useDeleteWithFeedback } from "@/lib/completion";
 import { useAutoGrow } from "@/lib/auto-grow";
 import { textPatch } from "@/lib/edit";
@@ -423,22 +424,36 @@ export function TaskModal({
           <Field label={copy.task.assignee}>
             <div className="flex flex-wrap gap-1.5">
               <Chip
-                active={task.assignee_id === null}
-                onClick={() => updateTask(task.id, { assignee_id: null })}
+                active={assignmentOf(task) === null}
+                onClick={() => updateTask(task.id, assign(null))}
               >
                 {copy.task.nobody}
               </Chip>
               {members.map((m) => (
                 <Chip
                   key={m.id}
-                  active={task.assignee_id === m.id}
-                  onClick={() => updateTask(task.id, { assignee_id: m.id })}
+                  active={assignmentOf(task) === m.id}
+                  onClick={() => updateTask(task.id, assign(m.id))}
                 >
                   {/* assignment is chosen here, where there is room for a face */}
                   <Avatar member={m} size="sm" />
                   {m.display_name}
                 </Chip>
               ))}
+              {/* both of you, offered only where there are two people to be */}
+              {members.length > 1 && (
+                <Chip
+                  active={assignmentOf(task) === BOTH}
+                  onClick={() => updateTask(task.id, assign(BOTH))}
+                >
+                  <span className="flex -space-x-1.5">
+                    {members.map((m) => (
+                      <Avatar key={m.id} member={m} size="sm" className="ring-1 ring-bg" />
+                    ))}
+                  </span>
+                  {copy.task.shared}
+                </Chip>
+              )}
             </div>
           </Field>
 
@@ -556,6 +571,7 @@ export function TaskModal({
                   due_on: from.due_on,
                   due_time: from.due_time,
                   assignee_id: from.assignee_id,
+                  shared: from.shared,
                 });
                 toast(copy.task.duplicated);
                 onClose();

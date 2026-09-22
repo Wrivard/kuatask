@@ -7,6 +7,7 @@ import { Users } from "lucide-react";
 import { accentColor } from "@/components/task/assignee-dot";
 import { VIEWS } from "./view-switch";
 import { useStore } from "@/lib/store";
+import { matchesFilter } from "@/lib/assignee";
 import { bucketOf, type Bucket } from "@/lib/time";
 import { useToday } from "@/lib/day";
 import { useStreak } from "@/lib/streak";
@@ -83,7 +84,7 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
     const map = new Map<Bucket, number>();
     for (const task of tasks) {
       if (task.status === "done") continue;
-      if (filter !== null && task.assignee_id !== filter) continue;
+      if (!matchesFilter(task, filter)) continue;
       const b = bucketOf(task.due_on, day);
       map.set(b, (map.get(b) ?? 0) + 1);
     }

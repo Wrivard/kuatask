@@ -34,6 +34,7 @@ const NEEDED = [
   "routes.ts",
   "fresh.ts",
   "billing.ts",
+  "assignee.ts",
 ];
 
 // inside the project, so node resolves date-fns from the local node_modules
@@ -63,6 +64,7 @@ const calendar = await load("calendar.ts");
 const routes = await load("routes.ts");
 const fresh = await load("fresh.ts");
 const billing = await load("billing.ts");
+const assignee = await load("assignee.ts");
 const reset = await load("session-reset.ts");
 const sound = await load("sound.ts");
 
@@ -375,21 +377,33 @@ const board = [
   { id: "a", assignee_id: "u1", status: "todo", due_on: TODAY, position: 3 },
   { id: "b", assignee_id: "u2", status: "doing", due_on: null, position: 1 },
   { id: "c", assignee_id: null, status: "done", due_on: TODAY, position: 2 },
+  { id: "d", assignee_id: null, shared: true, status: "todo", due_on: TODAY, position: 4 },
 ];
 
 const byPerson = grouping.buildColumns("person", board, others, me, accentOf);
-eq("you come first", byPerson.map((c) => c.key), ["u1", "u2", grouping.NO_ASSIGNEE]);
-eq("unassigned lands in its own column", byPerson[2].tasks.map((t) => t.id), ["c"]);
+eq("you come first, then both of you, then nobody", byPerson.map((c) => c.key), [
+  "u1",
+  "u2",
+  assignee.BOTH,
+  grouping.NO_ASSIGNEE,
+]);
+eq("a task that is both people's is in its own column", byPerson[2].tasks.map((t) => t.id), ["d"]);
+eq("unassigned lands in its own column", byPerson[3].tasks.map((t) => t.id), ["c"]);
+eq(
+  "and a shared card knows which column it is in",
+  grouping.columnOf("person", board[3], others),
+  assignee.BOTH,
+);
 
 const byStatus = grouping.buildColumns("status", board, others, me, accentOf);
 eq("workflow order, not enum order", byStatus.map((c) => c.key), ["todo", "doing", "done"]);
-eq("each card in its status column", byStatus.map((c) => c.tasks.map((t) => t.id)), [["a"], ["b"], ["c"]]);
+eq("each card in its status column", byStatus.map((c) => c.tasks.map((t) => t.id)), [["a", "d"], ["b"], ["c"]]);
 
 // § 8.1 — a card completed a moment ago stays in the column it came from
 const held = grouping.buildColumns("status", board, others, me, accentOf, new Map([["c", "todo"]]));
 // membership, not order: the next assertion covers ordering, and columns sort
 // by position so the held card lands wherever its position puts it
-eq("a held card stays put for the beat", held[0].tasks.map((t) => t.id).sort(), ["a", "c"]);
+eq("a held card stays put for the beat", held[0].tasks.map((t) => t.id).sort(), ["a", "c", "d"]);
 eq("and is not yet in Terminé", held[2].tasks.length, 0);
 
 // the board buckets against the day it is handed, not the clock
@@ -404,7 +418,7 @@ eq("board buckets against the day it is given",
    [["p"], ["q"]]);
 
 const byDue = grouping.buildColumns("due", board, others, me, accentOf);
-eq("columns sort by position", byDue.find((c) => c.key === "today").tasks.map((t) => t.id), ["c", "a"]);
+eq("columns sort by position", byDue.find((c) => c.key === "today").tasks.map((t) => t.id), ["c", "a", "d"]);
 
 check("columnOf agrees with buildColumns for person",
       grouping.columnOf("person", board[2]) === grouping.NO_ASSIGNEE);
@@ -1353,6 +1367,66 @@ section("Facturation — the invoice text pastes into QuickBooks as written");
   check("a fixed price shows only the price", /Pages SEO — 800,00\s\$/.test(text));
   check("the total is the sum", /Total : 3\s750,00\s\$$/.test(text), lines.at(-1));
   check("an untitled line still reads", invoiceText("X", [line({ entry_on: "2026-01-01", title: "", amount: 5 })], 75, "h", "T").includes("— — 5,00"));
+}
+
+/*
+  « Nous deux ». A task belongs to one of you, both of you, or nobody, and the
+  two fields that say so (assignee_id, shared) are exclusive — the database
+  refuses a row that is both, so nothing here may produce one.
+*/
+section("Assignation — someone's, both people's, or nobody's");
+{
+  const { isAssignedTo, matchesFilter, assignmentOf, assign, BOTH } = assignee;
+  const ME = "u1";
+  const YOU = "u2";
+  const mine = { assignee_id: ME, shared: false };
+  const ours = { assignee_id: null, shared: true };
+  const nobodys = { assignee_id: null, shared: false };
+
+  check("your task is yours", isAssignedTo(mine, ME) && !isAssignedTo(mine, YOU));
+  check("a shared task is both of yours", isAssignedTo(ours, ME) && isAssignedTo(ours, YOU));
+  check("nobody's is nobody's", !isAssignedTo(nobodys, ME) && !isAssignedTo(nobodys, YOU));
+
+  check("the lens off shows everything", [mine, ours, nobodys].every((t) => matchesFilter(t, null)));
+  check(
+    "« Moi » includes what is both of yours",
+    matchesFilter(mine, ME) && matchesFilter(ours, ME) && !matchesFilter(nobodys, ME),
+  );
+  check(
+    "and so does your partner's lens — a shared task hides from neither",
+    matchesFilter(ours, YOU) && !matchesFilter(mine, YOU),
+  );
+
+  check("a picker reads the state back", assignmentOf(mine) === ME && assignmentOf(ours) === BOTH && assignmentOf(nobodys) === null);
+
+  check("choosing a person clears shared", JSON.stringify(assign(ME)) === JSON.stringify({ assignee_id: ME, shared: false }));
+  check("choosing both clears the person", JSON.stringify(assign(BOTH)) === JSON.stringify({ assignee_id: null, shared: true }));
+  check("choosing nobody clears both", JSON.stringify(assign(null)) === JSON.stringify({ assignee_id: null, shared: false }));
+  check(
+    "no patch ever names a person and both at once",
+    [ME, YOU, BOTH, null].every((c) => {
+      const p = assign(c);
+      return !(p.shared && p.assignee_id !== null);
+    }),
+  );
+}
+
+section("Compositeur — « @nous » assigns to both");
+{
+  const { composeTask } = await load("compose.ts");
+  const members = [
+    { id: "u1", display_name: "William", email: "w@kua.quebec" },
+    { id: "u2", display_name: "Gab", email: "gberther@kua.quebec" },
+  ];
+  const make = (v) => composeTask({ value: v, dismissed: new Set(), members });
+
+  const both = make("Appeler le comptable @nous");
+  check("« @nous » is shared", both.shared === true && both.assignee_id === null);
+  check("and the handle leaves the title", both.title === "Appeler le comptable", both.title);
+  check("« @tous » too", make("Ranger @tous").shared === true);
+  check("a person is still a person", make("Ranger @William").assignee_id === "u1" && make("Ranger @William").shared === false);
+  check("a short handle stays a name, not a guess", make("Ranger @no").shared === false);
+  check("no handle, no sharing", make("Ranger").shared === false);
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);

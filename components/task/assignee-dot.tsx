@@ -42,6 +42,48 @@ export function accentColor(accent: string | undefined): string {
  * completes something on your screen, and the optional tap that narrows the
  * list to one person.
  */
+/**
+ * A task that belongs to both of you: two faces, overlapping.
+ *
+ * Deliberately not a third colour or a « 2 » badge — the two people are the
+ * information, and the same faces that mean "his" and "mine" everywhere else
+ * mean "ours" when they sit together.
+ */
+export function SharedFaces({
+  members,
+  onSelect,
+}: {
+  members: Profile[];
+  onSelect?: (id: string) => void;
+}) {
+  if (members.length === 0) return null;
+
+  const faces = (
+    <span className="flex shrink-0 -space-x-1.5" title={copy.task.shared}>
+      {members.map((m) => (
+        <Avatar key={m.id} member={m} size="sm" className="ring-1 ring-bg" />
+      ))}
+    </span>
+  );
+
+  // the same 36px target the single face gets, without moving its neighbours
+  if (!onSelect) return faces;
+  return (
+    <button
+      type="button"
+      title={copy.task.shared}
+      aria-label={copy.task.shared}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect(members[0].id);
+      }}
+      className="-m-2 flex shrink-0 items-center justify-center rounded-full p-2"
+    >
+      {faces}
+    </button>
+  );
+}
+
 export function AssigneeFace({
   member,
   pulse = false,

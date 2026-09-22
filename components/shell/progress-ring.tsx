@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { Check } from "lucide-react";
 import { spring } from "@/lib/motion";
 import { useStore } from "@/lib/store";
+import { isAssignedTo } from "@/lib/assignee";
 import { copy } from "@/lib/copy";
 import { isOnDay } from "@/lib/time";
 import { useToday } from "@/lib/day";
@@ -48,7 +49,8 @@ export function ProgressRing() {
     let d = 0;
     let t = 0;
     for (const task of tasks) {
-      if (task.assignee_id !== me.id) continue;
+      // a task that is both people's counts on both rings
+      if (!isAssignedTo(task, me.id)) continue;
 
       const isDoneToday =
         task.status === "done" && isOnDay(task.completed_at, day);

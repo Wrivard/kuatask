@@ -15,6 +15,7 @@ import { parseFr } from "@/lib/parse-fr";
 import { bucketOf } from "@/lib/time";
 import { VIEWS } from "./view-switch";
 import { copy } from "@/lib/copy";
+import { assign, BOTH, BOTH_HANDLES } from "@/lib/assignee";
 
 const BUCKET_LABEL: Record<string, string> = {
   today: copy.nav.today,
@@ -103,6 +104,8 @@ export function CommandPalette({
         <CommandGroup heading={copy.palette.groupTasks}>
           {todo.map((task) => {
             const assignee = members.find((m) => m.id === task.assignee_id);
+            // whose it is, including when the answer is both of you
+            const whose = task.shared ? copy.task.shared : assignee?.display_name;
             return (
               <CommandItem
                 key={task.id}
@@ -117,7 +120,7 @@ export function CommandPalette({
                 aria-label={[
                   task.title,
                   BUCKET_LABEL[bucketOf(task.due_on)],
-                  assignee?.display_name,
+                  whose,
                 ]
                   .filter(Boolean)
                   .join(" — ")}
@@ -126,7 +129,7 @@ export function CommandPalette({
                 <span className="min-w-0 flex-1 truncate">{task.title}</span>
                 <span className="shrink-0 text-[12px] text-fg-faint">
                   {BUCKET_LABEL[bucketOf(task.due_on)]}
-                  {assignee ? ` · ${assignee.display_name}` : ""}
+                  {whose ? ` · ${whose}` : ""}
                 </span>
               </CommandItem>
             );
@@ -151,11 +154,16 @@ export function CommandPalette({
                     due_time: parsed.dueTime,
                     label: parsed.label,
                     important: parsed.important,
-                    assignee_id: handle
-                      ? (members.find((m) =>
-                          m.display_name.toLowerCase().startsWith(handle),
-                        )?.id ?? null)
-                      : null,
+                    // « @nous » here as in the composer: both of you
+                    ...assign(
+                      handle
+                        ? BOTH_HANDLES.some((h) => h.startsWith(handle) && handle.length >= 3)
+                          ? BOTH
+                          : (members.find((m) =>
+                              m.display_name.toLowerCase().startsWith(handle),
+                            )?.id ?? null)
+                        : null,
+                    ),
                   });
                 })
               }

@@ -77,6 +77,7 @@ export async function restoreTask(activityId: string): Promise<ActionResult> {
     due_on: (snapshot.due_on as string | null) ?? null,
     due_time: (snapshot.due_time as string | null) ?? null,
     assignee_id: (snapshot.assignee_id as string | null) ?? null,
+    shared: (snapshot.shared as boolean) ?? false,
     position: (snapshot.position as number) ?? Date.now() / 1000,
     created_by: user.id,
   });

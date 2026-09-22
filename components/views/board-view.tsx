@@ -19,6 +19,7 @@ import {
 } from "@/lib/grouping";
 import { accentColor } from "@/components/task/assignee-dot";
 import { useStore, type Task } from "@/lib/store";
+import { assign as assignmentPatch, matchesFilter } from "@/lib/assignee";
 import { useStreak } from "@/lib/streak";
 import {
   useSetStatusWithFeedback,
@@ -121,7 +122,7 @@ export function BoardView() {
     );
 
     if (groupBy === "person" || filter === null) return current;
-    return current.filter((t) => t.assignee_id === filter);
+    return current.filter((t) => matchesFilter(t, filter));
   }, [allTasks, filter, groupBy, day]);
 
   // § 8.1 — a completed card holds its column for the beat before it moves
@@ -177,7 +178,7 @@ export function BoardView() {
       if (groupBy === "person") {
         return {
           position,
-          assignee_id: columnKey === NO_ASSIGNEE ? null : columnKey,
+          ...assignmentPatch(columnKey === NO_ASSIGNEE ? null : columnKey),
         };
       }
       if (groupBy === "status") {

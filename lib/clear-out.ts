@@ -3,6 +3,7 @@
 import * as React from "react";
 import { isOnDay } from "@/lib/time";
 import { useStore } from "@/lib/store";
+import { isAssignedTo } from "@/lib/assignee";
 
 /**
  * § 8.5 — has the last task assigned to you and due today just gone done?
@@ -26,7 +27,8 @@ export function useClearedToday(day: string, holdingCount: number) {
     let open = 0;
     let done = 0;
     for (const task of tasks) {
-      if (task.assignee_id !== me.id) continue;
+      // a task that is both people's is on your day too
+      if (!isAssignedTo(task, me.id)) continue;
       if (task.status !== "done" && task.due_on !== null && task.due_on <= day) open += 1;
       if (task.status === "done" && isOnDay(task.completed_at, day)) done += 1;
     }

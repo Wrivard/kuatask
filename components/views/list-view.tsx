@@ -25,6 +25,7 @@ import {
   type Bucket,
 } from "@/lib/time";
 import { useStore, type Task } from "@/lib/store";
+import { assign, assignmentOf, BOTH, matchesFilter } from "@/lib/assignee";
 import { useStreak } from "@/lib/streak";
 import {
   useToggleWithFeedback,
@@ -92,7 +93,7 @@ export function ListView() {
   const holding = useCompletionHold(allTasks);
 
   const byAssignee = React.useMemo(
-    () => (filter === null ? allTasks : allTasks.filter((t) => t.assignee_id === filter)),
+    () => (filter === null ? allTasks : allTasks.filter((t) => matchesFilter(t, filter))),
     [allTasks, filter],
   );
 
@@ -323,9 +324,10 @@ export function ListView() {
     a: onFocused((id) => {
       const task = allTasks.find((t) => t.id === id);
       if (!task) return;
-      const ring = [null, ...members.map((m) => m.id)];
-      const next = ring[(ring.indexOf(task.assignee_id) + 1) % ring.length];
-      updateTask(id, { assignee_id: next });
+      // nobody → each person → both of you, when there are two
+      const ring = [null, ...members.map((m) => m.id), ...(members.length > 1 ? [BOTH] : [])];
+      const next = ring[(ring.indexOf(assignmentOf(task)) + 1) % ring.length];
+      updateTask(id, assign(next));
     }),
     // S walks the workflow, the same shape as A over people and D over dates
     s: onFocused((id) => {

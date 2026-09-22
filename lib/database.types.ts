@@ -257,6 +257,7 @@ export type Database = {
           label: string | null
           notes: string | null
           position: number
+          shared: boolean
           status: Database["public"]["Enums"]["task_status"]
           title: string
           updated_at: string
@@ -276,6 +277,7 @@ export type Database = {
           label?: string | null
           notes?: string | null
           position?: number
+          shared?: boolean
           status?: Database["public"]["Enums"]["task_status"]
           title: string
           updated_at?: string
@@ -295,6 +297,7 @@ export type Database = {
           label?: string | null
           notes?: string | null
           position?: number
+          shared?: boolean
           status?: Database["public"]["Enums"]["task_status"]
           title?: string
           updated_at?: string

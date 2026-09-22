@@ -534,7 +534,8 @@ export const useStore = create<Store>((set, get) => {
         important: input.important ?? false,
         due_on: input.due_on ?? null,
         due_time: input.due_time ?? null,
-        assignee_id: input.assignee_id ?? null,
+        assignee_id: input.shared ? null : (input.assignee_id ?? null),
+        shared: input.shared ?? false,
         created_by: me.id,
         completed_at: null,
         completed_by: null,
@@ -610,6 +611,14 @@ export const useStore = create<Store>((set, get) => {
         is a rule and a rule enforced in four is a coincidence.
       */
       if (changed.due_on === null && before.due_time !== null) changed.due_time = null;
+
+      /*
+        Someone's, both people's, or nobody's — never two at once; the database
+        refuses the row that is. Choosing a person clears « nous deux », and
+        choosing « nous deux » clears the person, whichever path set it.
+      */
+      if (changed.shared === true && before.assignee_id !== null) changed.assignee_id = null;
+      if (changed.assignee_id != null && before.shared) changed.shared = false;
 
       if (Object.keys(changed).length === 0) return;
 

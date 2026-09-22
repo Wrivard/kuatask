@@ -276,6 +276,7 @@ export const copy = {
     removeDate: "Retirer la date",
     time: "Heure",
     assignee: "Assigné à",
+    shared: "Nous deux",
     nobody: "Personne",
     label: "Étiquette",
     important: "Important",

@@ -1,6 +1,8 @@
 "use client";
 
 import type { Profile, Task } from "@/lib/store";
+import { BOTH_HANDLES } from "@/lib/assignee";
+import { copy } from "@/lib/copy";
 
 /**
  * Autocomplete for the composer's `#label` and `@person` tokens.
@@ -84,12 +86,22 @@ export function suggestionsFor(
   const pool: Candidate[] =
     token.kind === "label"
       ? labelsInUse(tasks).map((l) => ({ value: l, label: `#${l}`, keys: [l.toLowerCase()] }))
-      : members.map((m) => ({
-          value: m.display_name,
-          label: `@${m.display_name}`,
-          keys: [m.display_name.toLowerCase(), (m.email ?? '').split('@')[0].toLowerCase()]
-            .filter(Boolean),
-        }));
+      : [
+          ...members.map((m) => ({
+            value: m.display_name,
+            label: `@${m.display_name}`,
+            keys: [m.display_name.toLowerCase(), (m.email ?? '').split('@')[0].toLowerCase()]
+              .filter(Boolean),
+          })),
+          /*
+            Both of you, spelled out. It is an assignment like any other but the
+            only one without a person to complete, so nothing would have hinted
+            that it exists.
+          */
+          ...(members.length > 1
+            ? [{ value: 'nous', label: `@nous — ${copy.task.shared}`, keys: BOTH_HANDLES }]
+            : []),
+        ];
 
   const strip = ({ value, label }: Candidate): Suggestion => ({ value, label });
 

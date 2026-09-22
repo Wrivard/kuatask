@@ -28,6 +28,7 @@ import {
   type GridStep,
 } from "@/lib/time";
 import { useStore, type Task } from "@/lib/store";
+import { matchesFilter } from "@/lib/assignee";
 import { useDragToTarget } from "@/lib/drag";
 import { useRescheduleWithFeedback } from "@/lib/completion";
 import { useToday } from "@/lib/day";
@@ -144,7 +145,7 @@ export function CalendarView() {
   modeRef.current = mode;
 
   const visible = React.useMemo(
-    () => (filter === null ? tasks : tasks.filter((t) => t.assignee_id === filter)),
+    () => (filter === null ? tasks : tasks.filter((t) => matchesFilter(t, filter))),
     [tasks, filter],
   );
 

@@ -1,4 +1,5 @@
 import { parseFr } from '@/lib/parse-fr';
+import { BOTH_HANDLES } from '@/lib/assignee';
 import type { Profile } from '@/lib/store';
 
 /**
@@ -20,6 +21,8 @@ export type Composed = {
   label: string | null;
   important: boolean;
   assignee_id: string | null;
+  /** Both people, from « @nous ». Never set at the same time as assignee_id. */
+  shared: boolean;
   /** Which readings the parser made, so the chips know what to offer. */
   matched: Set<string>;
   /**
@@ -71,7 +74,14 @@ export function composeTask({
     offers — if these two ever disagree, completing `@gberther` produces a
     handle this function cannot turn back into anybody.
   */
-  const assigneeId = handle
+  /*
+    « @nous » (or tous, deux, both) is both of you rather than a person. With
+    two members it is the one assignment the autocomplete cannot offer as a
+    face, so it is spelled out instead.
+  */
+  const sharedByHandle = handle !== null && BOTH_HANDLES.some((h) => h.startsWith(handle.toLowerCase()) && handle.length >= 3);
+
+  const assigneeId = handle && !sharedByHandle
     ? (members.find(
         (m) =>
           m.display_name.toLowerCase().startsWith(handle.toLowerCase()) ||
@@ -103,7 +113,8 @@ export function composeTask({
     due_time: dueTime,
     label,
     important,
-    assignee_id: assigneeId ?? defaultAssigneeId,
+    assignee_id: sharedByHandle ? null : (assigneeId ?? defaultAssigneeId),
+    shared: sharedByHandle,
     matched,
   };
 }

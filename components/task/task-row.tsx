@@ -6,7 +6,7 @@ import { AlignLeft, Pencil } from "lucide-react";
 import { TaskCheckbox } from "./task-checkbox";
 import { LabelChip } from "./label-chip";
 import { StatusChip } from "./status-chip";
-import { AssigneeFace } from "./assignee-dot";
+import { AssigneeFace, SharedFaces } from "./assignee-dot";
 import { Avatar } from "./avatar";
 import { COMPLETION } from "@/lib/motion";
 import { daysFromToday, formatDueLabel, formatTime, isOverdue } from "@/lib/time";
@@ -258,7 +258,11 @@ function TaskRowImpl({
           </span>
         )}
 
-        <AssigneeFace member={assignee} pulse={pulseAssignee} onSelect={onSelectAssignee} />
+        {task.shared ? (
+          <SharedFaces members={members} onSelect={onSelectAssignee} />
+        ) : (
+          <AssigneeFace member={assignee} pulse={pulseAssignee} onSelect={onSelectAssignee} />
+        )}
       </div>
 
       {/* an action, not metadata, so it keeps the row's own spacing */}

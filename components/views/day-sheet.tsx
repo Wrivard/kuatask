@@ -10,6 +10,7 @@ import { useToday } from "@/lib/day";
 import { useDragToTarget } from "@/lib/drag";
 import { useRescheduleWithFeedback } from "@/lib/completion";
 import { useStore } from "@/lib/store";
+import { matchesFilter } from "@/lib/assignee";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -54,7 +55,7 @@ export function DaySheet({
   }, [current]);
 
   const visible = React.useMemo(
-    () => (filter === null ? tasks : tasks.filter((t) => t.assignee_id === filter)),
+    () => (filter === null ? tasks : tasks.filter((t) => matchesFilter(t, filter))),
     [tasks, filter],
   );
 

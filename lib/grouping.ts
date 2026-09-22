@@ -3,6 +3,7 @@
 import { bucketOf, today as currentDay, type Bucket } from "@/lib/time";
 import type { Profile, Task } from "@/lib/store";
 import { copy } from "@/lib/copy";
+import { BOTH } from '@/lib/assignee';
 
 /**
  * The board is one component with three groupings rather than three boards.
@@ -137,11 +138,17 @@ export function buildColumns(
       member: m,
       tasks: [],
     }));
+    // « nous deux » is a column of its own: dragging a card into it is the
+    // fastest way to say a task is both people's
+    if (ordered.length > 1) {
+      columns.push({ key: BOTH, title: copy.task.shared, tasks: [] });
+    }
     columns.push({ key: NO_ASSIGNEE, title: copy.board.unassigned, tasks: [] });
 
     const index = new Map(columns.map((c) => [c.key, c]));
     for (const task of tasks) {
-      (index.get(task.assignee_id ?? NO_ASSIGNEE) ?? index.get(NO_ASSIGNEE))!.tasks.push(task);
+      const key = task.shared ? BOTH : (task.assignee_id ?? NO_ASSIGNEE);
+      (index.get(key) ?? index.get(NO_ASSIGNEE))!.tasks.push(task);
     }
     return columns.map(sortByPosition);
   }
@@ -274,6 +281,7 @@ export function columnOf(
   members?: { id: string }[],
 ): string {
   if (groupBy === "person") {
+    if (task.shared && members && members.length > 1) return BOTH;
     const id = task.assignee_id;
     if (!id) return NO_ASSIGNEE;
     if (members && !members.some((m) => m.id === id)) return NO_ASSIGNEE;

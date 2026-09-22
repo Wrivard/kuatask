@@ -190,6 +190,7 @@ export function TaskComposer({
         label: one.label,
         important: one.important,
         assignee_id: one.assignee_id,
+        shared: one.shared,
       });
       made += 1;
     }
@@ -223,7 +224,8 @@ export function TaskComposer({
       due_time: composed.due_time,
       label: composed.label,
       important: composed.important,
-      assignee_id: composed.assignee_id ?? extra?.assignee_id ?? null,
+      assignee_id: composed.shared ? null : (composed.assignee_id ?? extra?.assignee_id ?? null),
+      shared: composed.shared,
     });
 
     // clear on the same frame — never await the write
