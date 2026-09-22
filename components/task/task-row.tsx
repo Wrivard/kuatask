@@ -7,6 +7,7 @@ import { TaskCheckbox } from "./task-checkbox";
 import { LabelChip } from "./label-chip";
 import { StatusChip } from "./status-chip";
 import { AssigneeFace } from "./assignee-dot";
+import { Avatar } from "./avatar";
 import { COMPLETION } from "@/lib/motion";
 import { daysFromToday, formatDueLabel, formatTime, isOverdue } from "@/lib/time";
 import { useStore, type Task } from "@/lib/store";
@@ -92,6 +93,7 @@ function TaskRowImpl({
   */
   const minute = useMinute();
   const fresh = !done && isFresh(task.created_at, minute);
+  const creator = fresh ? members.find((m) => m.id === task.created_by) : undefined;
 
   /*
     Inside "Aujourd'hui" the words "aujourd'hui" are noise, so a task due today
@@ -199,11 +201,21 @@ function TaskRowImpl({
           which is the accent in outline. First in the group, nearest the title
           it describes.
         */}
+        {/*
+          Carries who added it. A just-captured task is usually unassigned, so
+          the assignee slot is empty — which read as the tag having pushed the
+          picture out. The face that answers "who put this here" belongs to the
+          tag, not to the assignee slot, which keeps meaning "whose it is".
+        */}
         {fresh && (
           <span
-            title={copy.task.freshHint}
-            className="shrink-0 rounded-sm bg-accent px-1.5 py-px text-[11px] font-medium text-bg"
+            title={creator ? copy.task.freshBy(creator.display_name) : copy.task.freshHint}
+            className={cn(
+              "flex shrink-0 items-center gap-1 rounded-full bg-accent py-0.5 pr-2 text-[11px] font-medium leading-none text-bg",
+              creator ? "pl-0.5" : "pl-2",
+            )}
           >
+            {creator && <Avatar member={creator} size="xs" />}
             {copy.task.fresh}
           </span>
         )}

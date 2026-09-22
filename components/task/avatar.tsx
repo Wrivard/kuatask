@@ -24,6 +24,8 @@ import { cn } from "@/lib/utils";
  * half-loads is worse than one that was never claimed.
  */
 const SIZES = {
+  // inside a tag, where it sits in a line of 11px text
+  xs: "size-4 text-[7px]",
   sm: "size-5 text-[9px]",
   md: "size-6 text-[10px]",
   lg: "size-9 text-[13px]",

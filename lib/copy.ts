@@ -215,6 +215,7 @@ export const copy = {
     hasNotes: "Contient des notes",
     fresh: "Nouveau",
     freshHint: "Créée il y a moins de 3 h",
+    freshBy: (name: string) => `Ajoutée par ${name}, il y a moins de 3 h`,
     duplicate: "Dupliquer",
     duplicated: "Copie créée",
     links: "Liens",
