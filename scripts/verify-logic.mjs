@@ -1279,5 +1279,53 @@ section("Facturation — the page agrees with the sheet it replaces");
   check("what we print, we can read back", parseAmount(formatMoney(2950.5)) === 2950.5, formatMoney(2950.5));
 }
 
+section("Facturation — pasting the sheet in");
+{
+  const { parseSheetPaste, parseDay, parseStatus, parseTsv } = billing;
+
+  // what Excel puts on the clipboard for three rows of the GCSM tab
+  const clip =
+    '24/07/2026\tForfait Propriétaire - (50% avant)\t"-Design et programmation\n-Site Web Mobile"\t\t\t$2,500.00\tPayé\r\n' +
+    "24/07/2026\t3 Pages service\t\t3.00\t$150\t$450.00\t\r\n" +
+    "24/07/2026\tPages SEO\t- 12 pages localisations\t\t\t$800.00\t\r\n";
+  const rows = parseSheetPaste(clip, "2026-09-22");
+
+  check("three rows come out", rows?.length === 3, String(rows?.length));
+  check("the date is read day-first", rows?.[0].entry_on === "2026-07-24");
+  check(
+    "a quoted multi-line Détail stays one cell",
+    rows?.[0].detail === "-Design et programmation\n-Site Web Mobile",
+    JSON.stringify(rows?.[0].detail),
+  );
+  check("a fixed price stays fixed", rows?.[0].amount === 2500 && rows?.[0].hours === null);
+  check("Payé is paid", rows?.[0].status === "paid");
+  check(
+    "3 h × 150 = 450 is stored as computed, not as a price",
+    rows?.[1].hours === 3 && rows?.[1].rate === 150 && rows?.[1].amount === null,
+  );
+  check("a blank status is à facturer", rows?.[2].status === "pending");
+
+  check(
+    "the header row is skipped",
+    parseSheetPaste("Date\tTâche\tDétail\n24/07/2026\tX\t", "2026-09-22")?.length === 1,
+  );
+  check(
+    "a missing date is today's",
+    parseSheetPaste("\tX\t\t\t\t10\t", "2026-09-22")?.[0].entry_on === "2026-09-22",
+  );
+  check("one plain cell is not an import", parseSheetPaste("just text", "2026-09-22") === null);
+  check("doubled quotes inside a cell are one quote", parseTsv('"a ""b"" c"\tx')[0][0] === 'a "b" c');
+
+  check("12/04/2025 is 12 April", parseDay("12/04/2025") === "2025-04-12");
+  check("ISO passes through", parseDay("2026-07-24") === "2026-07-24");
+  check("two-digit years are this century", parseDay("24/07/26") === "2026-07-24");
+  check("31/02 is refused, not rolled into March", parseDay("31/02/2026") === null);
+  check(
+    "Facturé, facture, invoiced all read as invoiced",
+    ["Facturé", "facture", "Invoiced"].every((s) => parseStatus(s) === "invoiced"),
+  );
+  check("paye without the accent is paid", parseStatus("paye") === "paid");
+}
+
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);
 process.exit(failures ? 1 : 0);

@@ -14,6 +14,7 @@ import {
   formatNumber,
   isComputed,
   parseAmount,
+  parseSheetPaste,
   STATUSES,
   totals,
   type BillingStatus,
@@ -284,6 +285,77 @@ export function ClientSheet({
   }
 
   /*
+    Rows pasted from the spreadsheet. One insert for all of them rather than one
+    per row — a tab of forty lines is one request, and it either all lands or
+    none of it does, so a failure cannot leave half a client imported. Each row
+    still joins its own chain, so an edit made while the import is in the air
+    waits for it like any other.
+  */
+  function importRows(text: string): boolean {
+    const parsed = parseSheetPaste(text, today());
+    if (!parsed) return false;
+
+    const now = Date.now();
+    const rows: Entry[] = parsed.map((r, i) => ({
+      ...r,
+      id: crypto.randomUUID(),
+      client_id: client.id,
+      // keeps the pasted order among rows that share a date
+      created_at: new Date(now - i).toISOString(),
+    }));
+
+    // the sheet runs oldest-first and this page newest-first; imported rows
+    // take their place by date rather than landing in a block at the top
+    setEntries((list) =>
+      [...rows, ...list].sort(
+        (a, b) => b.entry_on.localeCompare(a.entry_on) || b.created_at.localeCompare(a.created_at),
+      ),
+    );
+    if (filter !== "all") changeFilter("all");
+
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => (release = r));
+    for (const row of rows) void enqueue(row.id, () => gate);
+
+    void (async () => {
+      const { error } = await supabase.from("billing_entries").insert(
+        rows.map((row) => {
+          const copyRow: Partial<Entry> = { ...row };
+          delete copyRow.created_at;
+          return { ...(copyRow as Omit<Entry, "created_at">), workspace_id: workspaceId };
+        }),
+      );
+      release();
+
+      if (error) {
+        const ids = new Set(rows.map((r) => r.id));
+        setEntries((list) => list.filter((e) => !ids.has(e.id)));
+        toast.error(copy.billing.saveFailed);
+        return;
+      }
+
+      toast(copy.billing.imported(rows.length), {
+        action: {
+          label: copy.toast.undo,
+          onClick: () => {
+            const ids = rows.map((r) => r.id);
+            const gone = new Set(ids);
+            setEntries((list) => list.filter((e) => !gone.has(e.id)));
+            void (async () => {
+              const { error: undoError } = await supabase
+                .from("billing_entries")
+                .delete()
+                .in("id", ids);
+              if (undoError) toast.error(copy.billing.saveFailed);
+            })();
+          },
+        },
+      });
+    })();
+    return true;
+  }
+
+  /*
     No confirmation dialog: the row goes at once and the toast offers it back.
     Undo re-inserts the same row with the same id, so it returns exactly where
     and as it was.
@@ -356,7 +428,19 @@ export function ClientSheet({
   const others = clients.filter((c) => c.id !== client.id);
 
   return (
-    <div className="px-6 py-6">
+    /*
+      Pasting anywhere on the page imports, including into a cell: a multi-cell
+      clipboard can only have come from a spreadsheet, and dropping forty rows of
+      tabs into one title is never what was meant. A single cell pastes normally.
+    */
+    <div
+      className="px-6 py-6"
+      onPaste={(e) => {
+        const text = e.clipboardData.getData("text/plain");
+        if (!text.includes("\t")) return;
+        if (importRows(text)) e.preventDefault();
+      }}
+    >
       {/* where you are, and the way to the other clients */}
       <div className="mb-5 flex flex-wrap items-center gap-2">
         <Link

@@ -102,3 +102,128 @@ export function formatNumber(n: number | null): string {
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
+
+/* ------------------------------------------------------------------ paste -- */
+
+export type PastedRow = {
+  entry_on: string;
+  title: string;
+  detail: string;
+  hours: number | null;
+  rate: number | null;
+  amount: number | null;
+  status: BillingStatus;
+};
+
+/**
+ * Reads rows copied out of the spreadsheet.
+ *
+ * Excel and Google Sheets both put tab-separated values on the clipboard, one
+ * row per line, and quote a cell that holds a line break (the Détail column
+ * always does) with doubled quotes inside. Columns are the sheet's own order:
+ * Date · Tâche · Détail · Heures · Taux · Montant · Statut.
+ *
+ * Moving to this page would otherwise mean retyping every row of every tab,
+ * which is the kind of cost that keeps a spreadsheet alive next to the thing
+ * meant to replace it.
+ *
+ * Forgiving where the sheet is: a header row is skipped, blank rows are
+ * skipped, a missing date is today's, a blank status is « à facturer », and a
+ * Montant that is exactly Heures × Taux is stored as computed rather than as a
+ * fixed price — so changing the rate later still reprices it, as it would have
+ * in the sheet. Returns null when the text is not a table at all, so an
+ * ordinary paste into a cell stays an ordinary paste.
+ */
+export function parseSheetPaste(text: string, fallbackDay: string): PastedRow[] | null {
+  const table = parseTsv(text);
+  // one cell is a normal paste into a cell, not an import
+  if (table.length === 0 || table.every((r) => r.length < 2)) return null;
+
+  const rows: PastedRow[] = [];
+  for (const cells of table) {
+    if (cells.every((c) => c.trim() === '')) continue;
+
+    const [date = '', title = '', detail = '', hours = '', rate = '', amount = '', status = ''] =
+      cells.map((c) => c.trim());
+    if (/^date$/i.test(date) && /^t[aâ]che$/i.test(title)) continue;
+
+    const h = parseAmount(hours) ?? null;
+    const r = parseAmount(rate) ?? null;
+    let a = parseAmount(amount) ?? null;
+    if (a !== null && h !== null && r !== null && Math.abs(h * r - a) < 0.005) a = null;
+
+    rows.push({
+      entry_on: parseDay(date) ?? fallbackDay,
+      title: title.slice(0, 200),
+      detail: detail.slice(0, 4000),
+      hours: h,
+      rate: r,
+      amount: a,
+      status: parseStatus(status),
+    });
+  }
+  return rows.length > 0 ? rows : null;
+}
+
+/** « 24/07/2026 », « 2026-07-24 », « 24-07-26 ». Day first, as Quebec writes it. */
+export function parseDay(input: string): string | null {
+  const iso = input.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const dmy = input.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/);
+  let y: number;
+  let m: number;
+  let d: number;
+  if (iso) [y, m, d] = [Number(iso[1]), Number(iso[2]), Number(iso[3])];
+  else if (dmy) [d, m, y] = [Number(dmy[1]), Number(dmy[2]), Number(dmy[3])];
+  else return null;
+  if (y < 100) y += 2000;
+
+  // round-trip through a UTC date so 31/02 is refused rather than rolled over
+  const t = new Date(Date.UTC(y, m - 1, d));
+  if (t.getUTCFullYear() !== y || t.getUTCMonth() !== m - 1 || t.getUTCDate() !== d) return null;
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+export function parseStatus(input: string): BillingStatus {
+  const s = input
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim();
+  if (s.startsWith('pay') || s === 'paid') return 'paid';
+  if (s.startsWith('factur') || s === 'invoiced' || s === 'envoye') return 'invoiced';
+  return 'pending';
+}
+
+/** Tab-separated values with spreadsheet quoting: "a ""b"" c", and line breaks inside quotes. */
+export function parseTsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let quoted = false;
+  const src = text.replace(/\r\n?/g, '\n').replace(/\n$/, '');
+
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (quoted) {
+      if (ch === '"' && src[i + 1] === '"') {
+        cell += '"';
+        i++;
+      } else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"' && cell === '') quoted = true;
+    else if (ch === '\t') {
+      row.push(cell);
+      cell = '';
+    } else if (ch === '\n') {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = '';
+    } else cell += ch;
+  }
+  if (src.length > 0) {
+    row.push(cell);
+    rows.push(row);
+  }
+  return rows;
+}
