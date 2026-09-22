@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Chip } from "@/components/ui/chip";
@@ -15,6 +15,8 @@ import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 import { normalize } from "@/lib/search";
 import type { Client, Entry } from "./data";
+import { NewClientForm } from "./new-client-form";
+import { FIELD, PRIMARY } from "./ui";
 
 /** Older than this, a payload came from the router cache rather than the server. */
 const STALE_AFTER_MS = 5_000;
@@ -58,6 +60,8 @@ export function BillingDashboard({
   const [showArchived, setShowArchived] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const query = normalize(draft.trim());
+  /** The new-client form, open, and the name it opened with (from the search). */
+  const [creating, setCreating] = React.useState<{ name: string } | null>(null);
 
   /*
     Live, coarsely. Any change to a client or a row in this workspace re-reads
@@ -143,30 +147,28 @@ export function BillingDashboard({
   const exact = query ? clients.find((c) => normalize(c.name) === query) : undefined;
 
   /*
-    Enter opens the client you typed if it exists — the list is also the
-    search — and creates it only when it does not. Two « GCSM » tabs would split
-    one client's history in two.
+    Enter opens the client you typed if it exists, or the only one that
+    matches. The box is a search now and only a search: creating lives behind
+    its own button, where the rate can be asked for too.
   */
   function submit() {
     if (!query) return;
     if (exact) return router.push(`/billing/${exact.id}`);
     if (rows.length === 1) return router.push(`/billing/${rows[0].client.id}`);
-    create();
+    if (rows.length === 0) setCreating({ name: draft.trim() });
   }
 
-  function create() {
-    const name = draft.trim();
-    if (!name) return;
-
+  function create(name: string, rate: number) {
     const client: Client = {
       id: crypto.randomUUID(),
       name,
-      default_rate: DEFAULT_RATE,
+      default_rate: rate,
       archived_at: null,
     };
 
     // in the list on this frame; the sheet opens once the row exists to open
     setCreated((c) => [...c, client]);
+    setCreating(null);
     setDraft("");
     setShowArchived(false);
 
@@ -203,35 +205,64 @@ export function BillingDashboard({
           {copy.billing.archived}
         </Chip>
 
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              submit();
-            }
-            if (e.key === "Escape") setDraft("");
-          }}
-          maxLength={120}
-          placeholder={copy.billing.findOrCreate}
-          aria-label={copy.billing.findOrCreate}
-          className={cn(
-            "ml-auto h-8 w-full rounded-sm border border-control bg-bg px-2.5 text-[13px] text-fg sm:w-[260px]",
-            "placeholder:text-fg-faint focus-visible:border-accent focus-visible:outline-none",
+        <div className="ml-auto flex w-full items-center gap-2 sm:w-auto">
+          <span className="relative flex-1 sm:w-[240px] sm:flex-none">
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-faint"
+              strokeWidth={1.5}
+            />
+            <input
+              type="search"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  submit();
+                }
+                if (e.key === "Escape") setDraft("");
+              }}
+              maxLength={120}
+              placeholder={copy.billing.findClient}
+              aria-label={copy.billing.findClient}
+              className={cn(FIELD, "pl-8")}
+            />
+          </span>
+
+          {!creating && (
+            <button type="button" onClick={() => setCreating({ name: "" })} className={PRIMARY}>
+              <Plus className="size-4" strokeWidth={2} aria-hidden />
+              {copy.billing.newClient}
+            </button>
           )}
-        />
+        </div>
       </div>
 
-      {query && !exact && (
-        <button
-          type="button"
-          onClick={create}
-          className="mb-3 flex h-9 w-full items-center gap-2 rounded-sm border border-dashed border-control px-3 text-left text-[13px] text-fg-muted hover:border-accent hover:text-fg"
-        >
-          <Plus className="size-4" strokeWidth={1.5} aria-hidden />
-          {copy.billing.createNamed(draft.trim())}
-        </button>
+      {creating && (
+        <NewClientForm
+          clients={clients}
+          initialName={creating.name}
+          onCreate={create}
+          onCancel={() => setCreating(null)}
+        />
+      )}
+
+      {/*
+        Nothing matched: say so, and offer to create it — below the (empty)
+        results rather than above them, and only when nothing is close.
+      */}
+      {query && rows.length === 0 && !creating && (
+        <p className="py-6 text-[13px] text-fg-muted">
+          {copy.billing.noMatch}{" "}
+          <button
+            type="button"
+            onClick={() => setCreating({ name: draft.trim() })}
+            className="font-medium text-accent underline underline-offset-2"
+          >
+            {copy.billing.createNamed(draft.trim())}
+          </button>
+        </p>
       )}
 
       {rows.length === 0 ? (

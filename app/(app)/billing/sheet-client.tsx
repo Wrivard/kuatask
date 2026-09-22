@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, ArchiveRestore, ArrowLeft, ChevronDown, Plus, Settings2, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, Plus, Settings2, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Chip } from "@/components/ui/chip";
@@ -25,6 +25,8 @@ import { MICRO_LABEL } from "@/lib/type";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 import { ENTRY_COLUMNS, toClient, toEntry, type Client, type Entry } from "./data";
+import { ClientSettings } from "./client-settings";
+import { PRIMARY, SECONDARY } from "./ui";
 
 type Filter = "all" | "open" | "paid";
 
@@ -245,20 +247,22 @@ export function ClientSheet({
     });
   }
 
-  function patchClient(patch: Partial<Client>) {
+  /** Resolves true once the server has it, so the settings can say « Enregistré ». */
+  function patchClient(patch: Partial<Client>): Promise<boolean> {
     const before = client;
     setClient((c) => ({ ...c, ...patch }));
 
-    void enqueue(client.id, async () => {
+    return enqueue(client.id, async () => {
       const { error } = await supabase.from("clients").update(patch).eq("id", client.id);
       if (error) {
         setClient(before);
         toast.error(copy.billing.saveFailed);
-        return;
+        return false;
       }
       // the header title and the switcher read the server copy
       if ("name" in patch || "archived_at" in patch) router.refresh();
-    });
+      return true;
+    }) as Promise<boolean>;
   }
 
   function insert(entry: Entry) {
@@ -521,67 +525,43 @@ export function ClientSheet({
       </div>
 
       {settingsOpen && (
-        <div className="mb-5 flex flex-wrap items-end gap-3 rounded-md border border-border bg-surface px-4 py-3">
-          <label className="flex flex-col gap-1">
-            <span className={MICRO_LABEL}>{copy.billing.rename}</span>
-            {/* a typo in a client's name should not need a trip to the database */}
-            <span className="block h-8 w-[220px] rounded-sm border border-control bg-bg">
-              <TextInput
-                value={client.name}
-                onCommit={(name) => name && patchClient({ name })}
-                label={copy.billing.rename}
-                maxLength={120}
-              />
-            </span>
-          </label>
+        <ClientSettings
+          client={client}
+          clients={clients}
+          archived={archived}
+          deletable={deletable}
+          onPatch={patchClient}
+          onDelete={removeClient}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
 
-          <label className="flex flex-col gap-1">
-            <span className={MICRO_LABEL}>{copy.billing.rate}</span>
-            <span className="flex h-8 items-center gap-1.5 text-[13px] text-fg-muted">
-              <span className="inline-block w-20 rounded-sm border border-control bg-bg">
-                <NumberInput
-                  value={client.default_rate}
-                  onCommit={(n) => {
-                    // a client always has a rate; clearing the box keeps the old one
-                    if (n !== null) patchClient({ default_rate: n });
-                  }}
-                  label={copy.billing.rate}
-                  keepOnEmpty
-                />
-              </span>
-              {copy.billing.rateSuffix}
-            </span>
-          </label>
-
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => patchClient({ archived_at: archived ? null : new Date().toISOString() })}
-              className="flex h-8 items-center gap-1.5 rounded-sm border border-border bg-bg px-2.5 text-[13px] text-fg-muted hover:border-control hover:text-fg"
-            >
-              {archived ? (
-                <ArchiveRestore className="size-4" strokeWidth={1.5} aria-hidden />
-              ) : (
-                <Archive className="size-4" strokeWidth={1.5} aria-hidden />
-              )}
-              {archived ? copy.billing.unarchive : copy.billing.archive}
+      {/*
+        A client with nothing on it yet. Three tiles reading 0,00 $, filters
+        counting 0 and a ruled table with one line of small print in it was the
+        first thing you saw after creating a client — the page's whole apparatus,
+        describing nothing. One panel instead, with the two ways to start.
+      */}
+      {entries.length === 0 ? (
+        <div className="rounded-md border border-dashed border-control px-6 py-10 text-center">
+          <p className="text-[15px] font-medium text-fg">{copy.billing.emptyTitle(client.name)}</p>
+          <p className="mx-auto mt-1.5 max-w-[440px] text-[13px] leading-relaxed text-fg-muted">
+            {copy.billing.emptyBody}
+          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            <button type="button" onClick={addRow} className={PRIMARY}>
+              <Plus className="size-4" strokeWidth={2} aria-hidden />
+              {copy.billing.addRow}
             </button>
-
-            {deletable && (
-              <button
-                type="button"
-                onClick={removeClient}
-                title={copy.billing.deleteClient}
-                aria-label={copy.billing.deleteClient}
-                className="grid size-8 place-items-center rounded-sm border border-border bg-bg text-fg-faint hover:border-danger hover:text-danger"
-              >
-                <Trash2 className="size-4" strokeWidth={1.5} aria-hidden />
+            {!settingsOpen && (
+              <button type="button" onClick={() => setSettingsOpen(true)} className={SECONDARY}>
+                {copy.billing.rateLine(formatNumber(client.default_rate))}
               </button>
             )}
           </div>
         </div>
-      )}
-
+      ) : (
+      <>
       {/*
         The same three tiles as the dashboard, so the two pages read as one
         place. « À recevoir » is not a fourth: it is the footer of the « À payer »
@@ -620,11 +600,7 @@ export function ClientSheet({
           </Chip>
         ))}
 
-        <button
-          type="button"
-          onClick={addRow}
-          className="ml-auto flex h-8 items-center gap-1.5 rounded-sm bg-accent px-3 text-[13px] font-medium text-bg hover:opacity-90"
-        >
+        <button type="button" onClick={addRow} className={cn(PRIMARY, "ml-auto")}>
           <Plus className="size-4" strokeWidth={2} aria-hidden />
           {copy.billing.addRow}
         </button>
@@ -810,6 +786,8 @@ export function ClientSheet({
       </div>
 
       <p className="mt-3 text-[12px] text-fg-faint">{copy.billing.keysHint}</p>
+      </>
+      )}
     </div>
   );
 }
