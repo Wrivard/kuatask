@@ -256,7 +256,12 @@ export function BillingDashboard({
               {rows.map(({ client, t, last }) => (
                 <tr
                   key={client.id}
-                  onClick={() => router.push(`/billing/${client.id}`)}
+                  onClick={(e) => {
+                    // the name is a real link and navigates on its own; a second
+                    // push from the row would put the page in history twice
+                    if ((e.target as HTMLElement).closest("a")) return;
+                    router.push(`/billing/${client.id}`);
+                  }}
                   className="group cursor-pointer border-b border-border last:border-b-0 hover:bg-surface-hover"
                 >
                   <td className="py-2.5 pr-3">
