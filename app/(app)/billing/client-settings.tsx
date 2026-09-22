@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Archive, ArchiveRestore, Check, Trash2 } from "lucide-react";
+import { Check, ChevronDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatNumber, parseAmount } from "@/lib/billing";
 import { normalize } from "@/lib/search";
@@ -38,7 +38,7 @@ export function ClientSettings({
 }) {
   const [name, setName] = React.useState(client.name);
   const [rate, setRate] = React.useState(formatNumber(client.default_rate));
-  const [saved, setSaved] = React.useState<"name" | "rate" | null>(null);
+  const [saved, setSaved] = React.useState<"name" | "rate" | "status" | null>(null);
 
   // someone else renamed it, or the rate changed from the other screen
   React.useEffect(() => setName(client.name), [client.name]);
@@ -129,23 +129,48 @@ export function ClientSettings({
             <span className="text-[13px] text-fg-muted">{copy.billing.rateSuffix}</span>
           </span>
         </label>
+
+        {/*
+          A status you choose rather than an action you take. « Archiver le
+          client » was a button, so nothing on the page ever said a client was
+          active — a new one looked like it had no state at all, and the button
+          read as though archiving were what it currently was.
+        */}
+        <label className="flex flex-col gap-1.5">
+          <span className={cn(MICRO_LABEL, "flex items-center gap-1.5")}>
+            {copy.billing.statusLabel}
+            <Saved on={saved === "status"} />
+          </span>
+          <span className="relative block">
+            <select
+              value={archived ? "archived" : "active"}
+              onChange={async (e) => {
+                const next = e.target.value === "archived" ? new Date().toISOString() : null;
+                if (await onPatch({ archived_at: next })) setSaved("status");
+              }}
+              className={cn(FIELD, "w-36 cursor-pointer appearance-none pl-7 pr-8")}
+            >
+              <option value="active">{copy.billing.clientStatus.active}</option>
+              <option value="archived">{copy.billing.clientStatus.archived}</option>
+            </select>
+            <span
+              aria-hidden
+              className="pointer-events-none absolute left-2.5 top-1/2 size-2 -translate-y-1/2 rounded-full"
+              style={{ backgroundColor: archived ? "var(--color-fg-faint)" : "var(--color-accent)" }}
+            />
+            <ChevronDown
+              aria-hidden
+              className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-muted"
+              strokeWidth={1.5}
+            />
+          </span>
+        </label>
       </div>
 
       <p className="mt-2 text-[12px] text-fg-faint">{copy.billing.rateHint}</p>
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-        <button
-          type="button"
-          onClick={() => void onPatch({ archived_at: archived ? null : new Date().toISOString() })}
-          className={SECONDARY}
-        >
-          {archived ? (
-            <ArchiveRestore className="size-4" strokeWidth={1.5} aria-hidden />
-          ) : (
-            <Archive className="size-4" strokeWidth={1.5} aria-hidden />
-          )}
-          {archived ? copy.billing.unarchive : copy.billing.archive}
-        </button>
+        <p className="text-[12px] text-fg-faint">{copy.billing.statusHint}</p>
 
         {deletable && (
           <button

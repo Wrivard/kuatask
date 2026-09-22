@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Chip } from "@/components/ui/chip";
 import { ACCENTS } from "@/components/task/assignee-dot";
 import { DEFAULT_RATE, formatMoney, totals, type Totals } from "@/lib/billing";
-import { formatLedgerDate } from "@/lib/time";
+import { formatLedgerDate, instantToDay } from "@/lib/time";
 import { MICRO_LABEL } from "@/lib/type";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
@@ -128,7 +128,20 @@ export function BillingDashboard({
         );
         return { client: c, t: totals(own, c.default_rate), last };
       })
-      .sort((a, b) => b.t.outstanding - a.t.outstanding || a.client.name.localeCompare(b.client.name, "fr"));
+      /*
+        What is owed first; then whatever moved most recently — its last row,
+        or, for a client with none yet, the day it was created. Alphabetical
+        put a client made a minute ago at the bottom of seventeen, which read
+        as though creating it had not worked.
+      */
+      .sort(
+        (a, b) =>
+          b.t.outstanding - a.t.outstanding ||
+          (b.last ?? instantToDay(b.client.created_at)).localeCompare(
+            a.last ?? instantToDay(a.client.created_at),
+          ) ||
+          a.client.name.localeCompare(b.client.name, "fr"),
+      );
   }, [clients, entries, showArchived, query]);
 
   // the tiles count active clients only: an archived one is settled history
@@ -164,6 +177,7 @@ export function BillingDashboard({
       name,
       default_rate: rate,
       archived_at: null,
+      created_at: new Date().toISOString(),
     };
 
     // in the list on this frame; the sheet opens once the row exists to open

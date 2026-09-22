@@ -501,11 +501,26 @@ export function ClientSheet({
           </select>
         )}
 
-        {archived && (
-          <span className="rounded-sm border border-border px-1.5 py-px text-[12px] text-fg-muted">
-            {copy.billing.archivedBadge}
-          </span>
-        )}
+        {/* always shown, active included: the absence of « Archivé » said nothing */}
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          title={copy.billing.statusLabel}
+          className="flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium"
+          style={{
+            color: archived ? "var(--color-fg-muted)" : "var(--color-accent)",
+            backgroundColor: archived
+              ? "color-mix(in srgb, var(--color-fg-muted) 12%, transparent)"
+              : "color-mix(in srgb, var(--color-accent) 14%, transparent)",
+          }}
+        >
+          <span
+            aria-hidden
+            className="size-1.5 rounded-full"
+            style={{ backgroundColor: "currentColor" }}
+          />
+          {archived ? copy.billing.clientStatus.archived : copy.billing.clientStatus.active}
+        </button>
 
         <button
           type="button"
