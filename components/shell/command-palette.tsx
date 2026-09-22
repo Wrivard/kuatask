@@ -85,7 +85,13 @@ export function CommandPalette({
   }
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange}>
+    <CommandDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      // read by screen readers; the component's defaults were English
+      title={copy.palette.title}
+      description={copy.palette.description}
+    >
       <CommandInput
         placeholder={copy.palette.placeholder}
         value={query}

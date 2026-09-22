@@ -387,6 +387,8 @@ export const copy = {
 
   palette: {
     placeholder: "Chercher ou lancer une commande…",
+    title: "Palette de commandes",
+    description: "Cherche une tâche, crée-en une, ou va ailleurs dans l'app.",
     groupTasks: "Tâches",
     groupCreate: "Créer",
     groupGo: "Aller à",
@@ -403,6 +405,23 @@ export const copy = {
     scopeList: "Dans la liste",
     scopeBoard: "Sur le tableau",
     scopeCalendar: "Calendrier",
+    scopeBilling: "Facturation",
+    moveFocus: "Déplacer le focus",
+    open: "Ouvrir",
+    moveCard: "Déplacer la carte d'une colonne",
+    months: "Mois",
+    gridFocus: "Déplacer le focus dans la grille",
+    openDay: "Ouvrir la journée",
+    drag: "Glisser",
+    dragDate: "Changer la date, dans la grille ou dans le panneau du jour",
+    enter: "Entrée",
+    shiftEnter: "Maj+Entrée",
+    escape: "Échap",
+    paste: "Ctrl+V",
+    cellDown: "Enregistrer et descendre d'une ligne",
+    cellUp: "Enregistrer et monter d'une ligne",
+    cellRevert: "Annuler la modification de la case",
+    pasteRows: "Coller des lignes copiées d'Excel",
   },
 
   error: {

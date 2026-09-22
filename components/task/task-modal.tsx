@@ -255,6 +255,7 @@ export function TaskModal({
       }}
     >
       <DialogContent
+        aria-describedby={undefined}
         onKeyDown={handleKeyDown}
         /*
           Escape closes the innermost thing, not the outermost.

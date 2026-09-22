@@ -33,7 +33,7 @@ export function MoreSheet({
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-lg border-border bg-surface">
+      <SheetContent aria-describedby={undefined} side="bottom" className="rounded-t-lg border-border bg-surface">
         <SheetHeader>
           <SheetTitle className="text-[15px]">{copy.nav.more}</SheetTitle>
         </SheetHeader>

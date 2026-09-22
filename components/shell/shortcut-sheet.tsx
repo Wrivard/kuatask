@@ -31,9 +31,9 @@ const GROUPS: { scope: string; rows: [string, string][] }[] = [
   {
     scope: copy.shortcuts.scopeList,
     rows: [
-      ["J / K", "Déplacer le focus"],
+      ["J / K", copy.shortcuts.moveFocus],
       ["X", copy.nav.done],
-      ["E", "Ouvrir"],
+      ["E", copy.shortcuts.open],
       ["S", copy.task.status],
       ["A", copy.task.assignee],
       ["D", copy.task.dueDate],
@@ -44,20 +44,33 @@ const GROUPS: { scope: string; rows: [string, string][] }[] = [
   {
     scope: copy.shortcuts.scopeBoard,
     rows: [
-      ["← →", "Déplacer la carte d'une colonne"],
+      ["← →", copy.shortcuts.moveCard],
       ["X", copy.nav.done],
-      ["Entrée", "Ouvrir"],
+      [copy.shortcuts.enter, copy.shortcuts.open],
     ],
   },
   {
     scope: copy.shortcuts.scopeCalendar,
     rows: [
-      ["← →", "Mois"],
-      ["↑↓←→", "Déplacer le focus dans la grille"],
-      ["Entrée", "Ouvrir la journée"],
+      ["← →", copy.shortcuts.months],
+      ["↑↓←→", copy.shortcuts.gridFocus],
+      [copy.shortcuts.enter, copy.shortcuts.openDay],
       ["M", `${copy.nav.month} / ${copy.nav.week}`],
       ["T", copy.nav.today],
-      ["Glisser", "Changer la date, dans la grille ou dans le panneau du jour"],
+      [copy.shortcuts.drag, copy.shortcuts.dragDate],
+    ],
+  },
+  /*
+    The billing sheet has keys of its own, borrowed from the spreadsheet it
+    replaces. A sheet that behaves like Excel only helps if you know it does.
+  */
+  {
+    scope: copy.shortcuts.scopeBilling,
+    rows: [
+      [copy.shortcuts.enter, copy.shortcuts.cellDown],
+      [copy.shortcuts.shiftEnter, copy.shortcuts.cellUp],
+      [copy.shortcuts.escape, copy.shortcuts.cellRevert],
+      [copy.shortcuts.paste, copy.shortcuts.pasteRows],
     ],
   },
 ];
@@ -71,7 +84,7 @@ export function ShortcutSheet({
 }) {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-[440px] rounded-lg border-border bg-surface">
+      <DialogContent aria-describedby={undefined} className="max-w-[440px] rounded-lg border-border bg-surface">
         <DialogTitle className="text-[15px] font-medium">
           {copy.shortcuts.title}
         </DialogTitle>
