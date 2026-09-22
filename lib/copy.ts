@@ -107,6 +107,7 @@ export const copy = {
     noClients: "Aucun client. Ajoute le premier pour commencer à suivre le temps.",
     noArchived: "Aucun client archivé.",
     allClients: "Tous les clients",
+    clientMissing: "Ce client n'existe plus. Il a peut-être été supprimé.",
     switchClient: "Changer de client",
     backToDashboard: "Retour au tableau de bord",
     lastEntry: "Dernière entrée",
