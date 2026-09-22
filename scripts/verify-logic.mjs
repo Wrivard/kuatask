@@ -1328,5 +1328,32 @@ section("Facturation — pasting the sheet in");
   check("paye without the accent is paid", parseStatus("paye") === "paid");
 }
 
+section("Facturation — the invoice text pastes into QuickBooks as written");
+{
+  const { invoiceText } = billing;
+  const line = (o) => ({ hours: null, rate: null, amount: null, status: "pending", detail: "", ...o });
+  const text = invoiceText(
+    "GCSM",
+    [
+      line({ entry_on: "2026-07-24", title: "Pages SEO", detail: "- 12 pages localisations", amount: 800 }),
+      line({ entry_on: "2026-07-24", title: "3 Pages service", hours: 3, rate: 150 }),
+      line({ entry_on: "2026-07-20", title: "Forfait (50% apres)", detail: "-Design\n-8 pages\n", amount: 2500 }),
+    ],
+    75,
+    "à facturer",
+    "Total",
+  );
+  const lines = text.split("\n");
+
+  check("it opens with the client", lines[0] === "GCSM — à facturer", lines[0]);
+  check("oldest line first", lines[2].startsWith("Forfait (50% apres)"), lines[2]);
+  check("detail is indented under its line", lines[3] === "    -Design" && lines[4] === "    -8 pages");
+  check("a blank detail line is dropped", !lines.includes("    "));
+  check("hours show how the amount was made", text.includes("3 Pages service — 3 h × 150 $ = 450,00"), text);
+  check("a fixed price shows only the price", /Pages SEO — 800,00\s\$/.test(text));
+  check("the total is the sum", /Total : 3\s750,00\s\$$/.test(text), lines.at(-1));
+  check("an untitled line still reads", invoiceText("X", [line({ entry_on: "2026-01-01", title: "", amount: 5 })], 75, "h", "T").includes("— — 5,00"));
+}
+
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);
 process.exit(failures ? 1 : 0);

@@ -79,11 +79,11 @@ function audio(): AudioContext | null {
   return ctx;
 }
 
-function tone(freq: number, duration = 0.18, gain = GAIN) {
+function tone(freq: number, duration = 0.18, gain = GAIN, delay = 0) {
   const ac = audio();
   if (!ac) return;
 
-  const now = ac.currentTime;
+  const now = ac.currentTime + delay;
   const osc = ac.createOscillator();
   const amp = ac.createGain();
 
@@ -118,6 +118,21 @@ export function completionTone() {
   lastAt = now;
 
   tone(ROOT * Math.pow(2, SCALE[step] / 12));
+}
+
+/**
+ * Money arriving: the root, the third and the fifth, rising.
+ *
+ * Marking something Payé is the one moment in the billing page that is good
+ * news rather than bookkeeping, and it sounded exactly like ticking a task.
+ * A short major arpeggio is the same palette — same sine, same gain, same
+ * envelope — in a shape that is recognisably not a task.
+ */
+export function paidTone() {
+  if (!enabled) return;
+  [0, 4, 7].forEach((semitones, i) =>
+    tone(ROOT * Math.pow(2, semitones / 12), 0.2, GAIN, i * 0.075),
+  );
 }
 
 /**

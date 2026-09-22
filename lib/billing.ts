@@ -234,3 +234,45 @@ export function parseTsv(text: string): string[][] {
   }
   return rows;
 }
+
+/* ---------------------------------------------------------------- invoice -- */
+
+export type InvoiceLine = EntryMoney & {
+  entry_on: string;
+  title: string;
+  detail: string;
+};
+
+/**
+ * The lines of an invoice, as text to paste into QuickBooks.
+ *
+ * The invoice itself is written in QuickBooks — the sheet says « prendre le
+ * usual quickbook » more than once — so the useful thing here is not to make
+ * one but to stop retyping what is already written: each line's title and
+ * amount, its detail indented under it, hours shown when the amount came from
+ * them, and the total. Oldest first, the order an invoice reads in.
+ */
+export function invoiceText(
+  clientName: string,
+  lines: InvoiceLine[],
+  clientRate: number,
+  heading: string,
+  totalLabel: string,
+): string {
+  const sorted = [...lines].sort((a, b) => a.entry_on.localeCompare(b.entry_on));
+  const body = sorted.map((l) => {
+    const amount = amountOf(l, clientRate);
+    const how =
+      l.amount === null && l.hours !== null
+        ? `${formatNumber(l.hours)} h × ${formatNumber(l.rate ?? clientRate)} $ = `
+        : '';
+    const detail = l.detail
+      .split('\n')
+      .map((d) => d.trim())
+      .filter(Boolean)
+      .map((d) => `    ${d}`);
+    return [`${l.title || '—'} — ${how}${formatMoney(amount)}`, ...detail].join('\n');
+  });
+  const total = sorted.reduce((n, l) => n + amountOf(l, clientRate), 0);
+  return [`${clientName} — ${heading}`, '', ...body, '', `${totalLabel} : ${formatMoney(round2(total))}`].join('\n');
+}

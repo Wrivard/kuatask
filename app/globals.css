@@ -202,3 +202,14 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* « +2 500,00 $ » on the Payé tile: arrives, holds, leaves. Under reduced
+   motion it is not animated at all (motion-reduce:animate-none) — the global
+   rule would have shortened it to nothing and left it at opacity 0 — and it
+   simply shows for the same 2.4s before the component removes it. */
+@keyframes billing-gain {
+  0% { opacity: 0; transform: translateY(4px); }
+  12% { opacity: 1; transform: translateY(0); }
+  75% { opacity: 1; }
+  100% { opacity: 0; }
+}

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronDown, Plus, Settings2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, Copy, Plus, Settings2, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Chip } from "@/components/ui/chip";
@@ -13,6 +13,7 @@ import {
   formatAmount,
   formatMoney,
   formatNumber,
+  invoiceText,
   isComputed,
   parseAmount,
   parseSheetPaste,
@@ -21,6 +22,7 @@ import {
   type BillingStatus,
 } from "@/lib/billing";
 import { formatLedgerDate, today } from "@/lib/time";
+import { paidTone, tick } from "@/lib/sound";
 import { MICRO_LABEL } from "@/lib/type";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
@@ -93,6 +95,25 @@ export function ClientSheet({
     and made the first thing you read on every sheet a row of form fields.
   */
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+
+  /*
+    « +2 500,00 $ » beside Payé for a moment when money moves there. The tile
+    total changing is correct and easy to miss; the gain, said once, is the
+    part worth noticing.
+  */
+  const [gain, setGain] = React.useState<{ amount: number; key: number } | null>(null);
+  React.useEffect(() => {
+    if (!gain) return;
+    const t = setTimeout(() => setGain(null), 2400);
+    return () => clearTimeout(t);
+  }, [gain]);
+
+  function celebrate(amount: number) {
+    if (amount <= 0) return;
+    paidTone();
+    tick();
+    setGain({ amount, key: Date.now() });
+  }
 
   /*
     Rows whose status was changed while a filter would now hide them. Marking a
@@ -232,6 +253,7 @@ export function ClientSheet({
     if (patch.status && !SHOWS[filter](patch.status)) {
       setHeld((h) => new Set(h).add(id));
     }
+    if (patch.status === "paid" && before.status !== "paid") celebrate(amountOf(before, rate));
     setEntries((list) => list.map((e) => (e.id === id ? { ...e, ...patch } : e)));
 
     void enqueue(id, async () => {
@@ -369,6 +391,75 @@ export function ClientSheet({
       });
     })();
     return true;
+  }
+
+  /*
+    Every row in one status, moved to the next: « Tout facturer » once the
+    invoice is sent, « Tout marquer payé » once it is paid. One pastille at a
+    time was a click per line for what is, in practice, one event.
+
+    One request for all of them, after any write already in flight on those
+    rows, and each row's chain waits for it — the same discipline as a single
+    edit. The toast says what moved and offers it back.
+  */
+  function bulkStatus(from: BillingStatus, to: BillingStatus) {
+    const moved = entries.filter((e) => e.status === from);
+    if (moved.length === 0) return;
+    const ids = moved.map((e) => e.id);
+    const idSet = new Set(ids);
+    const sum = moved.reduce((n, e) => n + amountOf(e, rate), 0);
+
+    if (!SHOWS[filter](to)) setHeld((h) => new Set([...h, ...ids]));
+    setEntries((list) => list.map((e) => (idSet.has(e.id) ? { ...e, status: to } : e)));
+    if (to === "paid") celebrate(sum);
+
+    const prior = Promise.all(ids.map((id) => chain.current.get(id)?.catch(() => {})));
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => (release = r));
+    for (const id of ids) void enqueue(id, () => gate);
+
+    const put = (status: BillingStatus) =>
+      supabase.from("billing_entries").update({ status }).in("id", ids);
+
+    void (async () => {
+      await prior;
+      const { error } = await put(to);
+      release();
+
+      if (error) {
+        setEntries((list) => list.map((e) => (idSet.has(e.id) ? { ...e, status: from } : e)));
+        toast.error(copy.billing.saveFailed);
+        return;
+      }
+
+      toast(copy.billing.bulkMoved(moved.length, copy.billing.status[to], formatMoney(sum)), {
+        action: {
+          label: copy.toast.undo,
+          onClick: () => {
+            setEntries((list) => list.map((e) => (idSet.has(e.id) ? { ...e, status: from } : e)));
+            void put(from).then(({ error: undoError }) => {
+              if (undoError) toast.error(copy.billing.saveFailed);
+            });
+          },
+        },
+      });
+    })();
+  }
+
+  /*
+    The invoice is written in QuickBooks; what this saves is retyping it. Every
+    line still to invoice, its detail and the total, as text to paste.
+  */
+  async function copyForInvoice() {
+    const pending = entries.filter((e) => e.status === "pending");
+    if (pending.length === 0) return;
+    const text = invoiceText(client.name, pending, rate, copy.billing.invoiceHeading, copy.billing.totalLabel);
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(copy.billing.copied(pending.length));
+    } catch {
+      toast.error(copy.billing.copyFailed);
+    }
   }
 
   /*
@@ -582,9 +673,18 @@ export function ClientSheet({
         place. « À recevoir » is not a fourth: it is the footer of the « À payer »
         filter, where it is a sum of rows you can see.
       */}
+      {/*
+        Each tile carries the action that moves its money on: what is still to
+        invoice can be copied for the invoice and marked invoiced; what is
+        invoiced can be marked paid. The actions sit beside the sums they
+        change, so the page reads as the work left to do.
+      */}
       <dl className="mb-6 grid grid-cols-3 gap-2">
         {STATUSES.map((st) => (
-          <div key={st} className="min-w-0 rounded-md border border-border px-3 py-2.5 sm:px-4 sm:py-3">
+          <div
+            key={st}
+            className="flex min-w-0 flex-col rounded-md border border-border px-3 py-2.5 sm:px-4 sm:py-3"
+          >
             <dt className={cn(MICRO_LABEL, "flex items-center gap-1.5")}>
               <span
                 aria-hidden
@@ -592,15 +692,42 @@ export function ClientSheet({
                 style={{ backgroundColor: STATUS_COLOR[st] }}
               />
               {copy.billing.status[st]}
+              {st === "paid" && gain && (
+                <span
+                  key={gain.key}
+                  aria-live="polite"
+                  className="ml-auto animate-[billing-gain_2.4s_ease-out_forwards] rounded-full motion-reduce:animate-none bg-accent px-1.5 py-px text-[11px] normal-case tracking-normal text-bg tabular-nums"
+                >
+                  +{formatMoney(gain.amount)}
+                </span>
+              )}
             </dt>
             <dd
               className={cn(
-                "mt-1 text-[15px] font-medium tabular-nums tracking-[-0.01em] sm:text-[20px]",
+                "mt-1 text-[15px] font-medium tabular-nums tracking-[-0.01em] transition-colors sm:text-[20px]",
                 sums[st] > 0 ? "text-fg" : "text-fg-faint",
               )}
             >
               {formatMoney(sums[st])}
             </dd>
+
+            {st === "pending" && sums.pending > 0 && (
+              <dd className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                <TileAction onClick={copyForInvoice} icon={Copy}>
+                  <Label short={copy.billing.copyShort} full={copy.billing.copyForInvoice} />
+                </TileAction>
+                <TileAction onClick={() => bulkStatus("pending", "invoiced")} icon={ArrowRight} strong>
+                  <Label short={copy.billing.markAllInvoicedShort} full={copy.billing.markAllInvoiced} />
+                </TileAction>
+              </dd>
+            )}
+            {st === "invoiced" && sums.invoiced > 0 && (
+              <dd className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                <TileAction onClick={() => bulkStatus("invoiced", "paid")} icon={ArrowRight} strong>
+                  <Label short={copy.billing.markAllPaidShort} full={copy.billing.markAllPaid} />
+                </TileAction>
+              </dd>
+            )}
           </div>
         ))}
       </dl>
@@ -799,6 +926,44 @@ export function ClientSheet({
       </>
       )}
     </div>
+  );
+}
+
+/** A tile is a third of a phone; its actions say the short thing there. */
+function Label({ short, full }: { short: string; full: string }) {
+  return (
+    <>
+      <span className="sm:hidden">{short}</span>
+      <span className="hidden sm:inline">{full}</span>
+    </>
+  );
+}
+
+/** A quiet text action inside a tile; the strong one is the step forward. */
+function TileAction({
+  onClick,
+  icon: Icon,
+  strong = false,
+  children,
+}: {
+  onClick: () => void;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number; "aria-hidden"?: boolean }>;
+  strong?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-1 whitespace-nowrap rounded-sm text-left text-[12px] font-medium underline-offset-2 hover:underline",
+        strong ? "text-accent" : "text-fg-muted hover:text-fg",
+      )}
+    >
+      {Icon === ArrowRight ? null : <Icon className="size-3.5" strokeWidth={1.75} aria-hidden />}
+      {children}
+      {Icon === ArrowRight && <Icon className="size-3.5" strokeWidth={2} aria-hidden />}
+    </button>
   );
 }
 
