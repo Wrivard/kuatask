@@ -622,32 +622,26 @@ export function ClientSheet({
       </div>
 
       {/*
+        On a phone, Détail, Heures and Taux step aside so Montant and Statut — what
+        you open a client on a phone to check — are on screen without scrolling
+        sideways. Both stay editable on a wider screen.
+
         A real table, drawn like a sheet: every cell ruled, every cell an input.
         Wider than a phone on purpose — seven columns of money do not reflow into
         something readable — so it scrolls sideways there instead of the page.
       */}
       <div className="overflow-x-auto rounded-md border border-border bg-bg">
-        <table ref={tableRef} className="w-full min-w-[900px] border-collapse text-[14px] [&_tbody_tr:last-child_td]:border-b-0">
-          <colgroup>
-            <col className="w-[128px]" />
-            <col className="w-[22%]" />
-            <col />
-            <col className="w-[76px]" />
-            <col className="w-[88px]" />
-            <col className="w-[124px]" />
-            <col className="w-[120px]" />
-            <col className="w-[36px]" />
-          </colgroup>
+        <table ref={tableRef} className="w-full min-w-[480px] sm:min-w-[900px] border-collapse text-[14px] [&_tbody_tr:last-child_td]:border-b-0">
           <thead className="bg-surface">
             <tr>
-              <Th>{copy.billing.col.date}</Th>
-              <Th>{copy.billing.col.title}</Th>
-              <Th>{copy.billing.col.detail}</Th>
-              <Th right>{copy.billing.col.hours}</Th>
-              <Th right>{copy.billing.col.rate}</Th>
-              <Th right>{copy.billing.col.amount}</Th>
-              <Th>{copy.billing.col.status}</Th>
-              <th className="border-b border-border" aria-hidden />
+              <Th className="w-[92px] sm:w-[128px]">{copy.billing.col.date}</Th>
+              <Th className="w-[22%]">{copy.billing.col.title}</Th>
+              <Th className="hidden sm:table-cell">{copy.billing.col.detail}</Th>
+              <Th right className="w-[76px] hidden sm:table-cell">{copy.billing.col.hours}</Th>
+              <Th right className="w-[88px] hidden sm:table-cell">{copy.billing.col.rate}</Th>
+              <Th right className="w-[96px] sm:w-[124px]">{copy.billing.col.amount}</Th>
+              <Th className="w-[112px] sm:w-[120px]">{copy.billing.col.status}</Th>
+              <th className="w-[36px] border-b border-border" aria-hidden />
             </tr>
           </thead>
           <tbody>
@@ -677,7 +671,7 @@ export function ClientSheet({
                   />
                 </Td>
                 <Td>
-                  <TextInput
+                  <TitleCell
                     value={e.title}
                     autoFocus={focusId === e.id}
                     onCommit={(title) => patchEntry(e.id, { title })}
@@ -689,14 +683,14 @@ export function ClientSheet({
                     strong
                   />
                 </Td>
-                <Td>
+                <Td className="hidden sm:table-cell">
                   <DetailInput
                     value={e.detail}
                     onCommit={(detail) => patchEntry(e.id, { detail })}
                     label={copy.billing.col.detail}
                   />
                 </Td>
-                <Td>
+                <Td className="hidden sm:table-cell">
                   <NumberInput
                     value={e.hours}
                     onCommit={(hours) => patchEntry(e.id, { hours })}
@@ -705,7 +699,7 @@ export function ClientSheet({
                     label={copy.billing.col.hours}
                   />
                 </Td>
-                <Td>
+                <Td className="hidden sm:table-cell">
                   <NumberInput
                     value={e.rate}
                     // only worth showing once there are hours for it to multiply
@@ -783,13 +777,14 @@ export function ClientSheet({
           {shown.length > 0 && (
             <tfoot className="bg-surface">
               <tr>
-                <td colSpan={3} className="px-3 py-2 text-[12px] text-fg-faint">
+                <td colSpan={2} className="px-3 py-2 text-[12px] text-fg-faint">
                   {copy.billing.shown(shown.length)}
                 </td>
-                <td className="px-3 py-2 text-right text-[13px] tabular-nums text-fg-muted">
+                <td className="hidden sm:table-cell" />
+                <td className="hidden px-3 py-2 text-right text-[13px] tabular-nums text-fg-muted sm:table-cell">
                   {shownHours > 0 ? formatNumber(shownHours) : ""}
                 </td>
-                <td />
+                <td className="hidden sm:table-cell" />
                 <td className="px-3 py-2 text-right text-[13px] font-medium tabular-nums text-fg">
                   {formatMoney(shownSum)}
                 </td>
@@ -818,14 +813,23 @@ const CELL = cn(
   "placeholder:text-fg-faint focus-visible:bg-bg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent",
 );
 
-function Th({ children, right = false }: { children: React.ReactNode; right?: boolean }) {
+function Th({
+  children,
+  right = false,
+  className,
+}: {
+  children: React.ReactNode;
+  right?: boolean;
+  className?: string;
+}) {
   return (
     <th
       scope="col"
       className={cn(
         MICRO_LABEL,
-        "border-b border-border px-3 py-2.5 font-medium",
+        "whitespace-nowrap border-b border-border px-3 py-2.5 font-medium",
         right ? "text-right" : "text-left",
+        className,
       )}
     >
       {children}
@@ -833,10 +837,10 @@ function Th({ children, right = false }: { children: React.ReactNode; right?: bo
   );
 }
 
-function Td({ children }: { children: React.ReactNode }) {
+function Td({ children, className }: { children: React.ReactNode; className?: string }) {
   // rows are ruled, columns are not: a line between every cell is what made
   // this read as a form to fill in rather than a list of work
-  return <td className="border-b border-border px-1 py-1.5">{children}</td>;
+  return <td className={cn("border-b border-border px-1 py-1.5", className)}>{children}</td>;
 }
 
 /*
@@ -883,9 +887,12 @@ function TextInput({
   maxLength,
   autoFocus,
   strong = false,
+  onDone,
 }: {
   value: string;
   onCommit: (v: string) => void;
+  /** Called once the field has been left, after committing. */
+  onDone?: () => void;
   onMove?: (step: 1 | -1) => void;
   col?: Col;
   label: string;
@@ -911,10 +918,12 @@ function TextInput({
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
         editing.current = false;
-        if (cancelled.current) return;
-        const next = draft.trim();
-        if (next !== draft) setDraft(next);
-        if (next !== value) onCommit(next);
+        if (!cancelled.current) {
+          const next = draft.trim();
+          if (next !== draft) setDraft(next);
+          if (next !== value) onCommit(next);
+        }
+        onDone?.();
       }}
       onKeyDown={(e) =>
         sheetKeys(
@@ -929,6 +938,41 @@ function TextInput({
       className={cn(CELL, "h-full", strong && "font-medium")}
     />
   );
+}
+
+/**
+ * The title: read as text, edited as a field.
+ *
+ * An input never wraps, so on a narrow screen every title was cut to its first
+ * fifteen characters — « Forfait Propri » for two different forfaits. Shown as
+ * text it wraps to two lines, and turns into the field on click or on focus,
+ * which is also where Tab and Enter land, so the keyboard path is unchanged.
+ */
+function TitleCell(props: React.ComponentProps<typeof TextInput>) {
+  const [open, setOpen] = React.useState(Boolean(props.autoFocus));
+
+  if (!open) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={props.label}
+        data-col={props.col}
+        onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
+        className={cn(
+          CELL,
+          "min-h-7 cursor-text [overflow-wrap:anywhere]",
+          props.strong && "font-medium",
+          !props.value && "text-fg-faint",
+        )}
+      >
+        <span className="line-clamp-3">{props.value || props.placeholder}</span>
+      </div>
+    );
+  }
+
+  return <TextInput {...props} autoFocus onDone={() => setOpen(false)} />;
 }
 
 /**

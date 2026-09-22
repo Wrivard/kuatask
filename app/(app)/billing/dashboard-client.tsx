@@ -351,9 +351,10 @@ export function BillingDashboard({
             <thead>
               <tr className="border-b border-border text-left">
                 <th className={cn(MICRO_LABEL, "py-2 pr-3 font-medium")}>{copy.billing.clients}</th>
-                <th className={cn(MICRO_LABEL, "py-2 pr-3 text-right font-medium")}>{copy.billing.status.pending}</th>
-                <th className={cn(MICRO_LABEL, "py-2 pr-3 text-right font-medium")}>{copy.billing.status.invoiced}</th>
-                <th className={cn(MICRO_LABEL, "py-2 pr-3 text-right font-medium")}>{copy.billing.status.paid}</th>
+                <th className={cn(MICRO_LABEL, "whitespace-nowrap py-2 pr-3 text-right font-medium")}>{copy.billing.status.pending}</th>
+                <th className={cn(MICRO_LABEL, "whitespace-nowrap py-2 pr-3 text-right font-medium")}>{copy.billing.status.invoiced}</th>
+                {/* paid is history; on a phone the column goes to what is still owed */}
+                <th className={cn(MICRO_LABEL, "hidden whitespace-nowrap py-2 pr-3 text-right font-medium sm:table-cell")}>{copy.billing.status.paid}</th>
                 {/* the one column a phone can do without; the money is what it is opened for */}
                 <th className={cn(MICRO_LABEL, "hidden py-2 pr-3 text-right font-medium sm:table-cell")}>{copy.billing.lastEntry}</th>
                 <th className={cn(MICRO_LABEL, "py-2 pr-3 font-medium")}>{copy.billing.statusLabel}</th>
@@ -380,13 +381,10 @@ export function BillingDashboard({
                     >
                       {client.name}
                     </Link>
-                    {client.archived_at !== null && (
-                      <span className="ml-2 text-[12px] text-fg-faint">{copy.billing.archivedBadge}</span>
-                    )}
                   </td>
                   <MoneyCell value={t.pending} emphasis />
                   <MoneyCell value={t.invoiced} emphasis />
-                  <MoneyCell value={t.paid} />
+                  <MoneyCell value={t.paid} className="hidden sm:table-cell" />
                   <td className="hidden py-2.5 pr-3 text-right text-[12px] tabular-nums text-fg-faint sm:table-cell">
                     {last ? formatLedgerDate(last) : copy.billing.never}
                   </td>
@@ -430,11 +428,20 @@ function Tile({ label, value, color }: { label: string; value: number; color: st
 }
 
 /** A zero is a dash, so the amounts that matter are the only numbers in the column. */
-function MoneyCell({ value, emphasis = false }: { value: number; emphasis?: boolean }) {
+function MoneyCell({
+  value,
+  emphasis = false,
+  className,
+}: {
+  value: number;
+  emphasis?: boolean;
+  className?: string;
+}) {
   return (
     <td
       className={cn(
-        "py-2.5 pr-3 text-right text-[13px] tabular-nums",
+        "whitespace-nowrap py-2.5 pr-3 text-right text-[13px] tabular-nums",
+        className,
         value === 0 ? "text-fg-faint" : emphasis ? "text-fg" : "text-fg-muted",
       )}
     >
