@@ -33,6 +33,7 @@ const NEEDED = [
   "calendar.ts",
   "routes.ts",
   "fresh.ts",
+  "billing.ts",
 ];
 
 // inside the project, so node resolves date-fns from the local node_modules
@@ -61,6 +62,7 @@ const search = await load("search.ts");
 const calendar = await load("calendar.ts");
 const routes = await load("routes.ts");
 const fresh = await load("fresh.ts");
+const billing = await load("billing.ts");
 const reset = await load("session-reset.ts");
 const sound = await load("sound.ts");
 
@@ -1231,6 +1233,50 @@ section("Nouveau — three hours, then it is just a task");
   check("a clock slightly ahead reads as just now", isFresh(at, t0 - 5_000));
   check("no timestamp is never new", !isFresh(null, t0) && !isFresh("", t0));
   check("garbage is never new", !isFresh("not a date", t0));
+}
+
+/*
+  Billing. The page replaces a spreadsheet, so the rows below are the
+  spreadsheet: the GCSM tab, as it was shared. If these disagree with it, the
+  page is wrong, not the sheet.
+*/
+section("Facturation — the page agrees with the sheet it replaces");
+{
+  const { amountOf, totals, parseAmount, formatMoney, DEFAULT_RATE } = billing;
+  const row = (o) => ({ hours: null, rate: null, amount: null, status: "pending", ...o });
+
+  check("the default rate is the sheet's 75", DEFAULT_RATE === 75);
+  check("3 h at 150 is 450 (« 3 Pages service »)", amountOf(row({ hours: 3, rate: 150 }), 75) === 450);
+  check("hours with no rate take the client's", amountOf(row({ hours: 2 }), 75) === 150);
+  check("a fixed price wins over hours × rate", amountOf(row({ hours: 3, rate: 150, amount: 2500 }), 75) === 2500);
+  check("a fixed zero is zero, not « compute it »", amountOf(row({ hours: 3, amount: 0 }), 75) === 0);
+  check("nothing yet is zero", amountOf(row({}), 75) === 0);
+  check("rounded to the cent", amountOf(row({ hours: 1.333, rate: 75 }), 75) === 99.98);
+
+  const gcsm = [
+    row({ amount: 2500, status: "paid" }),
+    row({ amount: 250, status: "paid" }),
+    row({ amount: 750, status: "paid" }),
+    row({ amount: 2500 }),
+    row({ hours: 3, rate: 150 }),
+    row({ amount: 800, status: "invoiced" }),
+  ];
+  const t = totals(gcsm, 75);
+  check("paid is 3 500", t.paid === 3500, String(t.paid));
+  check("to invoice is 2 950", t.pending === 2950, String(t.pending));
+  check("outstanding is to-invoice plus invoiced", t.outstanding === 3750, String(t.outstanding));
+  check("all of it adds up", t.all === 7250, String(t.all));
+
+  check("« 2,5 » is 2.5", parseAmount("2,5") === 2.5);
+  check("« 2.5 » is 2.5", parseAmount("2.5") === 2.5);
+  check("« 2 500,00 $ » is 2500", parseAmount("2 500,00 $") === 2500);
+  check("« 2\u00a0500,00\u00a0$ » (a pasted fr-CA figure) is 2500", parseAmount("2\u00a0500,00\u00a0$") === 2500);
+  check("« $2,500.00 » is 2500", parseAmount("$2,500.00") === 2500);
+  check("« 3h » is 3", parseAmount("3h") === 3);
+  check("empty is null, which means compute it", parseAmount("  ") === null);
+  check("words are refused, not zeroed", parseAmount("abc") === undefined);
+  check("negative is refused", parseAmount("-5") === undefined);
+  check("what we print, we can read back", parseAmount(formatMoney(2950.5)) === 2950.5, formatMoney(2950.5));
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);

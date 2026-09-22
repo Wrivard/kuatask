@@ -1262,3 +1262,7 @@ tall display still spreads six rows out instead of leaving space under them. The
 weekday header stays outside the scroll so the columns keep their labels, and
 `scrollableAncestor` in `lib/drag.ts` finds the new container on its own, so
 dragging to a day below the fold still auto-scrolls.
+- **« Nouveau » for 3 h on every task, including your own.** Asked as "a tag for 3 hours when created"; hiding it on your own tasks would match "haven't seen" better but would look broken the first time you test it. Filled accent, so it cannot be confused with En cours (accent outline). Tasks list only, as asked.
+- **Facturation replaces the per-client Excel tabs, and only that.** Two tables (`clients`, `billing_entries`, 0022): Date · Tâche · Détail · Heures · Taux · Montant · Statut, default rate 75 $/h. Montant is stored only when it is a fixed price; otherwise hours × (row rate ?? client rate), like the sheet's column F. Statuses: à facturer / facturé / payé (the sheet's blank = à facturer). No invoices, taxes or PDFs — the sheet never had them. Workspace-shared, like tasks. "Archive" is two things: archived clients (a toggle on the dashboard), and paid rows (a filter on each client).
+- **The streak is per person** (0021). The rail and the leaderboard now count the same thing: days *you* completed something.
+

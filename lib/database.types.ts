@@ -68,6 +68,84 @@ export type Database = {
           },
         ]
       }
+      billing_entries: {
+        Row: {
+          amount: number | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          detail: string
+          entry_on: string
+          hours: number | null
+          id: string
+          rate: number | null
+          status: Database["public"]["Enums"]["billing_status"]
+          title: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          amount?: number | null
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          detail?: string
+          entry_on: string
+          hours?: number | null
+          id?: string
+          rate?: number | null
+          status?: Database["public"]["Enums"]["billing_status"]
+          title?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          amount?: number | null
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          detail?: string
+          entry_on?: string
+          hours?: number | null
+          id?: string
+          rate?: number | null
+          status?: Database["public"]["Enums"]["billing_status"]
+          title?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
+      clients: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          default_rate: number
+          id: string
+          name: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          default_rate?: number
+          id?: string
+          name: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          default_rate?: number
+          id?: string
+          name?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       notes: {
         Row: {
           body: string
@@ -330,6 +408,7 @@ export type Database = {
       is_member: { Args: { ws: string }; Returns: boolean }
     }
     Enums: {
+      billing_status: "pending" | "invoiced" | "paid"
       member_role: "admin" | "member"
       task_status: "todo" | "doing" | "done"
     }
@@ -459,6 +538,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      billing_status: ["pending", "invoiced", "paid"],
       member_role: ["admin", "member"],
       task_status: ["todo", "doing", "done"],
     },

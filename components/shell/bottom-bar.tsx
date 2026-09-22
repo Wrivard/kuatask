@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   NotebookPen,
   Plus,
+  Receipt,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -63,6 +64,7 @@ const MoreSheet = dynamic(() => import("./more-sheet").then((m) => m.MoreSheet))
   is the one you open least: changing your colour is not navigation.
 */
 const MORE: { href: string; icon: LucideIcon; label: string }[] = [
+  { href: "/billing", icon: Receipt, label: copy.nav.billing },
   { href: "/activity", icon: History, label: copy.nav.activity },
   { href: "/stats", icon: BarChart3, label: copy.nav.stats },
   { href: "/settings", icon: Users, label: copy.nav.settings },

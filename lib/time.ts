@@ -362,6 +362,17 @@ export function formatDueLabel(day: DayString): string {
 }
 
 /** 24-hour with an h separator: 14h, 14h30. Never 2:00 PM, never 14:00. */
+/**
+ * A date on a ledger: always with the year, never relative.
+ *
+ * `formatDueLabel` says « hier » and « 24 juillet », which is right for a task
+ * and wrong for a bill — the sheet this replaces runs across 2025 and 2026, and
+ * « 24 juillet » alone does not say which.
+ */
+export function formatLedgerDate(day: DayString): string {
+  return format(toDate(day), 'd MMM yyyy', { locale: fr });
+}
+
 export function formatTime(t: string | null): string {
   if (!t) return '';
   const [h, m] = t.split(':');

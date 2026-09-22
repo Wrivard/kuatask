@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  Receipt,
   CalendarDays,
   Columns3,
   History,
@@ -36,6 +37,7 @@ const ICONS: Record<string, LucideIcon> = {
   "/board": Columns3,
   "/calendar": CalendarDays,
   "/activity": History,
+  "/billing": Receipt,
   "/stats": BarChart3,
 };
 

@@ -51,6 +51,12 @@ export const ROUTES: Route[] = [
     keywords: 'activite historique journal restaurer',
   },
   {
+    href: '/billing',
+    label: copy.nav.billing,
+    key: 'f',
+    keywords: 'facturation factures clients temps heures argent paiement',
+  },
+  {
     href: '/stats',
     label: copy.nav.stats,
     // p for palmarès: c and l, the letters « Classement » offers, are taken

@@ -25,6 +25,7 @@ The app is fully operable without a mouse. This is not an accessibility checkbox
 | `G` then `B` | Go to the board | Global |
 | `G` then `C` | Go to calendar | Global |
 | `G` then `A` | Go to activity | Global |
+| `G` then `F` | Go to billing | Global |
 | `G` then `P` | Go to the leaderboard | Global |
 | `G` then `S` | Go to settings | Global |
 | `T` | Jump to today | Calendar |
