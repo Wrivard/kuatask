@@ -118,6 +118,13 @@ export function BillingDashboard({
   }
 
   const [showArchived, setShowArchived] = React.useState(false);
+  /*
+    « Qui dois-je facturer ? » and « qui dois-je relancer ? » are the two
+    questions this page is opened with. Clicking À facturer or Facturé narrows
+    the list to the clients that answer it, largest first; clicking again, or
+    the other tab, lets go.
+  */
+  const [owing, setOwing] = React.useState<"pending" | "invoiced" | null>(null);
   const [draft, setDraft] = React.useState("");
   const query = normalize(draft.trim());
   /** The new-client form, open, and the name it opened with (from the search). */
@@ -188,6 +195,7 @@ export function BillingDashboard({
         );
         return { client: c, t: totals(own, c.default_rate), last };
       })
+      .filter((r) => !owing || r.t[owing] > 0)
       /*
         What is owed first; then whatever moved most recently — its last row,
         or, for a client with none yet, the day it was created. Alphabetical
@@ -196,13 +204,14 @@ export function BillingDashboard({
       */
       .sort(
         (a, b) =>
+          (owing ? b.t[owing] - a.t[owing] : 0) ||
           b.t.outstanding - a.t.outstanding ||
           (b.last ?? instantToDay(b.client.created_at)).localeCompare(
             a.last ?? instantToDay(a.client.created_at),
           ) ||
           a.client.name.localeCompare(b.client.name, "fr"),
       );
-  }, [clients, entries, showArchived, query]);
+  }, [clients, entries, showArchived, query, owing]);
 
   // the tiles count active clients only: an archived one is settled history
   const overall = React.useMemo(() => {
@@ -265,17 +274,37 @@ export function BillingDashboard({
         Three figures, in the order money moves: earned and not yet billed,
         billed and not yet paid, paid. The first two are what needs doing.
       */}
-      <dl className="mb-6 grid grid-cols-3 gap-2">
-        <Tile label={copy.billing.status.pending} value={overall.pending} color="var(--color-fg-muted)" />
-        <Tile label={copy.billing.status.invoiced} value={overall.invoiced} color={ACCENTS.amber} />
+      <div className="mb-6 grid grid-cols-3 gap-2">
+        <Tile
+          label={copy.billing.status.pending}
+          value={overall.pending}
+          color="var(--color-fg-muted)"
+          active={owing === "pending"}
+          hint={copy.billing.showOwing.pending}
+          onClick={() => {
+            setOwing((o) => (o === "pending" ? null : "pending"));
+            setShowArchived(false);
+          }}
+        />
+        <Tile
+          label={copy.billing.status.invoiced}
+          value={overall.invoiced}
+          color={ACCENTS.amber}
+          active={owing === "invoiced"}
+          hint={copy.billing.showOwing.invoiced}
+          onClick={() => {
+            setOwing((o) => (o === "invoiced" ? null : "invoiced"));
+            setShowArchived(false);
+          }}
+        />
         <Tile label={copy.billing.status.paid} value={overall.paid} color="var(--color-accent)" />
-      </dl>
+      </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Chip active={!showArchived} onClick={() => setShowArchived(false)}>
+        <Chip active={!showArchived && !owing} onClick={() => { setShowArchived(false); setOwing(null); }}>
           {copy.billing.active}
         </Chip>
-        <Chip active={showArchived} onClick={() => setShowArchived(true)}>
+        <Chip active={showArchived} onClick={() => { setShowArchived(true); setOwing(null); }}>
           {copy.billing.archived}
         </Chip>
 
@@ -408,9 +437,27 @@ export function BillingDashboard({
 }
 
 /** Same tile as a client's sheet: a status dot, the label, the sum. */
-function Tile({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className="min-w-0 rounded-md border border-border px-3 py-2.5 sm:px-4 sm:py-3">
+/**
+ * Same tile as a client's sheet: a status dot, the label, the sum. With an
+ * onClick it is also a filter, and says so on hover and when pressed.
+ */
+function Tile({
+  label,
+  value,
+  color,
+  active = false,
+  hint,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  color: string;
+  active?: boolean;
+  hint?: string;
+  onClick?: () => void;
+}) {
+  const body = (
+    <>
       <dt className={cn(MICRO_LABEL, "flex items-center gap-1.5")}>
         <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: color }} />
         {label}
@@ -423,7 +470,41 @@ function Tile({ label, value, color }: { label: string; value: number; color: st
       >
         {formatMoney(value)}
       </dd>
-    </div>
+      {hint && (
+        <dd
+          className={cn(
+            "mt-1 hidden text-[12px] sm:block",
+            active ? "text-accent" : "text-fg-faint group-hover:text-fg-muted",
+          )}
+        >
+          {active ? copy.billing.showingOwing : hint}
+        </dd>
+      )}
+    </>
+  );
+
+  const base = "min-w-0 rounded-md border px-3 py-2.5 text-left sm:px-4 sm:py-3";
+  if (!onClick)
+    return (
+      <div className={cn(base, "border-border")}>
+        <dl>{body}</dl>
+      </div>
+    );
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      disabled={value === 0 && !active}
+      className={cn(
+        base,
+        "group transition-colors disabled:cursor-default",
+        active ? "border-accent bg-accent/5" : "border-border enabled:hover:border-control",
+      )}
+    >
+      <dl>{body}</dl>
+    </button>
   );
 }
 

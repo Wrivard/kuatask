@@ -533,6 +533,8 @@ export function ClientSheet({
 
   const archived = client.archived_at !== null;
   const others = clients.filter((c) => c.id !== client.id);
+  // this client as it is now (its status may have just changed), among the rest, by name
+  const switcher = [...others, client].sort((a, b) => a.name.localeCompare(b.name, "fr"));
 
   return (
     /*
@@ -566,28 +568,27 @@ export function ClientSheet({
             title={copy.billing.switchClient}
             className="h-8 max-w-[240px] rounded-sm border border-control bg-bg px-2 text-[13px] text-fg focus-visible:border-accent focus-visible:outline-none"
           >
-            <option value={client.id}>{client.name}</option>
-            {others.some((c) => c.archived_at === null) && (
-              <optgroup label={copy.billing.active}>
-                {others
-                  .filter((c) => c.archived_at === null)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-              </optgroup>
-            )}
-            {others.some((c) => c.archived_at !== null) && (
-              <optgroup label={copy.billing.archived}>
-                {others
-                  .filter((c) => c.archived_at !== null)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-              </optgroup>
+            {/*
+              Every client in its own group, this one included. It used to be
+              listed on its own above the groups, which read as though it
+              belonged to neither — an active client that looked set apart.
+            */}
+            {(
+              [
+                [copy.billing.active, switcher.filter((c) => c.archived_at === null)],
+                [copy.billing.archived, switcher.filter((c) => c.archived_at !== null)],
+              ] as const
+            ).map(
+              ([label, group]) =>
+                group.length > 0 && (
+                  <optgroup key={label} label={label}>
+                    {group.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ),
             )}
           </select>
         )}

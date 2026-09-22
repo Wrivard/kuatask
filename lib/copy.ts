@@ -161,6 +161,8 @@ export const copy = {
     keysHint: "Entrée pour descendre, Maj+Entrée pour monter, Échap pour annuler. Montant vide = heures × taux. Colle des lignes d'Excel pour les importer.",
     archivedBadge: "Archivé",
     statusLabel: "Statut",
+    showOwing: { pending: "Voir à qui facturer", invoiced: "Voir qui relancer" },
+    showingOwing: "Filtré · cliquer pour tout voir",
     copyForInvoice: "Copier pour la facture",
     markAllInvoiced: "Tout marquer facturé",
     markAllPaid: "Tout marquer payé",
