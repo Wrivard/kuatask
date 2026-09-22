@@ -723,7 +723,8 @@ export function ClientSheet({
                     className={cn(
                       "grid size-6 place-items-center rounded-sm text-fg-faint",
                       "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-danger",
-                      "[@media(pointer:coarse)]:opacity-100",
+                      // under a finger it is always there, and a target rather than a speck
+                      "[@media(pointer:coarse)]:size-9 [@media(pointer:coarse)]:opacity-100",
                     )}
                   >
                     <X className="size-4" strokeWidth={1.5} aria-hidden />
