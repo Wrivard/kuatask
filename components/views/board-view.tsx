@@ -19,6 +19,7 @@ import {
 } from "@/lib/grouping";
 import { accentColor } from "@/components/task/assignee-dot";
 import { useStore, type Task } from "@/lib/store";
+import { useStreak } from "@/lib/streak";
 import {
   useSetStatusWithFeedback,
   useAssignWithFeedback,
@@ -31,7 +32,7 @@ import { useClearedToday } from "@/lib/clear-out";
 import { ClearOut } from "./clear-out";
 import { Chip } from "@/components/ui/chip";
 import { Avatar } from "@/components/task/avatar";
-import { streakFromDays, instantToDay, dayNumber } from "@/lib/time";
+import { dayNumber } from "@/lib/time";
 import { useToday } from "@/lib/day";
 import { useLocalLens } from "@/lib/lens";
 import { firstDayOfBucket, isOnDay, isOverdue, now, today, tomorrow, type Bucket } from "@/lib/time";
@@ -286,14 +287,7 @@ export function BoardView() {
 
   // § 8.5 — the moment belongs to the day being cleared, not to one screen
   const { cleared, done: clearedCount } = useClearedToday(day, holding.size);
-  const completionDays = useStore((s) => s.completionDays);
-  const streak = React.useMemo(() => {
-    const local = allTasks
-      .map((t) => t.completed_at)
-      .filter((v): v is string => v !== null)
-      .map(instantToDay);
-    return streakFromDays([...completionDays, ...local], day);
-  }, [completionDays, allTasks, day]);
+  const streak = useStreak(day);
 
   const isEmpty = columns.every((c) => c.tasks.length === 0);
 

@@ -13,8 +13,6 @@ import { ClearOut } from "./clear-out";
 import { exit } from "@/lib/motion";
 import {
   bucketOf,
-  instantToDay,
-  streakFromDays,
   dayNumber,
   daysFromToday,
   isOverdue,
@@ -27,6 +25,7 @@ import {
   type Bucket,
 } from "@/lib/time";
 import { useStore, type Task } from "@/lib/store";
+import { useStreak } from "@/lib/streak";
 import {
   useToggleWithFeedback,
   useDeleteWithFeedback,
@@ -345,15 +344,7 @@ export function ListView() {
     escape: () => setFocusedId(null),
   });
 
-  const completionDays = useStore((s) => s.completionDays);
-  const streak = React.useMemo(() => {
-    // server history plus this session, so ticking the last task moves it now
-    const local = allTasks
-      .map((t) => t.completed_at)
-      .filter((v): v is string => v !== null)
-      .map(instantToDay);
-    return streakFromDays([...completionDays, ...local], day);
-  }, [completionDays, allTasks, day]);
+  const streak = useStreak(day);
 
   const { cleared, done: clearedCount } = useClearedToday(day, holding.size);
 

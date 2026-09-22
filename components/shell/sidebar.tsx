@@ -7,8 +7,9 @@ import { Users } from "lucide-react";
 import { accentColor } from "@/components/task/assignee-dot";
 import { VIEWS } from "./view-switch";
 import { useStore } from "@/lib/store";
-import { bucketOf, instantToDay, streakFromDays, type Bucket } from "@/lib/time";
+import { bucketOf, type Bucket } from "@/lib/time";
 import { useToday } from "@/lib/day";
+import { useStreak } from "@/lib/streak";
 import { prefersReducedMotion } from "@/lib/motion";
 import { copy } from "@/lib/copy";
 import { announce } from "./live-region";
@@ -324,24 +325,6 @@ function useVisibleSection(enabled: boolean): Bucket | null {
   }, [enabled]);
 
   return current;
-}
-
-/**
- * The streak, over the server's day history plus anything completed in this
- * session. Local completions matter because ticking the last task should move
- * the number immediately, not after a reload.
- */
-function useStreak(day: string): number {
-  const completionDays = useStore((s) => s.completionDays);
-  const tasks = useStore((s) => s.tasks);
-
-  return React.useMemo(() => {
-    const local = tasks
-      .map((t) => t.completed_at)
-      .filter((v): v is string => v !== null)
-      .map(instantToDay);
-    return streakFromDays([...completionDays, ...local], day);
-  }, [completionDays, tasks, day]);
 }
 
 function FilterItem({
