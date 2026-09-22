@@ -1233,6 +1233,7 @@ section("Nouveau — three hours, then it is just a task");
   check("a clock slightly ahead reads as just now", isFresh(at, t0 - 5_000));
   check("no timestamp is never new", !isFresh(null, t0) && !isFresh("", t0));
   check("garbage is never new", !isFresh("not a date", t0));
+  check("an unknown time (the server render) is never new", !isFresh(at, null));
 }
 
 /*

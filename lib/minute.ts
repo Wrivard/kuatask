@@ -15,6 +15,13 @@ let timer: ReturnType<typeof setInterval> | null = null;
 function subscribe(listener: () => void) {
   listeners.add(listener);
   if (!timer) {
+    /*
+      The clock only runs while something reads it, so the value it last held
+      can be hours old by the time the list mounts again — long enough to keep
+      « Nouveau » on a task that stopped being new before you came back.
+      React re-reads the snapshot after subscribing, so the fresh value lands.
+    */
+    current = now();
     timer = setInterval(() => {
       current = now();
       listeners.forEach((l) => l());
@@ -35,10 +42,16 @@ function subscribe(listener: () => void) {
  * For things that expire on a scale of hours; nothing that has to be exact to
  * the second should read this.
  */
-export function useMinute(): number {
+export function useMinute(): number | null {
   return React.useSyncExternalStore(
     subscribe,
     () => current,
-    () => current,
+    /*
+      Null on the server. A module-level time there is whenever the process
+      first imported this file, which on a long-lived server is hours ago — and
+      a server render that disagrees with the client's about what is new is a
+      hydration mismatch. Null means "not yet known", which isFresh reads as no.
+    */
+    () => null,
   );
 }

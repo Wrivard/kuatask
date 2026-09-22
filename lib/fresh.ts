@@ -15,8 +15,8 @@ export const FRESH_FOR_MS = 3 * 60 * 60 * 1000;
  * clock slightly ahead of this one reads as "just now" rather than as never
  * having been new.
  */
-export function isFresh(createdAt: string | null | undefined, nowMs: number): boolean {
-  if (!createdAt) return false;
+export function isFresh(createdAt: string | null | undefined, nowMs: number | null): boolean {
+  if (!createdAt || nowMs === null) return false;
   const at = Date.parse(createdAt);
   if (Number.isNaN(at)) return false;
   return nowMs - at < FRESH_FOR_MS;
