@@ -48,6 +48,16 @@ export function failNextTransport(message, times = 1) {
 export let sequence = null;
 export function failSequence(list) { sequence = [...list]; }
 
+/**
+ * Latency, per request in the order they are sent: the first update can be
+ * made to take longer than the second, which is how a real network reorders
+ * two writes. \`arrivals\` records each payload as the "server" receives it.
+ */
+export let delays = [];
+export function delayNext(list) { delays = [...list]; }
+export let arrivals = [];
+export function resetArrivals() { arrivals = []; }
+
 /** Every call the store made, so a test can assert how many it took. */
 export let calls = [];
 export function resetCalls() { calls = []; }
@@ -73,15 +83,30 @@ export function createClient() {
       order: () => b,
       limit: () => b,
       maybeSingle: async () => ({ data: null, error: null }),
-      single: async () => {
-        const r = reply();
-        // insert().select().single() echoes the row back, as PostgREST does
-        return r.error ? r : { data: payload, error: null };
-      },
+      single: () =>
+        new Promise((resolve) => {
+          const wait = delays.length ? delays.shift() : 0;
+          const land = () => {
+            if (payload) arrivals.push(payload);
+            const r = reply();
+            // insert().select().single() echoes the row back, as PostgREST does
+            resolve(r.error ? r : { data: payload, error: null });
+          };
+          if (wait) setTimeout(land, wait);
+          else land();
+        }),
       insert: (row) => { calls.push("insert:" + table); return builder(table, row); },
       update: (patch) => { calls.push("update:" + table); return builder(table, patch); },
       delete: () => { calls.push("delete:" + table); return builder(table, null); },
-      then: (resolve) => resolve(reply()),
+      then: (resolve) => {
+        const wait = delays.length ? delays.shift() : 0;
+        const land = () => {
+          if (payload) arrivals.push(payload);
+          resolve(reply());
+        };
+        if (wait) setTimeout(land, wait);
+        else land();
+      },
     };
     return b;
   };
@@ -617,6 +642,59 @@ useStore.setState((state) => {
 });
 check("a row that is neither in flight nor searched-for is still dropped",
       s().tasks.length === 0, titles().join(","));
+
+// --------------------------------------------------------------- ordering
+section("Ordering — two writes to one task land in the order they were made");
+reset();
+s().createTask({ title: "cocher puis decocher" });
+await settle();
+{
+  const orderId = byTitle("cocher puis decocher").id;
+  supa.resetArrivals();
+  // the first write is slow and the second fast, as a retried blip would be
+  supa.delayNext([60, 0]);
+  s().toggleTask(orderId);
+  s().toggleTask(orderId);
+  await new Promise((r) => setTimeout(r, 120));
+
+  const statuses = supa.arrivals.map((a) => a.status).filter(Boolean);
+  check("the server saw done, then todo", statuses.join(",") === "done,todo", statuses.join(","));
+  check("and the screen agrees with the last one", byTitle("cocher puis decocher").status === "todo");
+}
+
+section("Ordering — an edit made while the insert is in the air waits for it");
+reset();
+supa.resetArrivals();
+supa.delayNext([60]);
+{
+  const newId = s().createTask({ title: "tout juste creee" });
+  s().updateTask(newId, { notes: "tape pendant l'insertion" });
+  await new Promise((r) => setTimeout(r, 120));
+  const kinds = supa.arrivals.map((a) => ("workspace_id" in a ? "insert" : "update"));
+  check("the insert reached the server before the update", kinds.join(",") === "insert,update", kinds.join(","));
+  check(
+    "and the insert's echo did not wipe the notes typed meanwhile",
+    s().tasks.find((t) => t.id === newId)?.notes === "tape pendant l'insertion",
+  );
+}
+
+section("Rollback — a failed write returns only its own fields");
+reset();
+s().createTask({ title: "deux champs" });
+await settle();
+{
+  const rid = byTitle("deux champs").id;
+  supa.failSequence([{ message: "refused", code: "23514" }, null]);
+  // the title is refused; the notes written just after it land. Rolling back
+  // the title used to restore the whole row as it was before the title — and
+  // with it the old, empty notes.
+  s().updateTask(rid, { title: "titre refuse" });
+  s().updateTask(rid, { notes: "acceptee" });
+  await new Promise((r) => setTimeout(r, 60));
+  const row = s().tasks.find((t) => t.id === rid);
+  check("the refused title went back", row?.title === "deux champs", row?.title);
+  check("the notes that landed stayed", row?.notes === "acceptee", String(row?.notes));
+}
 
 console.log(`\n${failures === 0 ? "the store behaves" : `${failures} FAILED`}`);
 process.exit(failures ? 1 : 0);

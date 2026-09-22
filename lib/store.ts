@@ -335,6 +335,40 @@ export const useStore = create<Store>((set, get) => {
     return release;
   };
 
+  /*
+    Writes to one task, in the order they were made.
+
+    Every mutation used to be its own request, fired and forgotten, and nothing
+    made the second one wait for the first. Tick a task and untick it, or tick
+    it and press ⌘Z, and two updates were in the air at once; `withRetry` made
+    it likelier still, since a first attempt that blipped was retried after the
+    second had landed. The server kept whichever arrived last, the local row
+    kept the last one made, and the pending claim stopped the realtime echo
+    from telling anyone — your screen said « à faire », the database and your
+    partner's screen said « terminé », until the next resync.
+
+    Same for a task written the instant it exists: the modal opened by
+    Shift+Enter or by the Braindump could send an update before the insert had
+    landed, and an update of a row that is not there yet updates nothing and
+    reports success.
+
+    So each write joins the chain of every task it touches and starts when the
+    previous write to any of them has settled. A failed write does not stop the
+    ones behind it — each carries its own rollback.
+  */
+  const chains = new Map<string, Promise<unknown>>();
+  const serial = <T,>(ids: string[], write: () => Promise<T>): Promise<T> => {
+    const prior = Promise.all(ids.map((id) => chains.get(id)?.catch(() => {})));
+    const next = prior.then(write);
+    for (const id of ids) chains.set(id, next);
+    void next
+      .catch(() => {})
+      .finally(() => {
+        for (const id of ids) if (chains.get(id) === next) chains.delete(id);
+      });
+    return next;
+  };
+
   const patchLocal = (id: string, patch: Partial<Task>) =>
     set((s) => ({
       tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)),
@@ -520,8 +554,8 @@ export const useStore = create<Store>((set, get) => {
       });
 
       void (async () => {
-        const { data, error } = await insertWithRetry(() =>
-          supabase.from('tasks').insert(optimistic).select().single(),
+        const { data, error } = await serial([optimistic.id], () =>
+          insertWithRetry(() => supabase.from('tasks').insert(optimistic).select().single()),
         );
 
         releaseNew();
@@ -538,7 +572,13 @@ export const useStore = create<Store>((set, get) => {
           is exactly what was written, so leaving it alone is correct; the next
           resync reconciles anything the server decided for itself.
         */
-        if (data) patchLocal(optimistic.id, data);
+        /*
+          Only what the server decided. The whole returned row used to be laid
+          over the local one, and the local one is the one the modal has been
+          editing since this frame — a description typed while the insert was
+          in the air was replaced by the empty one that was inserted.
+        */
+        if (data) patchLocal(optimistic.id, pick(data as Task, ['created_at', 'updated_at']));
       })();
 
       return optimistic.id;
@@ -582,12 +622,13 @@ export const useStore = create<Store>((set, get) => {
       });
 
       void (async () => {
-        const { error } = await withRetry(() =>
-          supabase.from('tasks').update(changed).eq('id', id),
+        const { error } = await serial([id], () =>
+          withRetry(() => supabase.from('tasks').update(changed).eq('id', id)),
         );
         release();
         if (error) {
-          patchLocal(id, before);
+          // only what this write changed goes back; edits made since survive
+          patchLocal(id, pick(before, Object.keys(changed) as (keyof Task)[]));
           toastError(error);
         }
       })();
@@ -655,11 +696,15 @@ export const useStore = create<Store>((set, get) => {
           while carefully avoiding it on this one.
         */
         const releases = positions.map(({ id }) => claim(id));
-        const { error } = await withRetry(() =>
-          supabase.rpc('restack_tasks', {
-            ids: positions.map((p) => p.id),
-            positions: positions.map((p) => p.position),
-          }),
+        const { error } = await serial(
+          positions.map((p) => p.id),
+          () =>
+            withRetry(() =>
+              supabase.rpc('restack_tasks', {
+                ids: positions.map((p) => p.id),
+                positions: positions.map((p) => p.position),
+              }),
+            ),
         );
         for (const release of releases) release();
 
@@ -684,7 +729,9 @@ export const useStore = create<Store>((set, get) => {
         set((s) => ({ tasks: [...s.tasks, before] }));
         const releaseUndo = claim(before.id);
         void (async () => {
-          const { error } = await insertWithRetry(() => supabase.from('tasks').insert(before));
+          const { error } = await serial([before.id], () =>
+            insertWithRetry(() => supabase.from('tasks').insert(before)),
+          );
           releaseUndo();
           if (error) {
             // the insert policy requires created_by = auth.uid(), so undoing a
@@ -698,8 +745,8 @@ export const useStore = create<Store>((set, get) => {
       });
 
       void (async () => {
-        const { error } = await withRetry(() =>
-          supabase.from('tasks').delete().eq('id', id),
+        const { error } = await serial([id], () =>
+          withRetry(() => supabase.from('tasks').delete().eq('id', id)),
         );
         release();
         if (error) {
