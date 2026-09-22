@@ -4,20 +4,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as React from "react";
 import {
-  BarChart3,
   CalendarDays,
   Columns3,
-  History,
   List,
   MoreHorizontal,
   NotebookPen,
   Plus,
-  Receipt,
   Users,
   type LucideIcon,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { focusComposer } from "@/lib/events";
+import { VIEWS } from "./view-switch";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -64,9 +62,17 @@ const MoreSheet = dynamic(() => import("./more-sheet").then((m) => m.MoreSheet))
   is the one you open least: changing your colour is not navigation.
 */
 const MORE: { href: string; icon: LucideIcon; label: string }[] = [
-  { href: "/billing", icon: Receipt, label: copy.nav.billing },
-  { href: "/activity", icon: History, label: copy.nav.activity },
-  { href: "/stats", icon: BarChart3, label: copy.nav.stats },
+  /*
+    Every route the bar does not hold, from the same list the rail and the
+    palette read. It was hand-written, so a new route reached the rail and the
+    palette and was missing here until someone remembered — Facturation was
+    added by hand the day it shipped.
+  */
+  ...VIEWS.filter((v) => !ITEMS.some((i) => i.href === v.href)).map(({ href, icon, label }) => ({
+    href,
+    icon,
+    label,
+  })),
   { href: "/settings", icon: Users, label: copy.nav.settings },
 ];
 

@@ -984,7 +984,7 @@ function DetailInput({
           e.currentTarget.blur();
         }
       }}
-      className={cn(CELL, "block resize-none overflow-hidden text-[13px] leading-[1.45] opacity-80")}
+      className={cn(CELL, "block resize-none overflow-hidden text-[13px] leading-[1.45] text-fg-muted")}
     />
   );
 }
