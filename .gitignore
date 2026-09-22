@@ -47,3 +47,6 @@ next-env.d.ts
 
 # database dumps from npm run backup — every task ever written
 backups/
+
+# client billing data, imported into Facturation; never committed
+Facturation_Clients*.xlsx
