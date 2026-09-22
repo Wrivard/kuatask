@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { Header } from "@/components/shell/header";
 import { Unreachable } from "@/components/shell/unreachable";
 import { ClientSheet } from "../sheet-client";
-import { billingContext, CLIENT_COLUMNS, ENTRY_COLUMNS, toClient, toEntry, type Entry } from "../data";
+import { CLIENT_COLUMNS, ENTRY_COLUMNS, toClient, toEntry, type Entry } from "../data";
+import { billingContext } from "../context";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export default async function ClientBillingPage({ params }: { params: Promise<{ 
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <Header title={client.name} />
+      <Header title={client.name} search={false} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         {/* keyed, so switching client resets the sheet rather than merging two */}
         <ClientSheet

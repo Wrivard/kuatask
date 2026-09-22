@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Chip } from "@/components/ui/chip";
@@ -12,7 +12,11 @@ import { formatLedgerDate } from "@/lib/time";
 import { MICRO_LABEL } from "@/lib/type";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
+import { normalize } from "@/lib/search";
 import type { Client, Entry } from "./data";
+
+/** Older than this, a payload came from the router cache rather than the server. */
+const STALE_AFTER_MS = 5_000;
 
 type Money = Pick<Entry, "client_id" | "entry_on" | "hours" | "rate" | "amount" | "status">;
 
@@ -28,16 +32,76 @@ export function BillingDashboard({
   initialClients,
   entries,
   workspaceId,
+  renderedAt,
 }: {
   initialClients: Client[];
   entries: Money[];
   workspaceId: string;
+  /** When the server produced this payload, so a cached one can be told apart. */
+  renderedAt: number;
 }) {
   const supabase = React.useMemo(() => createClient(), []);
   const router = useRouter();
-  const [clients, setClients] = React.useState(initialClients);
+  /*
+    The server's list plus any client created here that the server has not
+    returned yet. Derived rather than copied into state, so a refresh — from
+    realtime, or from coming back to this page — replaces it instead of being
+    ignored by a useState that only reads its initial value once.
+  */
+  const [created, setCreated] = React.useState<Client[]>([]);
+  const clients = React.useMemo(() => {
+    const known = new Set(initialClients.map((c) => c.id));
+    return [...initialClients, ...created.filter((c) => !known.has(c.id))];
+  }, [initialClients, created]);
+
   const [showArchived, setShowArchived] = React.useState(false);
   const [draft, setDraft] = React.useState("");
+  const query = normalize(draft.trim());
+
+  /*
+    Live, coarsely. Any change to a client or a row in this workspace re-reads
+    the page from the server; the sums are arithmetic over rows this page never
+    holds individually, so re-reading is simpler and more honest than patching
+    totals by hand. Debounced so a burst of edits on the other screen is one read.
+
+    Also re-read when coming back to it: the back button restores the last
+    render of this page from the router cache, totals and all, which after
+    marking something paid on a client's sheet is exactly the wrong number.
+  */
+  React.useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => router.refresh(), 400);
+    };
+
+    if (Date.now() - renderedAt > STALE_AFTER_MS) router.refresh();
+
+    const channel = supabase
+      .channel(`billing-dashboard:${workspaceId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "billing_entries", filter: `workspace_id=eq.${workspaceId}` },
+        refresh,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "clients", filter: `workspace_id=eq.${workspaceId}` },
+        refresh,
+      )
+      .subscribe();
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      void supabase.removeChannel(channel);
+    };
+  }, [supabase, router, workspaceId, renderedAt]);
 
   const rows = React.useMemo(() => {
     const byClient = new Map<string, Money[]>();
@@ -46,7 +110,11 @@ export function BillingDashboard({
     }
 
     return clients
-      .filter((c) => (c.archived_at !== null) === showArchived)
+      // typing searches both lists: finding a client should not depend on
+      // remembering whether you archived it
+      .filter((c) =>
+        query ? normalize(c.name).includes(query) : (c.archived_at !== null) === showArchived,
+      )
       .map((c) => {
         const own = byClient.get(c.id) ?? [];
         const last = own.reduce<string | null>(
@@ -56,7 +124,7 @@ export function BillingDashboard({
         return { client: c, t: totals(own, c.default_rate), last };
       })
       .sort((a, b) => b.t.outstanding - a.t.outstanding || a.client.name.localeCompare(b.client.name, "fr"));
-  }, [clients, entries, showArchived]);
+  }, [clients, entries, showArchived, query]);
 
   // the tiles count active clients only: an archived one is settled history
   const overall = React.useMemo(() => {
@@ -71,6 +139,20 @@ export function BillingDashboard({
     return sum;
   }, [clients, entries]);
 
+  const exact = query ? clients.find((c) => normalize(c.name) === query) : undefined;
+
+  /*
+    Enter opens the client you typed if it exists — the list is also the
+    search — and creates it only when it does not. Two « GCSM » tabs would split
+    one client's history in two.
+  */
+  function submit() {
+    if (!query) return;
+    if (exact) return router.push(`/billing/${exact.id}`);
+    if (rows.length === 1) return router.push(`/billing/${rows[0].client.id}`);
+    create();
+  }
+
   function create() {
     const name = draft.trim();
     if (!name) return;
@@ -83,7 +165,7 @@ export function BillingDashboard({
     };
 
     // in the list on this frame; the sheet opens once the row exists to open
-    setClients((c) => [...c, client]);
+    setCreated((c) => [...c, client]);
     setDraft("");
     setShowArchived(false);
 
@@ -92,7 +174,7 @@ export function BillingDashboard({
         .from("clients")
         .insert({ ...client, workspace_id: workspaceId });
       if (error) {
-        setClients((c) => c.filter((x) => x.id !== client.id));
+        setCreated((c) => c.filter((x) => x.id !== client.id));
         toast.error(copy.billing.saveFailed);
         return;
       }
@@ -126,12 +208,13 @@ export function BillingDashboard({
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              create();
+              submit();
             }
+            if (e.key === "Escape") setDraft("");
           }}
           maxLength={120}
-          placeholder={copy.billing.newClientPlaceholder}
-          aria-label={copy.billing.newClient}
+          placeholder={copy.billing.findOrCreate}
+          aria-label={copy.billing.findOrCreate}
           className={cn(
             "ml-auto h-8 w-full rounded-sm border border-control bg-bg px-2.5 text-[13px] text-fg sm:w-[260px]",
             "placeholder:text-fg-faint focus-visible:border-accent focus-visible:outline-none",
@@ -139,10 +222,23 @@ export function BillingDashboard({
         />
       </div>
 
+      {query && !exact && (
+        <button
+          type="button"
+          onClick={create}
+          className="mb-3 flex h-9 w-full items-center gap-2 rounded-sm border border-dashed border-control px-3 text-left text-[13px] text-fg-muted hover:border-accent hover:text-fg"
+        >
+          <Plus className="size-4" strokeWidth={1.5} aria-hidden />
+          {copy.billing.createNamed(draft.trim())}
+        </button>
+      )}
+
       {rows.length === 0 ? (
-        <p className="py-6 text-[13px] text-fg-muted">
-          {showArchived ? copy.billing.noArchived : copy.billing.noClients}
-        </p>
+        query ? null : (
+          <p className="py-6 text-[13px] text-fg-muted">
+            {showArchived ? copy.billing.noArchived : copy.billing.noClients}
+          </p>
+        )
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] border-collapse text-[14px]">
@@ -171,6 +267,9 @@ export function BillingDashboard({
                     >
                       {client.name}
                     </Link>
+                    {client.archived_at !== null && (
+                      <span className="ml-2 text-[12px] text-fg-faint">{copy.billing.archivedBadge}</span>
+                    )}
                   </td>
                   <MoneyCell value={t.pending} emphasis />
                   <MoneyCell value={t.invoiced} emphasis />

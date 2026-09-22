@@ -2,7 +2,8 @@ import { Header } from "@/components/shell/header";
 import { Unreachable } from "@/components/shell/unreachable";
 import { copy } from "@/lib/copy";
 import { BillingDashboard } from "./dashboard-client";
-import { billingContext, CLIENT_COLUMNS, toClient, toEntry, type Entry } from "./data";
+import { CLIENT_COLUMNS, toClient, toEntry, type Entry } from "./data";
+import { billingContext } from "./context";
 
 export const dynamic = "force-dynamic";
 
@@ -26,12 +27,13 @@ export default async function BillingPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <Header title={copy.nav.billing} />
+      <Header title={copy.nav.billing} search={false} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <BillingDashboard
           initialClients={(clients.data ?? []).map(toClient)}
           entries={((entries.data ?? []) as Pick<Entry, "client_id" | "entry_on" | "hours" | "rate" | "amount" | "status">[]).map(toEntry)}
           workspaceId={workspaceId}
+          renderedAt={Date.now()}
         />
       </div>
     </div>

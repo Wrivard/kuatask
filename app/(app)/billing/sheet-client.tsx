@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, ArchiveRestore, ArrowLeft, Plus, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Chip } from "@/components/ui/chip";
@@ -22,9 +22,11 @@ import { today } from "@/lib/time";
 import { MICRO_LABEL } from "@/lib/type";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
-import type { Client, Entry } from "./data";
+import { ENTRY_COLUMNS, toClient, toEntry, type Client, type Entry } from "./data";
 
 type Filter = "all" | "open" | "paid";
+
+const FILTERS: Filter[] = ["all", "open", "paid"];
 
 const SHOWS: Record<Filter, (s: BillingStatus) => boolean> = {
   all: () => true,
@@ -44,15 +46,20 @@ const STATUS_COLOR: Record<BillingStatus, string | undefined> = {
   paid: "var(--color-accent)",
 };
 
+/** The columns Enter moves down through, in order. The date and status are pickers. */
+type Col = "title" | "detail" | "hours" | "rate" | "amount";
+
 /**
  * One client's sheet: Date · Tâche · Détail · Heures · Taux · Montant · Statut.
  *
  * Every cell is edited in place and saved when you leave it, the way the
- * spreadsheet did — there is no edit mode and no save button, because the sheet
- * never had one and both people are used to typing straight into the grid.
+ * spreadsheet did — no edit mode, no save button. Tab moves right, Enter moves
+ * down the column, Shift+Enter up, Escape puts the cell back: the keys both
+ * people already have in their fingers from the sheet.
  *
- * Optimistic like the rest of the app. A write that fails puts the old value
- * back and says so; nothing waits on the network before it shows.
+ * Optimistic like the rest of the app, and live: the other person's edits
+ * arrive over realtime, except on a row with a write of yours still in flight,
+ * where yours is the newer truth.
  */
 export function ClientSheet({
   client: initialClient,
@@ -73,61 +80,179 @@ export function ClientSheet({
   const [focusId, setFocusId] = React.useState<string | null>(null);
 
   /*
-    Inserts still in the air. An edit typed into a row the moment it appears
-    would otherwise reach the database before the row does, update nothing, and
-    report success — the same race the Braindump had. Writes to a row wait for
-    the insert that is creating it.
+    Rows whose status was changed while a filter would now hide them. Marking a
+    row Payé under « À payer » used to make it vanish from under the cursor, so
+    you could not see that the click had landed or take it back. They stay until
+    the filter changes.
   */
-  const inflight = React.useRef(new Map<string, Promise<unknown>>());
+  const [held, setHeld] = React.useState<Set<string>>(new Set());
+
+  /*
+    Every write to a row, chained. Two edits to the same row in quick succession
+    were two independent requests, and nothing guaranteed they landed in the
+    order they were made — the earlier one could arrive last and win. Chaining
+    also covers the insert: an edit typed into a row the moment it appears waits
+    for the row to exist, rather than updating nothing and reporting success.
+  */
+  const chain = React.useRef(new Map<string, Promise<unknown>>());
+  /** How many writes of ours each row has in the air. Realtime yields to these. */
+  const pending = React.useRef(new Map<string, number>());
+
+  const enqueue = React.useCallback((id: string, write: () => Promise<unknown>) => {
+    pending.current.set(id, (pending.current.get(id) ?? 0) + 1);
+    const next = (chain.current.get(id) ?? Promise.resolve())
+      .catch(() => {})
+      .then(write)
+      .finally(() => {
+        const n = (pending.current.get(id) ?? 1) - 1;
+        if (n <= 0) pending.current.delete(id);
+        else pending.current.set(id, n);
+        if (chain.current.get(id) === next) chain.current.delete(id);
+      });
+    chain.current.set(id, next);
+    return next;
+  }, []);
+
+  /* ------------------------------------------------------------ realtime -- */
+
+  const resync = React.useCallback(async () => {
+    const { data, error } = await supabase
+      .from("billing_entries")
+      .select(ENTRY_COLUMNS)
+      .eq("client_id", initialClient.id)
+      .order("entry_on", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (error || !data) return;
+
+    const fresh = (data as Entry[]).map(toEntry);
+    setEntries((local) => {
+      // our unsaved rows and rows we are writing keep their local version
+      const mine = new Map(local.filter((e) => pending.current.has(e.id)).map((e) => [e.id, e]));
+      const merged = fresh
+        // a row we are deleting is still on the server for a moment; not here
+        .filter((e) => !pending.current.has(e.id) || mine.has(e.id))
+        .map((e) => mine.get(e.id) ?? e);
+      const known = new Set(merged.map((e) => e.id));
+      const unsaved = local.filter((e) => mine.has(e.id) && !known.has(e.id));
+      return [...unsaved, ...merged];
+    });
+  }, [supabase, initialClient.id]);
+
+  React.useEffect(() => {
+    // the first SUBSCRIBED follows a server render that is already current
+    let connectedBefore = false;
+    const channel = supabase
+      .channel(`billing:${initialClient.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "billing_entries",
+          filter: `client_id=eq.${initialClient.id}`,
+        },
+        (payload) => {
+          // by event: a DELETE's `new` is `{}`, not null — see lib/realtime.ts
+          const row = toEntry((payload.eventType === "DELETE" ? payload.old : payload.new) as Entry);
+          if (!row?.id || pending.current.has(row.id)) return;
+
+          setEntries((list) => {
+            if (payload.eventType === "DELETE") return list.filter((e) => e.id !== row.id);
+            const at = list.findIndex((e) => e.id === row.id);
+            if (at === -1) return [row, ...list];
+            const next = list.slice();
+            next[at] = row;
+            return next;
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "clients",
+          filter: `id=eq.${initialClient.id}`,
+        },
+        (payload) => {
+          if (pending.current.has(initialClient.id)) return;
+          setClient(toClient(payload.new as Record<string, unknown>));
+        },
+      )
+      .subscribe((status, err) => {
+        // a dropped channel has no replay; whatever it missed comes from a read
+        if (status === "SUBSCRIBED") {
+          if (connectedBefore) void resync();
+          connectedBefore = true;
+        }
+        if (err) console.warn("[billing] realtime", status, err.message);
+      });
+
+    // a tab that was hidden missed whatever happened meanwhile
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void resync();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      void supabase.removeChannel(channel);
+    };
+  }, [supabase, initialClient.id, resync]);
+
+  /* ------------------------------------------------------------- derived -- */
 
   const rate = client.default_rate;
-  const shown = entries.filter((e) => SHOWS[filter](e.status));
+  const shown = entries.filter((e) => SHOWS[filter](e.status) || held.has(e.id));
   const sums = totals(entries, rate);
   const shownSum = shown.reduce((n, e) => n + amountOf(e, rate), 0);
   const shownHours = shown.reduce((n, e) => n + (e.hours ?? 0), 0);
 
-  function patchEntry(id: string, patch: Partial<Entry>) {
-    let before: Entry | undefined;
-    setEntries((list) =>
-      list.map((e) => {
-        if (e.id !== id) return e;
-        before = e;
-        return { ...e, ...patch };
-      }),
-    );
+  /* -------------------------------------------------------------- writes -- */
 
-    void (async () => {
-      await inflight.current.get(id);
+  function patchEntry(id: string, patch: Partial<Entry>) {
+    const before = entries.find((e) => e.id === id);
+    if (!before) return;
+
+    if (patch.status && !SHOWS[filter](patch.status)) {
+      setHeld((h) => new Set(h).add(id));
+    }
+    setEntries((list) => list.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+
+    void enqueue(id, async () => {
       const { error } = await supabase.from("billing_entries").update(patch).eq("id", id);
-      if (error && before) {
-        const old = before;
-        setEntries((list) => list.map((e) => (e.id === id ? old : e)));
+      if (error) {
+        // only the fields this write touched go back; later edits survive
+        const undo = Object.fromEntries(
+          Object.keys(patch).map((k) => [k, before[k as keyof Entry]]),
+        ) as Partial<Entry>;
+        setEntries((list) => list.map((e) => (e.id === id ? { ...e, ...undo } : e)));
         toast.error(copy.billing.saveFailed);
       }
-    })();
+    });
   }
 
   function patchClient(patch: Partial<Client>) {
     const before = client;
     setClient((c) => ({ ...c, ...patch }));
 
-    void (async () => {
+    void enqueue(client.id, async () => {
       const { error } = await supabase.from("clients").update(patch).eq("id", client.id);
       if (error) {
         setClient(before);
         toast.error(copy.billing.saveFailed);
         return;
       }
-      // the title in the header and the dashboard both read the server copy
-      router.refresh();
-    })();
+      // the header title and the switcher read the server copy
+      if ("name" in patch || "archived_at" in patch) router.refresh();
+    });
   }
 
   function insert(entry: Entry) {
     // created_at is the server's to stamp
     const row: Partial<Entry> = { ...entry };
     delete row.created_at;
-    const landed = (async () => {
+    return enqueue(entry.id, async () => {
       const { error } = await supabase
         .from("billing_entries")
         .insert({ ...(row as Omit<Entry, "created_at">), workspace_id: workspaceId });
@@ -135,9 +260,7 @@ export function ClientSheet({
         setEntries((list) => list.filter((e) => e.id !== entry.id));
         toast.error(copy.billing.saveFailed);
       }
-    })();
-    inflight.current.set(entry.id, landed);
-    void landed.finally(() => inflight.current.delete(entry.id));
+    });
   }
 
   function addRow() {
@@ -157,7 +280,7 @@ export function ClientSheet({
     setEntries((list) => [entry, ...list]);
     if (filter === "paid") setFilter("all");
     setFocusId(entry.id);
-    insert(entry);
+    void insert(entry);
   }
 
   /*
@@ -169,8 +292,7 @@ export function ClientSheet({
     const index = entries.findIndex((e) => e.id === entry.id);
     setEntries((list) => list.filter((e) => e.id !== entry.id));
 
-    void (async () => {
-      await inflight.current.get(entry.id);
+    void enqueue(entry.id, async () => {
       const { error } = await supabase.from("billing_entries").delete().eq("id", entry.id);
       if (error) {
         setEntries((list) => insertAt(list, entry, index));
@@ -182,14 +304,56 @@ export function ClientSheet({
           label: copy.toast.undo,
           onClick: () => {
             setEntries((list) => insertAt(list, entry, index));
-            insert(entry);
+            void insert(entry);
           },
         },
       });
+    });
+  }
+
+  /*
+    Only a client with no rows can be deleted — the one made by mistake, or with
+    a typo worth starting over from. Anything with history is archived instead,
+    which is reversible; a delete here would cascade every row it ever had.
+  */
+  const deletable = entries.length === 0;
+
+  function removeClient() {
+    if (!deletable) return;
+    void (async () => {
+      await chain.current.get(client.id);
+      const { error } = await supabase.from("clients").delete().eq("id", client.id);
+      if (error) {
+        toast.error(copy.billing.saveFailed);
+        return;
+      }
+      toast(copy.billing.clientDeleted(client.name));
+      router.replace("/billing");
+      router.refresh();
     })();
   }
 
+  function changeFilter(f: Filter) {
+    setFilter(f);
+    setHeld(new Set());
+  }
+
+  /*
+    Enter moves down the column, as in the sheet. Cells are found by row and
+    column in the DOM rather than through refs: the rows are the filtered list,
+    and it is the list on screen that "the next row" means.
+  */
+  const tableRef = React.useRef<HTMLTableElement>(null);
+  const move = React.useCallback((id: string, col: Col, step: 1 | -1) => {
+    const rows = [...(tableRef.current?.querySelectorAll<HTMLElement>("tbody tr[data-row]") ?? [])];
+    const at = rows.findIndex((r) => r.dataset.row === id);
+    const target = rows[at + step]?.querySelector<HTMLElement>(`[data-col="${col}"]`);
+    if (target) target.focus();
+    else (document.activeElement as HTMLElement | null)?.blur();
+  }, []);
+
   const archived = client.archived_at !== null;
+  const others = clients.filter((c) => c.id !== client.id);
 
   return (
     <div className="px-6 py-6">
@@ -203,37 +367,49 @@ export function ClientSheet({
           {copy.billing.allClients}
         </Link>
 
-        <select
-          value={client.id}
-          onChange={(e) => router.push(`/billing/${e.target.value}`)}
-          aria-label={copy.billing.switchClient}
-          className="h-8 max-w-[240px] rounded-sm border border-control bg-bg px-2 text-[13px] text-fg focus-visible:border-accent focus-visible:outline-none"
-        >
-          <optgroup label={copy.billing.active}>
-            {clients
-              .filter((c) => c.archived_at === null || c.id === client.id)
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-          </optgroup>
-          {clients.some((c) => c.archived_at !== null && c.id !== client.id) && (
-            <optgroup label={copy.billing.archived}>
-              {clients
-                .filter((c) => c.archived_at !== null && c.id !== client.id)
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-            </optgroup>
-          )}
-        </select>
+        {others.length > 0 && (
+          <select
+            value={client.id}
+            onChange={(e) => router.push(`/billing/${e.target.value}`)}
+            aria-label={copy.billing.switchClient}
+            title={copy.billing.switchClient}
+            className="h-8 max-w-[240px] rounded-sm border border-control bg-bg px-2 text-[13px] text-fg focus-visible:border-accent focus-visible:outline-none"
+          >
+            <option value={client.id}>{client.name}</option>
+            {others.some((c) => c.archived_at === null) && (
+              <optgroup label={copy.billing.active}>
+                {others
+                  .filter((c) => c.archived_at === null)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </optgroup>
+            )}
+            {others.some((c) => c.archived_at !== null) && (
+              <optgroup label={copy.billing.archived}>
+                {others
+                  .filter((c) => c.archived_at !== null)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </optgroup>
+            )}
+          </select>
+        )}
 
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+        {archived && (
+          <span className="rounded-sm border border-border px-1.5 py-px text-[12px] text-fg-muted">
+            {copy.billing.archivedBadge}
+          </span>
+        )}
+
+        <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
           {/* a typo in a client's name should not need a trip to the database */}
-          <div className="w-[180px] rounded-sm border border-control">
+          <div className="h-8 w-full rounded-sm border border-control sm:w-[180px]">
             <TextInput
               value={client.name}
               onCommit={(name) => name && patchClient({ name })}
@@ -244,12 +420,17 @@ export function ClientSheet({
 
           <label className="flex h-8 items-center gap-1.5 text-[13px] text-fg-muted">
             {copy.billing.rate}
-            <NumberInput
-              value={client.default_rate}
-              onCommit={(n) => n !== null && patchClient({ default_rate: n })}
-              className="h-8 w-16 rounded-sm border border-control px-2 text-right"
-              label={copy.billing.rate}
-            />
+            <span className="inline-block w-16 rounded-sm border border-control">
+              <NumberInput
+                value={client.default_rate}
+                onCommit={(n) => {
+                  // a client always has a rate; clearing the box keeps the old one
+                  if (n !== null) patchClient({ default_rate: n });
+                }}
+                label={copy.billing.rate}
+                keepOnEmpty
+              />
+            </span>
             {copy.billing.rateSuffix}
           </label>
 
@@ -265,15 +446,27 @@ export function ClientSheet({
             )}
             {archived ? copy.billing.unarchive : copy.billing.archive}
           </button>
+
+          {deletable && (
+            <button
+              type="button"
+              onClick={removeClient}
+              title={copy.billing.deleteClient}
+              aria-label={copy.billing.deleteClient}
+              className="grid size-8 place-items-center rounded-sm border border-border text-fg-faint hover:border-danger hover:text-danger"
+            >
+              <Trash2 className="size-4" strokeWidth={1.5} aria-hidden />
+            </button>
+          )}
         </div>
       </div>
 
-      <dl className="mb-5 flex flex-wrap gap-x-8 gap-y-2">
+      <dl className="mb-5 grid grid-cols-2 gap-x-8 gap-y-3 sm:flex sm:flex-wrap">
         {STATUSES.map((s) => (
           <div key={s}>
             <dt className={MICRO_LABEL}>{copy.billing.status[s]}</dt>
             <dd
-              className="mt-0.5 font-mono text-[18px] tabular-nums"
+              className="mt-0.5 font-mono text-[18px] tabular-nums text-fg-muted"
               style={{ color: sums[s] > 0 ? STATUS_COLOR[s] : undefined }}
             >
               {formatMoney(sums[s])}
@@ -291,9 +484,12 @@ export function ClientSheet({
       </dl>
 
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
-        {(["all", "open", "paid"] as Filter[]).map((f) => (
-          <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>
+        {FILTERS.map((f) => (
+          <Chip key={f} active={filter === f} onClick={() => changeFilter(f)}>
             {copy.billing.filter[f]}
+            <span className="font-mono tabular-nums text-fg-faint">
+              {entries.filter((e) => SHOWS[f](e.status)).length}
+            </span>
           </Chip>
         ))}
 
@@ -313,15 +509,15 @@ export function ClientSheet({
         something readable — so it scrolls sideways there instead of the page.
       */}
       <div className="overflow-x-auto rounded-md border border-border">
-        <table className="w-full min-w-[900px] border-collapse text-[14px]">
+        <table ref={tableRef} className="w-full min-w-[900px] border-collapse text-[14px]">
           <colgroup>
-            <col className="w-[132px]" />
+            <col className="w-[140px]" />
             <col className="w-[22%]" />
             <col />
             <col className="w-[76px]" />
             <col className="w-[88px]" />
+            <col className="w-[124px]" />
             <col className="w-[120px]" />
-            <col className="w-[116px]" />
             <col className="w-[36px]" />
           </colgroup>
           <thead className="bg-surface">
@@ -339,21 +535,27 @@ export function ClientSheet({
           <tbody>
             {shown.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-[13px] text-fg-muted">
-                  {copy.billing.emptyRows}
+                <td colSpan={8} className="px-3 py-8 text-center text-[13px] text-fg-muted">
+                  {entries.length === 0 ? copy.billing.firstRow : copy.billing.emptyRows}
                 </td>
               </tr>
             )}
 
             {shown.map((e) => (
-              <tr key={e.id} className="group align-top hover:bg-surface-hover/50">
+              <tr
+                key={e.id}
+                data-row={e.id}
+                className={cn(
+                  "group align-top hover:bg-surface-hover/50",
+                  // a paid row is history: still there, one step quieter
+                  e.status === "paid" && "text-fg-muted",
+                )}
+              >
                 <Td>
-                  <input
-                    type="date"
+                  <DateInput
                     value={e.entry_on}
-                    onChange={(ev) => ev.target.value && patchEntry(e.id, { entry_on: ev.target.value })}
-                    aria-label={copy.billing.col.date}
-                    className={CELL}
+                    onCommit={(entry_on) => patchEntry(e.id, { entry_on })}
+                    label={copy.billing.col.date}
                   />
                 </Td>
                 <Td>
@@ -361,8 +563,12 @@ export function ClientSheet({
                     value={e.title}
                     autoFocus={focusId === e.id}
                     onCommit={(title) => patchEntry(e.id, { title })}
+                    onMove={(step) => move(e.id, "title", step)}
+                    col="title"
                     label={copy.billing.col.title}
+                    placeholder={copy.billing.titlePlaceholder}
                     maxLength={200}
+                    strong
                   />
                 </Td>
                 <Td>
@@ -376,14 +582,19 @@ export function ClientSheet({
                   <NumberInput
                     value={e.hours}
                     onCommit={(hours) => patchEntry(e.id, { hours })}
+                    onMove={(step) => move(e.id, "hours", step)}
+                    col="hours"
                     label={copy.billing.col.hours}
                   />
                 </Td>
                 <Td>
                   <NumberInput
                     value={e.rate}
-                    placeholder={formatNumber(rate)}
+                    // only worth showing once there are hours for it to multiply
+                    placeholder={e.hours !== null ? formatNumber(rate) : undefined}
                     onCommit={(r) => patchEntry(e.id, { rate: r })}
+                    onMove={(step) => move(e.id, "rate", step)}
+                    col="rate"
                     label={copy.billing.col.rate}
                   />
                 </Td>
@@ -391,9 +602,15 @@ export function ClientSheet({
                   <NumberInput
                     value={e.amount}
                     // what it will be if left alone, shown in the empty cell
-                    placeholder={isComputed(e) ? formatNumber(amountOf(e, rate)) : undefined}
+                    placeholder={
+                      isComputed(e) && e.hours !== null
+                        ? formatNumber(amountOf(e, rate))
+                        : undefined
+                    }
                     title={isComputed(e) ? copy.billing.computed : copy.billing.fixed}
                     onCommit={(amount) => patchEntry(e.id, { amount })}
+                    onMove={(step) => move(e.id, "amount", step)}
+                    col="amount"
                     label={copy.billing.col.amount}
                     strong
                   />
@@ -451,6 +668,8 @@ export function ClientSheet({
           )}
         </table>
       </div>
+
+      <p className="mt-3 text-[12px] text-fg-faint">{copy.billing.keysHint}</p>
     </div>
   );
 }
@@ -462,16 +681,17 @@ function insertAt<T>(list: T[], item: T, index: number): T[] {
 
 /** Borderless, so the table's rules are the grid and the input is just the text. */
 const CELL = cn(
-  "w-full rounded-sm bg-transparent px-2 py-1 text-[14px] text-fg",
+  "w-full rounded-sm bg-transparent px-2 py-1 text-[14px] text-inherit",
   "placeholder:text-fg-faint focus-visible:bg-bg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent",
 );
 
 function Th({ children, right = false }: { children: React.ReactNode; right?: boolean }) {
   return (
     <th
+      scope="col"
       className={cn(
         MICRO_LABEL,
-        "border-b border-r border-border px-3 py-2 font-medium last:border-r-0",
+        "border-b border-r border-border px-3 py-2 font-medium",
         right ? "text-right" : "text-left",
       )}
     >
@@ -487,37 +707,59 @@ function Td({ children }: { children: React.ReactNode }) {
 /*
   A draft that follows the saved value until you start typing, and is committed
   when you leave. Escape puts the saved value back, which is the spreadsheet's
-  "I did not mean that".
+  "I did not mean that" — and the flag stops the blur that Escape causes from
+  committing the very draft it just threw away.
 */
 function useDraft(value: string) {
   const [draft, setDraft] = React.useState(value);
   const editing = React.useRef(false);
+  const cancelled = React.useRef(false);
   React.useEffect(() => {
     if (!editing.current) setDraft(value);
   }, [value]);
-  return { draft, setDraft, editing };
+  return { draft, setDraft, editing, cancelled };
+}
+
+/** Enter commits and moves down, Shift+Enter up, Escape reverts. */
+function sheetKeys(
+  e: React.KeyboardEvent<HTMLInputElement>,
+  revert: () => void,
+  onMove?: (step: 1 | -1) => void,
+) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    if (onMove) onMove(e.shiftKey ? -1 : 1);
+    else e.currentTarget.blur();
+  }
+  if (e.key === "Escape") {
+    e.preventDefault();
+    revert();
+    e.currentTarget.blur();
+  }
 }
 
 function TextInput({
   value,
   onCommit,
+  onMove,
+  col,
   label,
+  placeholder,
   maxLength,
   autoFocus,
+  strong = false,
 }: {
   value: string;
   onCommit: (v: string) => void;
+  onMove?: (step: 1 | -1) => void;
+  col?: Col;
   label: string;
+  placeholder?: string;
   maxLength?: number;
   autoFocus?: boolean;
+  strong?: boolean;
 }) {
-  const { draft, setDraft, editing } = useDraft(value);
-
-  const commit = () => {
-    editing.current = false;
-    const next = draft.trim();
-    if (next !== value) onCommit(next);
-  };
+  const { draft, setDraft, editing, cancelled } = useDraft(value);
 
   return (
     <input
@@ -525,18 +767,82 @@ function TextInput({
       autoFocus={autoFocus}
       maxLength={maxLength}
       aria-label={label}
-      onFocus={() => (editing.current = true)}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") e.currentTarget.blur();
-        if (e.key === "Escape") {
-          editing.current = false;
-          setDraft(value);
-          e.currentTarget.blur();
-        }
+      placeholder={placeholder}
+      data-col={col}
+      onFocus={() => {
+        editing.current = true;
+        cancelled.current = false;
       }}
-      className={cn(CELL, "font-medium")}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        editing.current = false;
+        if (cancelled.current) return;
+        const next = draft.trim();
+        if (next !== draft) setDraft(next);
+        if (next !== value) onCommit(next);
+      }}
+      onKeyDown={(e) =>
+        sheetKeys(
+          e,
+          () => {
+            cancelled.current = true;
+            setDraft(value);
+          },
+          onMove,
+        )
+      }
+      className={cn(CELL, "h-full", strong && "font-medium")}
+    />
+  );
+}
+
+/**
+ * The date, as the browser's own picker. Committed on leaving rather than on
+ * every change: typing a year into a date field passes through 0002, 0020 and
+ * 0202 on its way to 2026, and each of those is a valid date that was being
+ * saved.
+ */
+function DateInput({
+  value,
+  onCommit,
+  label,
+}: {
+  value: string;
+  onCommit: (v: string) => void;
+  label: string;
+}) {
+  const { draft, setDraft, editing, cancelled } = useDraft(value);
+
+  const commit = (next: string) => {
+    // an emptied or half-typed date is not a date; the old one stays
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(next) || next < "2000-01-01") {
+      setDraft(value);
+      return;
+    }
+    if (next !== value) onCommit(next);
+  };
+
+  return (
+    <input
+      type="date"
+      value={draft}
+      aria-label={label}
+      onFocus={() => {
+        editing.current = true;
+        cancelled.current = false;
+      }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        editing.current = false;
+        if (!cancelled.current) commit(draft);
+      }}
+      onKeyDown={(e) =>
+        sheetKeys(e, () => {
+          cancelled.current = true;
+          setDraft(value);
+        })
+      }
+      className={cn(CELL, "tabular-nums")}
     />
   );
 }
@@ -555,7 +861,7 @@ function DetailInput({
   onCommit: (v: string) => void;
   label: string;
 }) {
-  const { draft, setDraft, editing } = useDraft(value);
+  const { draft, setDraft, editing, cancelled } = useDraft(value);
   const ref = React.useRef<HTMLTextAreaElement>(null);
 
   // grows with its lines, written to the element so a keystroke that leaves
@@ -574,21 +880,27 @@ function DetailInput({
       rows={1}
       maxLength={4000}
       aria-label={label}
-      onFocus={() => (editing.current = true)}
+      data-col="detail"
+      onFocus={() => {
+        editing.current = true;
+        cancelled.current = false;
+      }}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
         editing.current = false;
+        if (cancelled.current) return;
         const next = draft.replace(/\s+$/, "");
         if (next !== value) onCommit(next);
       }}
       onKeyDown={(e) => {
         if (e.key === "Escape") {
-          editing.current = false;
+          e.preventDefault();
+          cancelled.current = true;
           setDraft(value);
           e.currentTarget.blur();
         }
       }}
-      className={cn(CELL, "block resize-none overflow-hidden text-[13px] leading-[1.45] text-fg-muted")}
+      className={cn(CELL, "block resize-none overflow-hidden text-[13px] leading-[1.45] opacity-80")}
     />
   );
 }
@@ -596,27 +908,35 @@ function DetailInput({
 function NumberInput({
   value,
   onCommit,
+  onMove,
+  col,
   label,
   placeholder,
   title,
   strong = false,
-  className,
+  keepOnEmpty = false,
 }: {
   value: number | null;
   onCommit: (n: number | null) => void;
+  onMove?: (step: 1 | -1) => void;
+  col?: Col;
   label: string;
   placeholder?: string;
   title?: string;
   strong?: boolean;
-  className?: string;
+  /** For a value that cannot be blank: clearing the box puts it back. */
+  keepOnEmpty?: boolean;
 }) {
-  const { draft, setDraft, editing } = useDraft(formatNumber(value));
+  const { draft, setDraft, editing, cancelled } = useDraft(formatNumber(value));
 
   const commit = () => {
-    editing.current = false;
     const parsed = parseAmount(draft);
     if (parsed === undefined) {
       toast.error(copy.billing.invalidNumber);
+      setDraft(formatNumber(value));
+      return;
+    }
+    if (parsed === null && keepOnEmpty) {
       setDraft(formatNumber(value));
       return;
     }
@@ -631,23 +951,33 @@ function NumberInput({
       aria-label={label}
       title={title}
       placeholder={placeholder}
-      onFocus={() => (editing.current = true)}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") e.currentTarget.blur();
-        if (e.key === "Escape") {
-          editing.current = false;
-          setDraft(formatNumber(value));
-          e.currentTarget.blur();
-        }
+      data-col={col}
+      onFocus={(e) => {
+        editing.current = true;
+        cancelled.current = false;
+        // replacing a number is what you usually came to do, as in the sheet
+        e.currentTarget.select();
       }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        editing.current = false;
+        if (!cancelled.current) commit();
+      }}
+      onKeyDown={(e) =>
+        sheetKeys(
+          e,
+          () => {
+            cancelled.current = true;
+            setDraft(formatNumber(value));
+          },
+          onMove,
+        )
+      }
       className={cn(
         CELL,
         "text-right font-mono text-[13px] tabular-nums",
         // a typed price is ink; a computed one prints as the placeholder, a step lighter
-        strong && "font-medium text-fg placeholder:font-normal placeholder:text-fg-muted",
-        className,
+        strong && "font-medium placeholder:font-normal placeholder:text-fg-muted",
       )}
     />
   );

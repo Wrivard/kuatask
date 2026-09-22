@@ -19,7 +19,18 @@ import { SearchBar } from "./search-bar";
  * Nothing else goes here: no avatar menu (that is settings), no "+ New" (that is
  * the composer).
  */
-export function Header({ title }: { title: string }) {
+export function Header({
+  title,
+  search = true,
+}: {
+  title: string;
+  /**
+   * Off where the page has its own search. On Facturation the box searched
+   * tasks — typing a client's name into it left the page for the task list,
+   * which is not what anybody looking at a client list meant.
+   */
+  search?: boolean;
+}) {
   return (
     <header className="flex h-14 items-center gap-4 border-b border-border px-6">
       {/*
@@ -37,9 +48,14 @@ export function Header({ title }: { title: string }) {
       </h1>
 
       {/* fixed, so the title gives way first and the ring never moves */}
-      <div className="flex min-w-0 flex-1 justify-end sm:w-[220px] sm:flex-none lg:w-[280px]">
-        <SearchBar />
-      </div>
+      {search ? (
+        <div className="flex min-w-0 flex-1 justify-end sm:w-[220px] sm:flex-none lg:w-[280px]">
+          <SearchBar />
+        </div>
+      ) : (
+        // keeps the ring at the right edge on a phone, where the title is hidden
+        <div className="flex-1 sm:hidden" />
+      )}
 
       <ProgressRing />
     </header>

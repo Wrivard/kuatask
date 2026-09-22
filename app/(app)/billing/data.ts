@@ -1,5 +1,9 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+/*
+  Shapes and normalisers shared by the server pages and the client sheet. No
+  server imports here: the sheet reads these too, and anything that pulls in
+  next/headers cannot be bundled for the browser. The session lookup lives in
+  context.ts.
+*/
 import type { BillingStatus } from "@/lib/billing";
 
 export type Client = {
@@ -25,31 +29,6 @@ export type Entry = {
 export const CLIENT_COLUMNS = "id, name, default_rate, archived_at";
 export const ENTRY_COLUMNS =
   "id, client_id, entry_on, title, detail, hours, rate, amount, status, created_at";
-
-/**
- * The signed-in person and their workspace, or a redirect.
- *
- * Both billing pages need exactly this and nothing else from the session, so it
- * is written once here rather than twice inline.
- */
-export async function billingContext() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: membership } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .eq("user_id", user.id)
-    .limit(1)
-    .maybeSingle();
-  if (!membership) redirect("/no-access");
-
-  return { supabase, workspaceId: membership.workspace_id as string };
-}
 
 /*
   Postgres `numeric` is exact, and some paths hand it over as a string to keep
