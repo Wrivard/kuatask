@@ -32,6 +32,7 @@ const NEEDED = [
   "search.ts",
   "calendar.ts",
   "routes.ts",
+  "fresh.ts",
 ];
 
 // inside the project, so node resolves date-fns from the local node_modules
@@ -59,6 +60,7 @@ const motion = await load("motion.ts");
 const search = await load("search.ts");
 const calendar = await load("calendar.ts");
 const routes = await load("routes.ts");
+const fresh = await load("fresh.ts");
 const reset = await load("session-reset.ts");
 const sound = await load("sound.ts");
 
@@ -1216,6 +1218,19 @@ section("Colours — the picker offers what the database accepts");
     "every one is a hex the CSS can use",
     [...block.matchAll(/"(#[0-9a-f]{6})"/g)].length === offered.length,
   );
+}
+
+section("Nouveau — three hours, then it is just a task");
+{
+  const { isFresh, FRESH_FOR_MS } = fresh;
+  const t0 = Date.parse("2026-09-22T14:00:00Z");
+  const at = new Date(t0).toISOString();
+  check("new the moment it is created", isFresh(at, t0));
+  check("still new a minute before three hours", isFresh(at, t0 + FRESH_FOR_MS - 60_000));
+  check("not new at three hours", !isFresh(at, t0 + FRESH_FOR_MS));
+  check("a clock slightly ahead reads as just now", isFresh(at, t0 - 5_000));
+  check("no timestamp is never new", !isFresh(null, t0) && !isFresh("", t0));
+  check("garbage is never new", !isFresh("not a date", t0));
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);

@@ -11,6 +11,8 @@ import { COMPLETION } from "@/lib/motion";
 import { daysFromToday, formatDueLabel, formatTime, isOverdue } from "@/lib/time";
 import { useStore, type Task } from "@/lib/store";
 import { useToggleWithFeedback } from "@/lib/completion";
+import { isFresh } from "@/lib/fresh";
+import { useMinute } from "@/lib/minute";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -81,6 +83,15 @@ function TaskRowImpl({
   const done = task.status === "done";
   const assignee = members.find((m) => m.id === task.assignee_id);
   const overdue = isOverdue(task.due_on, task.status);
+
+  /*
+    « Nouveau » for three hours after creation, so a task the other person added
+    while you were away is the first thing your eye lands on rather than one
+    more row in the same grey. Not on a finished task: once it is done, whether
+    you noticed it arriving no longer matters.
+  */
+  const minute = useMinute();
+  const fresh = !done && isFresh(task.created_at, minute);
 
   /*
     Inside "Aujourd'hui" the words "aujourd'hui" are noise, so a task due today
@@ -183,6 +194,20 @@ function TaskRowImpl({
         of the two and had the looser spacing.
       */}
       <div className="flex min-w-0 shrink-0 items-center gap-1.5">
+        {/*
+          Filled rather than outlined, so it cannot be mistaken for En cours,
+          which is the accent in outline. First in the group, nearest the title
+          it describes.
+        */}
+        {fresh && (
+          <span
+            title={copy.task.freshHint}
+            className="shrink-0 rounded-sm bg-accent px-1.5 py-px text-[11px] font-medium text-bg"
+          >
+            {copy.task.fresh}
+          </span>
+        )}
+
         {/*
           Whether a task has notes was only discoverable by opening it, which is
           the one thing the row exists to avoid. A glyph, not a count: the number
