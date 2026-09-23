@@ -419,11 +419,13 @@ export function BillingDashboard({
           color={ACCENTS.purple}
           hint={copy.billing.taxesHint}
         />
+        {/* on a phone the fifth tile would sit alone on a third row; it takes the row */}
         <Tile
           label={copy.billing.status.paid}
           value={overall.paid}
           color="var(--color-accent)"
           hint={copy.billing.beforeTax}
+          className="col-span-2 sm:col-span-1"
         />
       </div>
 
@@ -592,6 +594,7 @@ function Tile({
   active = false,
   hint,
   onClick,
+  className,
 }: {
   label: string;
   value: number;
@@ -599,6 +602,7 @@ function Tile({
   active?: boolean;
   hint?: string;
   onClick?: () => void;
+  className?: string;
 }) {
   const body = (
     <>
@@ -627,7 +631,7 @@ function Tile({
     </>
   );
 
-  const base = "min-w-0 rounded-md border px-3 py-2.5 text-left sm:px-4 sm:py-3";
+  const base = cn("min-w-0 rounded-md border px-3 py-2.5 text-left sm:px-4 sm:py-3", className);
   if (!onClick)
     return (
       <div className={cn(base, "border-border")}>

@@ -67,6 +67,9 @@ const STATUS_COLOR: Record<BillingStatus, string> = {
 const statusWash = (s: BillingStatus) =>
   `color-mix(in srgb, ${STATUS_COLOR[s]} ${s === "pending" ? 10 : 14}%, transparent)`;
 
+/** Not a product: the picker's last row, which opens the price list. */
+const MANAGE_PRODUCTS = "__manage__";
+
 /** The columns Enter moves down through, in order. The date and status are pickers. */
 type Col = "title" | "detail" | "hours" | "rate" | "amount";
 
@@ -238,6 +241,17 @@ export function ClientSheet({
       .on(
         "postgres_changes",
         {
+          event: "*",
+          schema: "public",
+          table: "billing_products",
+          filter: `workspace_id=eq.${workspaceId}`,
+        },
+        // the picker is served by the page; a new price list means a new render
+        () => touchServer(),
+      )
+      .on(
+        "postgres_changes",
+        {
           event: "UPDATE",
           schema: "public",
           table: "clients",
@@ -267,7 +281,7 @@ export function ClientSheet({
       document.removeEventListener("visibilitychange", onVisible);
       void supabase.removeChannel(channel);
     };
-  }, [supabase, initialClient.id, resync]);
+  }, [supabase, initialClient.id, resync, workspaceId, touchServer]);
 
   /* ------------------------------------------------------------- derived -- */
 
@@ -826,6 +840,11 @@ export function ClientSheet({
             <Select
               value=""
               onValueChange={(id) => {
+                // the last entry is the way to the price list itself
+                if (id === MANAGE_PRODUCTS) {
+                  router.push("/billing/produits");
+                  return;
+                }
                 const product = products.find((p) => p.id === id);
                 if (product) addFromProduct(product);
               }}
@@ -847,6 +866,10 @@ export function ClientSheet({
                     </span>
                   </SelectItem>
                 ))}
+                <span className="my-1 block h-px bg-border" />
+                <SelectItem value={MANAGE_PRODUCTS}>
+                  <span className="text-fg-muted">{copy.billing.manageProducts}</span>
+                </SelectItem>
               </SelectContent>
             </Select>
           )}

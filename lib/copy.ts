@@ -176,6 +176,7 @@ export const copy = {
     deleteProduct: "Supprimer le produit",
     productDeleted: (name: string) => `${name} supprimé`,
     fromProduct: "Depuis un produit",
+    manageProducts: "Gérer les produits…",
     lineAdded: (name: string) => `${name} ajouté`,
     withTaxes: "Avec taxes",
     subtotal: "Sous-total",

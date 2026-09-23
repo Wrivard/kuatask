@@ -41,6 +41,36 @@ export function ProductsClient({
 
   React.useEffect(() => setProducts(initial), [initial]);
 
+  /*
+    Both people price the same services, so a price changed on the other screen
+    should not wait for a reload. Coarse on purpose: the list is small and the
+    server already knows how to render it.
+  */
+  React.useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const channel = supabase
+      .channel(`billing-products:${workspaceId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "billing_products",
+          filter: `workspace_id=eq.${workspaceId}`,
+        },
+        () => {
+          clearTimeout(timer);
+          timer = setTimeout(() => router.refresh(), 400);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      clearTimeout(timer);
+      void supabase.removeChannel(channel);
+    };
+  }, [supabase, router, workspaceId]);
+
   function patch(id: string, p: Partial<Product>) {
     const before = products.find((x) => x.id === id);
     if (!before) return;
