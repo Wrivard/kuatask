@@ -23,6 +23,10 @@ import {
   isComputed,
   parseAmount,
   parseSheetPaste,
+  taxesOn,
+  formatRate,
+  GST_RATE,
+  QST_RATE,
   STATUSES,
   totals,
   type BillingStatus,
@@ -32,7 +36,7 @@ import { paidTone, tick } from "@/lib/sound";
 import { MICRO_LABEL } from "@/lib/type";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
-import { ENTRY_COLUMNS, toClient, toEntry, type Client, type Entry } from "./data";
+import { ENTRY_COLUMNS, toClient, toEntry, type Client, type Entry, type Product } from "./data";
 import { ClientSettings } from "./client-settings";
 import { PRIMARY, SECONDARY } from "./ui";
 
@@ -81,11 +85,14 @@ export function ClientSheet({
   client: initialClient,
   clients,
   initial,
+  products,
   workspaceId,
 }: {
   client: Client;
   clients: Client[];
   initial: Entry[];
+  /** The price list, for adding a line without retyping it. */
+  products: Product[];
   workspaceId: string;
 }) {
   const supabase = React.useMemo(() => createClient(), []);
@@ -268,6 +275,8 @@ export function ClientSheet({
   const sums = totals(entries, rate);
   const shownSum = shown.reduce((n, e) => n + amountOf(e, rate), 0);
   const shownHours = shown.reduce((n, e) => n + (e.hours ?? 0), 0);
+  // on what the filter is showing, so « À payer » gives the taxes of the invoice
+  const shownTax = taxesOn(shownSum);
 
   /* -------------------------------------------------------------- writes -- */
 
@@ -347,6 +356,30 @@ export function ClientSheet({
     if (filter === "paid") setFilter("all");
     setFocusId(entry.id);
     void insert(entry);
+  }
+
+  /*
+    A line from the price list: the product's name, detail and price, copied
+    in. Copied, not linked — the line is what was agreed that day, so a price
+    change next month does not rewrite an invoice already sent.
+  */
+  function addFromProduct(product: Product) {
+    const entry: Entry = {
+      id: crypto.randomUUID(),
+      client_id: client.id,
+      entry_on: today(),
+      title: product.name,
+      detail: product.detail,
+      hours: null,
+      rate: null,
+      amount: product.price,
+      status: "pending",
+      created_at: new Date().toISOString(),
+    };
+    setEntries((list) => [entry, ...list]);
+    if (filter === "paid") changeFilter("all");
+    void insert(entry);
+    toast(copy.billing.lineAdded(product.name));
   }
 
   /*
@@ -484,7 +517,12 @@ export function ClientSheet({
   async function copyForInvoice() {
     const pending = entries.filter((e) => e.status === "pending");
     if (pending.length === 0) return;
-    const text = invoiceText(client.name, pending, rate, copy.billing.invoiceHeading, copy.billing.totalLabel);
+    const text = invoiceText(client.name, pending, rate, copy.billing.invoiceHeading, {
+      subtotal: copy.billing.subtotal,
+      gst: copy.billing.gst,
+      qst: copy.billing.qst,
+      total: copy.billing.totalWithTaxes,
+    });
     try {
       await navigator.clipboard.writeText(text);
       toast(copy.billing.copied(pending.length));
@@ -775,10 +813,41 @@ export function ClientSheet({
           </Chip>
         ))}
 
-        <button type="button" onClick={addRow} className={cn(PRIMARY, "ml-auto")}>
-          <Plus className="size-4" strokeWidth={2} aria-hidden />
-          {copy.billing.addRow}
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          {products.length > 0 && (
+            <Select
+              value=""
+              onValueChange={(id) => {
+                const product = products.find((p) => p.id === id);
+                if (product) addFromProduct(product);
+              }}
+            >
+              <SelectTrigger
+                aria-label={copy.billing.fromProduct}
+                className={cn(SECONDARY, "px-3")}
+              >
+                {copy.billing.fromProduct}
+              </SelectTrigger>
+              <SelectContent>
+                {products.map((product) => (
+                  <SelectItem key={product.id} value={product.id}>
+                    <span className="flex w-full items-center justify-between gap-6">
+                      {product.name}
+                      <span className="tabular-nums text-fg-muted">
+                        {formatMoney(product.price)}
+                      </span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          <button type="button" onClick={addRow} className={PRIMARY}>
+            <Plus className="size-4" strokeWidth={2} aria-hidden />
+            {copy.billing.addRow}
+          </button>
+        </div>
       </div>
 
       {/*
@@ -935,6 +1004,21 @@ export function ClientSheet({
         </table>
       </div>
 
+      {/*
+        What the invoice says, under what the app counts. Every amount above is
+        before tax and stays that way — tax collected is the government's money
+        passing through, and counting it as revenue would overstate the year by
+        about fifteen per cent. This block is the arithmetic you would otherwise
+        do on a calculator before typing the invoice.
+      */}
+      <dl className="mt-4 ml-auto w-full max-w-[320px] text-[13px]">
+        <TaxLine label={copy.billing.subtotal} value={formatMoney(shownTax.subtotal)} />
+        <TaxLine label={`${copy.billing.gst} ${formatRate(GST_RATE)}`} value={formatMoney(shownTax.gst)} muted />
+        <TaxLine label={`${copy.billing.qst} ${formatRate(QST_RATE)}`} value={formatMoney(shownTax.qst)} muted />
+        <TaxLine label={copy.billing.totalWithTaxes} value={formatMoney(shownTax.total)} strong />
+      </dl>
+      <p className="mt-2 text-right text-[12px] text-fg-faint">{copy.billing.taxesNote}</p>
+
       <p className="mt-3 text-[12px] text-fg-faint">{copy.billing.keysHint}</p>
       </>
       )}
@@ -981,6 +1065,32 @@ function StatusPill({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+/** One line of the tax block: label left, amount right, total in ink. */
+function TaxLine({
+  label,
+  value,
+  muted = false,
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  muted?: boolean;
+  strong?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-baseline justify-between gap-6 py-1",
+        strong && "mt-1 border-t border-border pt-2 font-medium text-fg",
+        muted && "text-fg-muted",
+      )}
+    >
+      <dt>{label}</dt>
+      <dd className="tabular-nums">{value}</dd>
+    </div>
   );
 }
 

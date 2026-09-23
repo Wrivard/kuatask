@@ -116,6 +116,39 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_products: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          detail: string
+          id: string
+          name: string
+          price: number
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          detail?: string
+          id?: string
+          name: string
+          price?: number
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          detail?: string
+          id?: string
+          name?: string
+          price?: number
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           archived_at: string | null

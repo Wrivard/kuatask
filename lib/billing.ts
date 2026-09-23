@@ -257,7 +257,8 @@ export function invoiceText(
   lines: InvoiceLine[],
   clientRate: number,
   heading: string,
-  totalLabel: string,
+  /** The words for the last four lines, so this file holds no French. */
+  labels: { subtotal: string; gst: string; qst: string; total: string },
 ): string {
   const sorted = [...lines].sort((a, b) => a.entry_on.localeCompare(b.entry_on));
   const body = sorted.map((l) => {
@@ -273,8 +274,22 @@ export function invoiceText(
       .map((d) => `    ${d}`);
     return [`${l.title || '—'} — ${how}${formatMoney(amount)}`, ...detail].join('\n');
   });
-  const total = sorted.reduce((n, l) => n + amountOf(l, clientRate), 0);
-  return [`${clientName} — ${heading}`, '', ...body, '', `${totalLabel} : ${formatMoney(round2(total))}`].join('\n');
+  /*
+    The invoice's own arithmetic, so the taxes are not worked out again by
+    hand in QuickBooks: the subtotal is what was earned, the two taxes ride
+    on top of it, and the total is what the client pays.
+  */
+  const tax = taxesOn(sorted.reduce((n, l) => n + amountOf(l, clientRate), 0));
+  return [
+    `${clientName} — ${heading}`,
+    '',
+    ...body,
+    '',
+    `${labels.subtotal} : ${formatMoney(tax.subtotal)}`,
+    `${labels.gst} ${formatRate(GST_RATE)} : ${formatMoney(tax.gst)}`,
+    `${labels.qst} ${formatRate(QST_RATE)} : ${formatMoney(tax.qst)}`,
+    `${labels.total} : ${formatMoney(tax.total)}`,
+  ].join('\n');
 }
 
 /* ------------------------------------------------------------- sorting -- */
@@ -350,4 +365,46 @@ export function nextSort(current: Sort | null, key: SortKey): Sort | null {
   if (current?.key !== key) return { key, dir: 'desc' };
   if (current.dir === 'desc') return { key, dir: 'asc' };
   return null;
+}
+
+/* ---------------------------------------------------------------- taxes -- */
+
+/**
+ * Quebec's two sales taxes, as of writing: GST 5 % and QST 9.975 %.
+ *
+ * Both are charged, and both are charged on the amount before tax — Quebec
+ * stopped compounding the QST on the GST in 2013, so they are two percentages
+ * of the same subtotal, not one on top of the other.
+ */
+export const GST_RATE = 0.05;
+export const QST_RATE = 0.09975;
+
+export type Taxes = { subtotal: number; gst: number; qst: number; total: number };
+
+/**
+ * The taxes on a subtotal, each rounded to the cent on its own.
+ *
+ * Every amount stored in this app is before tax, and every total the app calls
+ * income is too: tax collected is the government's money passing through, and
+ * counting it as revenue would overstate a year by about 15 %. So this is a
+ * presentation on top of the figures rather than a change to them — the
+ * client's sheet shows what to put on the invoice, and « Payé » stays what was
+ * actually earned.
+ *
+ * Each tax is rounded separately because that is how an invoice prints them,
+ * and a total built from the rounded parts is the total the client pays.
+ */
+export function taxesOn(subtotal: number): Taxes {
+  const base = round2(subtotal);
+  const gst = round2(base * GST_RATE);
+  const qst = round2(base * QST_RATE);
+  return { subtotal: base, gst, qst, total: round2(base + gst + qst) };
+}
+
+// its own formatter: the money one stops at two decimals, and the QST has three
+const percent = new Intl.NumberFormat('fr-CA', { maximumFractionDigits: 3 });
+
+/** « 9,975 % » — the rate as it is printed beside the amount. */
+export function formatRate(rate: number): string {
+  return `${percent.format(Math.round(rate * 100 * 1000) / 1000)} %`;
 }

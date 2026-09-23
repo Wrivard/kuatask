@@ -1355,7 +1355,7 @@ section("Facturation — the invoice text pastes into QuickBooks as written");
     ],
     75,
     "à facturer",
-    "Total",
+    { subtotal: "Sous-total", gst: "TPS", qst: "TVQ", total: "Total avec taxes" },
   );
   const lines = text.split("\n");
 
@@ -1365,8 +1365,19 @@ section("Facturation — the invoice text pastes into QuickBooks as written");
   check("a blank detail line is dropped", !lines.includes("    "));
   check("hours show how the amount was made", text.includes("3 Pages service — 3 h × 150 $ = 450,00"), text);
   check("a fixed price shows only the price", /Pages SEO — 800,00\s\$/.test(text));
-  check("the total is the sum", /Total : 3\s750,00\s\$$/.test(text), lines.at(-1));
-  check("an untitled line still reads", invoiceText("X", [line({ entry_on: "2026-01-01", title: "", amount: 5 })], 75, "h", "T").includes("— — 5,00"));
+  check("the subtotal is the sum of the lines", /Sous-total : 3\s750,00\s\$/.test(text), text);
+  check(
+    "the two taxes are spelled out",
+    /TPS 5 % : 187,50\s\$/.test(text) && /TVQ 9,975 % : 374,06\s\$/.test(text),
+    text,
+  );
+  check("and the total is what the client pays", /Total avec taxes : 4\s311,56\s\$$/.test(text), lines.at(-1));
+  check("an untitled line still reads", invoiceText("X", [line({ entry_on: "2026-01-01", title: "", amount: 5 })], 75, "h", {
+    subtotal: "S",
+    gst: "TPS",
+    qst: "TVQ",
+    total: "T",
+  }).includes("— — 5,00"));
 }
 
 /*
@@ -1517,6 +1528,43 @@ section("Facturation — the client list sorts by the column you click");
   check("a second click sorts up", JSON.stringify(nextSort({ key: "paid", dir: "desc" }, "paid")) === JSON.stringify({ key: "paid", dir: "asc" }));
   check("a third gives the default order back", nextSort({ key: "paid", dir: "asc" }, "paid") === null);
   check("another column starts over", JSON.stringify(nextSort({ key: "paid", dir: "asc" }, "name")) === JSON.stringify({ key: "name", dir: "desc" }));
+}
+
+section("Facturation — Quebec's two taxes, beside the money rather than inside it");
+{
+  const { taxesOn, formatRate, GST_RATE, QST_RATE, totals } = billing;
+
+  check("the rates are Quebec's", GST_RATE === 0.05 && QST_RATE === 0.09975);
+
+  const t = taxesOn(1000);
+  check("GST on 1 000 is 50", t.gst === 50, String(t.gst));
+  check("QST on 1 000 is 99,75", t.qst === 99.75, String(t.qst));
+  check("and the client pays 1 149,75", t.total === 1149.75, String(t.total));
+  check(
+    "QST is not charged on the GST — Quebec stopped compounding in 2013",
+    taxesOn(100).qst === 9.98,
+    String(taxesOn(100).qst),
+  );
+
+  const gcsm = taxesOn(3750);
+  check("GCSM's 3 750 to invoice is 4 311,56 with tax", gcsm.total === 4311.56, String(gcsm.total));
+  check("each tax is rounded on its own, as an invoice prints them",
+        gcsm.gst === 187.5 && gcsm.qst === 374.06, `${gcsm.gst} / ${gcsm.qst}`);
+  check("nothing owed, nothing taxed", taxesOn(0).total === 0);
+
+  /*
+    The one that matters: tax is never income. The totals the dashboard shows
+    come from the rows, and the rows are before tax — so adding the tax view
+    must not have moved them.
+  */
+  const rows = [
+    { hours: null, rate: null, amount: 1000, status: "paid" },
+    { hours: null, rate: null, amount: 500, status: "pending" },
+  ];
+  check("the sums stay before tax", totals(rows, 75).paid === 1000 && totals(rows, 75).pending === 500);
+
+  check("the rate prints as Quebec writes it", formatRate(QST_RATE) === "9,975 %", formatRate(QST_RATE));
+  check("and a round one prints short", formatRate(GST_RATE) === "5 %", formatRate(GST_RATE));
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);

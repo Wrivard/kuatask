@@ -17,6 +17,7 @@ import { ACCENTS } from "@/components/task/assignee-dot";
 import {
   DEFAULT_RATE,
   formatMoney,
+  taxesOn,
   nextSort,
   sortClients,
   totals,
@@ -30,6 +31,7 @@ import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 import { normalize } from "@/lib/search";
 import type { Client, Entry } from "./data";
+import { BillingTabs } from "./tabs";
 import { NewClientForm } from "./new-client-form";
 import { FIELD, PRIMARY } from "./ui";
 
@@ -139,7 +141,7 @@ export function BillingDashboard({
     the list to the clients that answer it, largest first; clicking again, or
     the other tab, lets go.
   */
-  const [owing, setOwing] = React.useState<"pending" | "invoiced" | null>(null);
+  const [owing, setOwing] = React.useState<"pending" | "invoiced" | "outstanding" | null>(null);
   /*
     The column you clicked, or none for the default order. Kept in state rather
     than in the URL: it is how you are reading the list this minute, not where
@@ -295,11 +297,22 @@ export function BillingDashboard({
 
   return (
     <div className="max-w-[960px] px-6 py-6">
+      <BillingTabs />
+
       {/*
         Three figures, in the order money moves: earned and not yet billed,
         billed and not yet paid, paid. The first two are what needs doing.
       */}
-      <div className="mb-6 grid grid-cols-3 gap-2">
+      {/*
+        The money, in the order it moves: earned and not yet billed, billed and
+        not yet paid, the two together — what is owed you — then the tax that
+        will ride on top of it, then what has actually landed.
+
+        Every figure but Taxes is before tax, and Taxes is kept apart for that
+        reason: it is the government's money passing through, and adding it to
+        Payé would overstate the year by about fifteen per cent.
+      */}
+      <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-5">
         <Tile
           label={copy.billing.status.pending}
           value={overall.pending}
@@ -322,7 +335,30 @@ export function BillingDashboard({
             setShowArchived(false);
           }}
         />
-        <Tile label={copy.billing.status.paid} value={overall.paid} color="var(--color-accent)" />
+        <Tile
+          label={copy.billing.overdue}
+          value={overall.outstanding}
+          color={ACCENTS.blue}
+          active={owing === "outstanding"}
+          hint={copy.billing.showOwing.outstanding}
+          onClick={() => {
+            setOwing((o) => (o === "outstanding" ? null : "outstanding"));
+            setShowArchived(false);
+          }}
+        />
+        {/* what was collected with the paid money, and is owed to Revenu Québec */}
+        <Tile
+          label={copy.billing.taxesCollected}
+          value={taxesOn(overall.paid).gst + taxesOn(overall.paid).qst}
+          color={ACCENTS.purple}
+          hint={copy.billing.taxesHint}
+        />
+        <Tile
+          label={copy.billing.status.paid}
+          value={overall.paid}
+          color="var(--color-accent)"
+          hint={copy.billing.beforeTax}
+        />
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">

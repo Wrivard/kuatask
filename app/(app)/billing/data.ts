@@ -27,6 +27,15 @@ export type Entry = {
   created_at: string;
 };
 
+export type Product = {
+  id: string;
+  name: string;
+  detail: string;
+  price: number;
+  archived_at: string | null;
+};
+
+export const PRODUCT_COLUMNS = "id, name, detail, price, archived_at";
 export const CLIENT_COLUMNS = "id, name, default_rate, archived_at, created_at";
 export const ENTRY_COLUMNS =
   "id, client_id, entry_on, title, detail, hours, rate, amount, status, created_at";
@@ -45,4 +54,8 @@ export function toClient(row: Record<string, unknown>): Client {
 
 export function toEntry<T extends Partial<Entry>>(row: T): T {
   return { ...row, hours: num(row.hours), rate: num(row.rate), amount: num(row.amount) };
+}
+
+export function toProduct(row: Record<string, unknown>): Product {
+  return { ...(row as Product), price: num(row.price) ?? 0 };
 }

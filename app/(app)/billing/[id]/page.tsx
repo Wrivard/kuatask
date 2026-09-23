@@ -2,7 +2,15 @@ import { notFound } from "next/navigation";
 import { Header } from "@/components/shell/header";
 import { Unreachable } from "@/components/shell/unreachable";
 import { ClientSheet } from "../sheet-client";
-import { CLIENT_COLUMNS, ENTRY_COLUMNS, toClient, toEntry, type Entry } from "../data";
+import {
+  CLIENT_COLUMNS,
+  ENTRY_COLUMNS,
+  PRODUCT_COLUMNS,
+  toClient,
+  toEntry,
+  toProduct,
+  type Entry,
+} from "../data";
 import { billingContext } from "../context";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +23,7 @@ export default async function ClientBillingPage({ params }: { params: Promise<{ 
 
   const { supabase, workspaceId } = await billingContext();
 
-  const [clients, entries] = await Promise.all([
+  const [clients, entries, products] = await Promise.all([
     // all of them, for the switcher
     supabase.from("clients").select(CLIENT_COLUMNS).order("name"),
     supabase
@@ -24,6 +32,8 @@ export default async function ClientBillingPage({ params }: { params: Promise<{ 
       .eq("client_id", id)
       .order("entry_on", { ascending: false })
       .order("created_at", { ascending: false }),
+    // the price list, for adding a line without retyping it
+    supabase.from("billing_products").select(PRODUCT_COLUMNS).order("name"),
   ]);
 
   const error = clients.error ?? entries.error;
@@ -43,6 +53,7 @@ export default async function ClientBillingPage({ params }: { params: Promise<{ 
           client={client}
           clients={all}
           initial={((entries.data ?? []) as Entry[]).map(toEntry)}
+          products={(products.data ?? []).map((row) => toProduct(row)).filter((p) => p.archived_at === null)}
           workspaceId={workspaceId}
         />
       </div>
