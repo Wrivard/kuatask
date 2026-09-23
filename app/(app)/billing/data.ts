@@ -25,6 +25,8 @@ export type Entry = {
   amount: number | null;
   status: BillingStatus;
   created_at: string;
+  /** Touched by the trigger on every change, so it is when we last did something. */
+  updated_at: string;
 };
 
 export type Product = {
@@ -38,7 +40,7 @@ export type Product = {
 export const PRODUCT_COLUMNS = "id, name, detail, price, archived_at";
 export const CLIENT_COLUMNS = "id, name, default_rate, archived_at, created_at";
 export const ENTRY_COLUMNS =
-  "id, client_id, entry_on, title, detail, hours, rate, amount, status, created_at";
+  "id, client_id, entry_on, title, detail, hours, rate, amount, status, created_at, updated_at";
 
 /*
   Postgres `numeric` is exact, and some paths hand it over as a string to keep

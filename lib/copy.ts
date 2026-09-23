@@ -161,6 +161,8 @@ export const copy = {
     keysHint: "Entrée pour descendre, Maj+Entrée pour monter, Échap pour annuler. Montant vide = heures × taux. Colle des lignes d'Excel pour les importer.",
     archivedBadge: "Archivé",
     statusLabel: "Statut",
+    period: { all: "Tout", m1: "1 mois", m3: "3 mois", m6: "6 mois", y1: "1 an" },
+    lastActivity: "Dernière activité",
     tabClients: "Clients",
     tabProducts: "Produits",
     productsIntro:

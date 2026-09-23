@@ -12,6 +12,7 @@
 import { TZDate } from '@date-fns/tz';
 import {
   addDays,
+  subMonths,
   differenceInCalendarDays,
   endOfMonth,
   endOfWeek,
@@ -369,6 +370,18 @@ export function formatDueLabel(day: DayString): string {
  * and wrong for a bill — the sheet this replaces runs across 2025 and 2026, and
  * « 24 juillet » alone does not say which.
  */
+/**
+ * The Montreal day N months back from today.
+ *
+ * For « les 3 derniers mois » and its neighbours on the billing page. Months,
+ * not 30-day blocks: a period a person picks by name should end on the same
+ * day of the month it started, and date-fns clamps 31 May − 3 months to the
+ * last day of February rather than spilling into March.
+ */
+export function monthsAgoDay(months: number): DayString {
+  return toDayString(subMonths(nowTz(), months));
+}
+
 export function formatLedgerDate(day: DayString): string {
   return format(toDate(day), 'd MMM yyyy', { locale: fr });
 }

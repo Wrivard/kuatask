@@ -19,7 +19,10 @@ export default async function BillingPage() {
   const [clients, entries] = await Promise.all([
     supabase.from("clients").select(CLIENT_COLUMNS).order("name"),
     // only what the sums need — the dashboard never shows a row's text
-    supabase.from("billing_entries").select("client_id, entry_on, hours, rate, amount, status"),
+    // updated_at is what « dernière activité » means: the last time we touched it
+    supabase
+      .from("billing_entries")
+      .select("client_id, entry_on, hours, rate, amount, status, updated_at"),
   ]);
 
   const error = clients.error ?? entries.error;
@@ -31,7 +34,12 @@ export default async function BillingPage() {
       <div className="min-h-0 flex-1 overflow-y-auto">
         <BillingDashboard
           initialClients={(clients.data ?? []).map(toClient)}
-          entries={((entries.data ?? []) as Pick<Entry, "client_id" | "entry_on" | "hours" | "rate" | "amount" | "status">[]).map(toEntry)}
+          entries={(
+            (entries.data ?? []) as Pick<
+              Entry,
+              "client_id" | "entry_on" | "hours" | "rate" | "amount" | "status" | "updated_at"
+            >[]
+          ).map(toEntry)}
           workspaceId={workspaceId}
           renderedAt={Date.now()}
         />

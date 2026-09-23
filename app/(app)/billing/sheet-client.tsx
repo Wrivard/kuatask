@@ -34,6 +34,7 @@ import {
 import { formatLedgerDate, today } from "@/lib/time";
 import { paidTone, tick } from "@/lib/sound";
 import { MICRO_LABEL } from "@/lib/type";
+import { normalize } from "@/lib/search";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 import { ENTRY_COLUMNS, toClient, toEntry, type Client, type Entry, type Product } from "./data";
@@ -323,9 +324,10 @@ export function ClientSheet({
   }
 
   function insert(entry: Entry) {
-    // created_at is the server's to stamp
+    // created_at and updated_at are the server's to stamp
     const row: Partial<Entry> = { ...entry };
     delete row.created_at;
+    delete row.updated_at;
     return enqueue(entry.id, async () => {
       const { error } = await supabase
         .from("billing_entries")
@@ -350,6 +352,8 @@ export function ClientSheet({
       amount: null,
       status: "pending",
       created_at: new Date().toISOString(),
+      // the server stamps both; this is the optimistic stand-in
+      updated_at: new Date().toISOString(),
     };
     // at the top, where the newest rows are, and visible whatever the filter
     setEntries((list) => [entry, ...list]);
@@ -375,6 +379,8 @@ export function ClientSheet({
       amount: product.price,
       status: "pending",
       created_at: new Date().toISOString(),
+      // the server stamps both; this is the optimistic stand-in
+      updated_at: new Date().toISOString(),
     };
     setEntries((list) => [entry, ...list]);
     if (filter === "paid") changeFilter("all");
@@ -400,6 +406,7 @@ export function ClientSheet({
       client_id: client.id,
       // keeps the pasted order among rows that share a date
       created_at: new Date(now - i).toISOString(),
+      updated_at: new Date(now - i).toISOString(),
     }));
 
     // the sheet runs oldest-first and this page newest-first; imported rows
@@ -420,6 +427,7 @@ export function ClientSheet({
         rows.map((row) => {
           const copyRow: Partial<Entry> = { ...row };
           delete copyRow.created_at;
+          delete copyRow.updated_at;
           return { ...(copyRow as Omit<Entry, "created_at">), workspace_id: workspaceId };
         }),
       );
@@ -901,6 +909,14 @@ export function ClientSheet({
                 </Td>
                 <Td>
                   <TitleCell
+                    products={products}
+                    onPick={(product) =>
+                      patchEntry(e.id, {
+                        title: product.name,
+                        detail: product.detail || e.detail,
+                        amount: product.price,
+                      })
+                    }
                     value={e.title}
                     autoFocus={focusId === e.id}
                     onCommit={(title) => patchEntry(e.id, { title })}
@@ -1218,11 +1234,19 @@ function TextInput({
   autoFocus,
   strong = false,
   onDone,
+  onType,
+  onNavigate,
+  inputRef,
 }: {
   value: string;
   onCommit: (v: string) => void;
   /** Called once the field has been left, after committing. */
   onDone?: () => void;
+  /** Every keystroke, for a caller showing suggestions under the field. */
+  onType?: (value: string) => void;
+  /** Arrow keys and Enter, for that caller. True means it handled the key. */
+  onNavigate?: (key: string) => boolean;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
   onMove?: (step: 1 | -1) => void;
   col?: Col;
   label: string;
@@ -1235,6 +1259,7 @@ function TextInput({
 
   return (
     <input
+      ref={inputRef}
       value={draft}
       autoFocus={autoFocus}
       maxLength={maxLength}
@@ -1245,7 +1270,10 @@ function TextInput({
         editing.current = true;
         cancelled.current = false;
       }}
-      onChange={(e) => setDraft(e.target.value)}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        onType?.(e.target.value);
+      }}
       onBlur={() => {
         editing.current = false;
         if (!cancelled.current) {
@@ -1255,7 +1283,12 @@ function TextInput({
         }
         onDone?.();
       }}
-      onKeyDown={(e) =>
+      onKeyDown={(e) => {
+        // the suggestion list gets the arrows and Enter first, when it is open
+        if (onNavigate?.(e.key)) {
+          e.preventDefault();
+          return;
+        }
         sheetKeys(
           e,
           () => {
@@ -1263,22 +1296,33 @@ function TextInput({
             setDraft(value);
           },
           onMove,
-        )
-      }
+        );
+      }}
       className={cn(CELL, "h-full", strong && "font-medium")}
     />
   );
 }
 
 /**
- * The title: read as text, edited as a field.
+ * The title: read as text, edited as a field — and the field suggests the
+ * price list as you type.
  *
  * An input never wraps, so on a narrow screen every title was cut to its first
- * fifteen characters — « Forfait Propri » for two different forfaits. Shown as
- * text it wraps to two lines, and turns into the field on click or on focus,
- * which is also where Tab and Enter land, so the keyboard path is unchanged.
+ * fifteen characters. Shown as text it wraps to three lines, and turns into the
+ * field on click or on focus, which is also where Tab and Enter land.
+ *
+ * Typing is typing: the suggestions are an offer, never a requirement, and a
+ * line whose name is not in the price list is written the way it always was.
+ * Picking one fills the name, the detail and the price in a single write.
  */
-function TitleCell(props: React.ComponentProps<typeof TextInput>) {
+function TitleCell({
+  products = [],
+  onPick,
+  ...props
+}: React.ComponentProps<typeof TextInput> & {
+  products?: Product[];
+  onPick?: (product: Product) => void;
+}) {
   const [open, setOpen] = React.useState(Boolean(props.autoFocus));
 
   if (!open) {
@@ -1302,15 +1346,101 @@ function TitleCell(props: React.ComponentProps<typeof TextInput>) {
     );
   }
 
-  return <TextInput {...props} autoFocus onDone={() => setOpen(false)} />;
+  return (
+    <TitleField
+      {...props}
+      products={products}
+      onPick={onPick}
+      onDone={() => setOpen(false)}
+    />
+  );
 }
 
-/**
- * The date, as the browser's own picker. Committed on leaving rather than on
- * every change: typing a year into a date field passes through 0002, 0020 and
- * 0202 on its way to 2026, and each of those is a valid date that was being
- * saved.
- */
+/** The field itself, with the suggestion list under it. */
+function TitleField({
+  products,
+  onPick,
+  onDone,
+  ...props
+}: React.ComponentProps<typeof TextInput> & {
+  products: Product[];
+  onPick?: (product: Product) => void;
+}) {
+  const ref = React.useRef<HTMLInputElement>(null);
+  const [typed, setTyped] = React.useState(props.value);
+  const [at, setAt] = React.useState(0);
+  const picking = React.useRef(false);
+
+  const query = normalize(typed.trim());
+  const matches = products
+    .filter((product) => (query === "" ? true : normalize(product.name).includes(query)))
+    .slice(0, 6);
+  const list = onPick && matches.length > 0 ? matches : [];
+
+  const pick = (product: Product) => {
+    picking.current = true;
+    onPick?.(product);
+    onDone?.();
+  };
+
+  return (
+    <span className="relative block">
+      <TextInput
+        {...props}
+        inputRef={ref}
+        onType={setTyped}
+        onDone={() => {
+          // the click that picked already wrote the row; do not write the draft over it
+          if (!picking.current) onDone?.();
+        }}
+        onNavigate={(key) => {
+          if (list.length === 0) return false;
+          if (key === "ArrowDown") {
+            setAt((i) => (i + 1) % list.length);
+            return true;
+          }
+          if (key === "ArrowUp") {
+            setAt((i) => (i - 1 + list.length) % list.length);
+            return true;
+          }
+          if (key === "Enter" && at < list.length) {
+            pick(list[at]);
+            return true;
+          }
+          return false;
+        }}
+      />
+
+      {list.length > 0 && (
+        <span className="absolute left-0 top-full z-40 mt-1 block min-w-[240px] rounded-md border border-border bg-surface p-1 shadow-lg">
+          <span className={cn(MICRO_LABEL, "block px-2 py-1")}>{copy.billing.tabProducts}</span>
+          {list.map((product, i) => (
+            <button
+              key={product.id}
+              type="button"
+              // mousedown, not click: blur would close the list first
+              onMouseDown={(e) => {
+                e.preventDefault();
+                pick(product);
+              }}
+              onMouseEnter={() => setAt(i)}
+              className={cn(
+                "flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-left text-[13px]",
+                i === at && "bg-surface-hover",
+              )}
+            >
+              <span className="truncate">{product.name}</span>
+              <span className="shrink-0 tabular-nums text-fg-muted">
+                {formatMoney(product.price)}
+              </span>
+            </button>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function DateInput({
   value,
   onCommit,

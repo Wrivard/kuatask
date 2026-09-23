@@ -25,7 +25,7 @@ import {
   type SortKey,
   type Totals,
 } from "@/lib/billing";
-import { formatLedgerDate, instantToDay } from "@/lib/time";
+import { formatLedgerDate, instantToDay, monthsAgoDay } from "@/lib/time";
 import { MICRO_LABEL } from "@/lib/type";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
@@ -38,7 +38,24 @@ import { FIELD, PRIMARY } from "./ui";
 /** Older than this, a payload came from the router cache rather than the server. */
 const STALE_AFTER_MS = 5_000;
 
-type Money = Pick<Entry, "client_id" | "entry_on" | "hours" | "rate" | "amount" | "status">;
+type Money = Pick<
+  Entry,
+  "client_id" | "entry_on" | "hours" | "rate" | "amount" | "status" | "updated_at"
+>;
+
+/*
+  How far back the page is looking. Months rather than 30-day blocks, and
+  « Tout » first: the page's main job is the money owed, which has no period —
+  the others answer « what did we bill since the spring ».
+*/
+const PERIODS = [
+  { key: "all", months: 0 },
+  { key: "m1", months: 1 },
+  { key: "m3", months: 3 },
+  { key: "m6", months: 6 },
+  { key: "y1", months: 12 },
+] as const;
+type PeriodKey = (typeof PERIODS)[number]["key"];
 
 /**
  * The client list, with the money beside each name.
@@ -148,6 +165,19 @@ export function BillingDashboard({
     you are — a sorted list is not a place to come back to.
   */
   const [sort, setSort] = React.useState<Sort | null>(null);
+  const [period, setPeriod] = React.useState<PeriodKey>("all");
+
+  /*
+    The lines the page is counting. A period keeps the ones worked in it — by
+    their own date, the day the work happened, rather than the day somebody
+    last touched the row.
+  */
+  const months = PERIODS.find((p) => p.key === period)?.months ?? 0;
+  const since = months > 0 ? monthsAgoDay(months) : null;
+  const scoped = React.useMemo(
+    () => (since ? entries.filter((e) => e.entry_on >= since) : entries),
+    [entries, since],
+  );
   const [draft, setDraft] = React.useState("");
   const query = normalize(draft.trim());
   /** The new-client form, open, and the name it opened with (from the search). */
@@ -200,7 +230,7 @@ export function BillingDashboard({
 
   const rows = React.useMemo(() => {
     const byClient = new Map<string, Money[]>();
-    for (const e of entries) {
+    for (const e of scoped) {
       byClient.set(e.client_id, [...(byClient.get(e.client_id) ?? []), e]);
     }
 
@@ -212,13 +242,22 @@ export function BillingDashboard({
       )
       .map((c) => {
         const own = byClient.get(c.id) ?? [];
-        const last = own.reduce<string | null>(
-          (max, e) => (max === null || e.entry_on > max ? e.entry_on : max),
-          null,
-        );
+        /*
+          The last thing done on this client, not the last day a line is dated
+          for: marking an invoice paid today is activity, and a line dated next
+          month is not. Both are considered, so a row written today for a
+          future date still counts as today's work.
+        */
+        const last = own.reduce<string | null>((max, e) => {
+          const touched = instantToDay(e.updated_at);
+          const day = touched > e.entry_on ? touched : e.entry_on;
+          return max === null || day > max ? day : max;
+        }, null);
         return { client: c, t: totals(own, c.default_rate), last };
       })
-      .filter((r) => !owing || r.t[owing] > 0);
+      .filter((r) => !owing || r.t[owing] > 0)
+      // inside a period, a client with nothing in it is not part of the answer
+      .filter((r) => !since || (byClient.get(r.client.id)?.length ?? 0) > 0);
 
     /*
       Ordered by lib/billing.ts, where the rules are written down and tested:
@@ -238,20 +277,20 @@ export function BillingDashboard({
       })),
       sort,
     );
-  }, [clients, entries, showArchived, query, owing, sort]);
+  }, [clients, scoped, showArchived, query, owing, sort, since]);
 
   // the tiles count active clients only: an archived one is settled history
   const overall = React.useMemo(() => {
     const active = new Set(clients.filter((c) => c.archived_at === null).map((c) => c.id));
     const rate = new Map(clients.map((c) => [c.id, c.default_rate]));
     const sum: Totals = { pending: 0, invoiced: 0, paid: 0, outstanding: 0, all: 0 };
-    for (const e of entries) {
+    for (const e of scoped) {
       if (!active.has(e.client_id)) continue;
       const t = totals([e], rate.get(e.client_id) ?? DEFAULT_RATE);
       for (const k of Object.keys(sum) as (keyof Totals)[]) sum[k] += t[k];
     }
     return sum;
-  }, [clients, entries]);
+  }, [clients, scoped]);
 
   const exact = query ? clients.find((c) => normalize(c.name) === query) : undefined;
 
@@ -296,8 +335,19 @@ export function BillingDashboard({
   }
 
   return (
-    <div className="max-w-[960px] px-6 py-6">
-      <BillingTabs />
+    <div className="max-w-[1160px] px-6 py-6">
+      <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <BillingTabs className="mb-0" />
+
+        {/* how far back the figures and the list are looking */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {PERIODS.map((p) => (
+            <Chip key={p.key} active={period === p.key} onClick={() => setPeriod(p.key)}>
+              {copy.billing.period[p.key]}
+            </Chip>
+          ))}
+        </div>
+      </div>
 
       {/*
         Three figures, in the order money moves: earned and not yet billed,
@@ -460,7 +510,7 @@ export function BillingDashboard({
                 </SortHeader>
                 {/* the one column a phone can do without; the money is what it is opened for */}
                 <SortHeader sort={sort} onSort={setSort} column="last" right className="hidden sm:table-cell">
-                  {copy.billing.lastEntry}
+                  {copy.billing.lastActivity}
                 </SortHeader>
                 <SortHeader sort={sort} onSort={setSort} column="status">
                   {copy.billing.statusLabel}

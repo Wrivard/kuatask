@@ -17,11 +17,11 @@ const TABS = [
   { href: "/billing/produits", label: copy.billing.tabProducts },
 ];
 
-export function BillingTabs() {
+export function BillingTabs({ className }: { className?: string }) {
   const pathname = usePathname();
 
   return (
-    <nav className="mb-5 flex items-center gap-1" aria-label={copy.nav.billing}>
+    <nav className={cn("mb-5 flex items-center gap-1", className)} aria-label={copy.nav.billing}>
       {TABS.map(({ href, label }) => {
         // a client's own sheet belongs to the clients side
         const active = href === "/billing" ? !pathname.startsWith("/billing/produits") : pathname.startsWith(href);
