@@ -22,7 +22,9 @@ export default async function BillingPage() {
     // updated_at is what « dernière activité » means: the last time we touched it
     supabase
       .from("billing_entries")
-      .select("client_id, entry_on, hours, rate, amount, status, updated_at"),
+      // title and detail only to tell a real line from the empty row that
+      // « Ajouter une ligne » writes before you type into it
+      .select("client_id, entry_on, hours, rate, amount, status, updated_at, title, detail"),
   ]);
 
   const error = clients.error ?? entries.error;
@@ -37,7 +39,15 @@ export default async function BillingPage() {
           entries={(
             (entries.data ?? []) as Pick<
               Entry,
-              "client_id" | "entry_on" | "hours" | "rate" | "amount" | "status" | "updated_at"
+              | "client_id"
+              | "entry_on"
+              | "hours"
+              | "rate"
+              | "amount"
+              | "status"
+              | "updated_at"
+              | "title"
+              | "detail"
             >[]
           ).map(toEntry)}
           workspaceId={workspaceId}

@@ -17,6 +17,7 @@ import { ACCENTS } from "@/components/task/assignee-dot";
 import {
   DEFAULT_RATE,
   formatMoney,
+  isBlankEntry,
   taxesOn,
   nextSort,
   sortClients,
@@ -40,7 +41,15 @@ const STALE_AFTER_MS = 5_000;
 
 type Money = Pick<
   Entry,
-  "client_id" | "entry_on" | "hours" | "rate" | "amount" | "status" | "updated_at"
+  | "client_id"
+  | "entry_on"
+  | "hours"
+  | "rate"
+  | "amount"
+  | "status"
+  | "updated_at"
+  | "title"
+  | "detail"
 >;
 
 /*
@@ -174,10 +183,17 @@ export function BillingDashboard({
   */
   const months = PERIODS.find((p) => p.key === period)?.months ?? 0;
   const since = months > 0 ? monthsAgoDay(months) : null;
-  const scoped = React.useMemo(
-    () => (since ? entries.filter((e) => e.entry_on >= since) : entries),
-    [entries, since],
-  );
+  const scoped = React.useMemo(() => {
+    /*
+      Blank rows are not work. « Ajouter une ligne » writes the row before you
+      type into it, so an abandoned one would otherwise put today's date in
+      « dernière activité » and pull its client into a period, for a line that
+      says nothing. Deleting it takes it out of the table entirely; this is for
+      the ones still sitting there empty.
+    */
+    const real = entries.filter((e) => !isBlankEntry(e));
+    return since ? real.filter((e) => e.entry_on >= since) : real;
+  }, [entries, since]);
   const [draft, setDraft] = React.useState("");
   const query = normalize(draft.trim());
   /** The new-client form, open, and the name it opened with (from the search). */

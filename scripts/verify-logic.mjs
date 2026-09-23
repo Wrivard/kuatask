@@ -1567,5 +1567,19 @@ section("Facturation — Quebec's two taxes, beside the money rather than inside
   check("and a round one prints short", formatRate(GST_RATE) === "5 %", formatRate(GST_RATE));
 }
 
+section("Facturation — a line that says nothing is not activity");
+{
+  const { isBlankEntry } = billing;
+  const row = (o) => ({ title: "", detail: "", hours: null, rate: null, amount: null, ...o });
+
+  check("the row « Ajouter une ligne » writes is blank", isBlankEntry(row()));
+  check("a title makes it real", !isBlankEntry(row({ title: "Pages SEO" })));
+  check("so does a detail on its own", !isBlankEntry(row({ detail: "12 pages" })));
+  check("so do hours", !isBlankEntry(row({ hours: 1 })));
+  check("so does a price", !isBlankEntry(row({ amount: 0 })), "a typed zero is a decision");
+  check("and so does a rate typed alone", !isBlankEntry(row({ rate: 150 })));
+  check("whitespace is still nothing", isBlankEntry(row({ title: "   ", detail: " " })));
+}
+
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);
 process.exit(failures ? 1 : 0);

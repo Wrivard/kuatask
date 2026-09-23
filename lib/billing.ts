@@ -408,3 +408,24 @@ const percent = new Intl.NumberFormat('fr-CA', { maximumFractionDigits: 3 });
 export function formatRate(rate: number): string {
   return `${percent.format(Math.round(rate * 100 * 1000) / 1000)} %`;
 }
+
+/**
+ * A line that holds nothing yet.
+ *
+ * « Ajouter une ligne » writes the row before you type into it — that is what
+ * makes the cells editable — so a sheet can hold a row that says nothing at
+ * all, and one abandoned or deleted a moment later should leave no trace. The
+ * dashboard skips these: they are not work done, and a blank row must not be
+ * what « dernière activité » is reporting, nor put a client in a period.
+ */
+export function isBlankEntry(
+  e: Pick<EntryMoney, 'hours' | 'rate' | 'amount'> & { title: string; detail: string },
+): boolean {
+  return (
+    e.title.trim() === '' &&
+    e.detail.trim() === '' &&
+    e.hours === null &&
+    e.amount === null &&
+    e.rate === null
+  );
+}
