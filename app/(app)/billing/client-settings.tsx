@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronDown, Trash2 } from "lucide-react";
+import { Check, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatNumber, parseAmount } from "@/lib/billing";
 import { normalize } from "@/lib/search";
@@ -9,6 +9,12 @@ import { MICRO_LABEL } from "@/lib/type";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 import type { Client } from "./data";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import { FIELD, PANEL, SECONDARY } from "./ui";
 
 /**
@@ -141,29 +147,34 @@ export function ClientSettings({
             {copy.billing.statusLabel}
             <Saved on={saved === "status"} />
           </span>
-          <span className="relative block">
-            <select
-              value={archived ? "archived" : "active"}
-              onChange={async (e) => {
-                const next = e.target.value === "archived" ? new Date().toISOString() : null;
-                if (await onPatch({ archived_at: next })) setSaved("status");
-              }}
-              className={cn(FIELD, "w-36 cursor-pointer appearance-none pl-7 pr-8")}
-            >
-              <option value="active">{copy.billing.clientStatus.active}</option>
-              <option value="archived">{copy.billing.clientStatus.archived}</option>
-            </select>
-            <span
-              aria-hidden
-              className="pointer-events-none absolute left-2.5 top-1/2 size-2 -translate-y-1/2 rounded-full"
-              style={{ backgroundColor: archived ? "var(--color-fg-faint)" : "var(--color-accent)" }}
-            />
-            <ChevronDown
-              aria-hidden
-              className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-muted"
-              strokeWidth={1.5}
-            />
-          </span>
+          <Select
+            value={archived ? "archived" : "active"}
+            onValueChange={async (v) => {
+              const next = v === "archived" ? new Date().toISOString() : null;
+              if (await onPatch({ archived_at: next })) setSaved("status");
+            }}
+          >
+            <SelectTrigger aria-label={copy.billing.statusLabel} className={cn(FIELD, "w-36 px-2.5")}>
+              <span className="flex items-center gap-2">
+                <StatusDot archived={archived} />
+                {archived ? copy.billing.clientStatus.archived : copy.billing.clientStatus.active}
+              </span>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">
+                <span className="flex items-center gap-2">
+                  <StatusDot archived={false} />
+                  {copy.billing.clientStatus.active}
+                </span>
+              </SelectItem>
+              <SelectItem value="archived">
+                <span className="flex items-center gap-2">
+                  <StatusDot archived />
+                  {copy.billing.clientStatus.archived}
+                </span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </label>
       </div>
 
@@ -188,6 +199,17 @@ export function ClientSettings({
         </button>
       </div>
     </section>
+  );
+}
+
+/** Green for active, grey for archived — the same dot the list and the sheet use. */
+function StatusDot({ archived }: { archived: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className="size-1.5 shrink-0 rounded-full"
+      style={{ backgroundColor: archived ? "var(--color-fg-faint)" : "var(--color-accent)" }}
+    />
   );
 }
 

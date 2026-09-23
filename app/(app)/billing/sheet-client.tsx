@@ -3,10 +3,16 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, ChevronDown, Copy, Plus, Settings2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Copy, Plus, Settings2, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Chip } from "@/components/ui/chip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import { ACCENTS } from "@/components/task/assignee-dot";
 import {
   amountOf,
@@ -134,6 +140,25 @@ export function ClientSheet({
   /** How many writes of ours each row has in the air. Realtime yields to these. */
   const pending = React.useRef(new Map<string, number>());
 
+  /*
+    Tell the server side of the app that this client's numbers moved.
+
+    Marking a line Payé here changed nothing on the dashboard until the page
+    was reloaded: the totals are computed on the server, and Next keeps the
+    last render of /billing in its router cache, so going back showed the
+    figures from before the change. router.refresh() re-reads this page and
+    drops that cache, so the list is right when you get to it — and the other
+    person's screen hears about it over realtime anyway.
+
+    Debounced: ticking four lines in a row is one re-read, not four.
+  */
+  const refreshTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const touchServer = React.useCallback(() => {
+    clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(() => router.refresh(), 700);
+  }, [router]);
+  React.useEffect(() => () => clearTimeout(refreshTimer.current), []);
+
   const enqueue = React.useCallback((id: string, write: () => Promise<unknown>) => {
     pending.current.set(id, (pending.current.get(id) ?? 0) + 1);
     const next = (chain.current.get(id) ?? Promise.resolve())
@@ -258,6 +283,7 @@ export function ClientSheet({
 
     void enqueue(id, async () => {
       const { error } = await supabase.from("billing_entries").update(patch).eq("id", id);
+      if (!error) touchServer();
       if (error) {
         // only the fields this write touched go back; later edits survive
         const undo = Object.fromEntries(
@@ -295,6 +321,7 @@ export function ClientSheet({
       const { error } = await supabase
         .from("billing_entries")
         .insert({ ...(row as Omit<Entry, "created_at">), workspace_id: workspaceId });
+      if (!error) touchServer();
       if (error) {
         setEntries((list) => list.filter((e) => e.id !== entry.id));
         toast.error(copy.billing.saveFailed);
@@ -364,6 +391,7 @@ export function ClientSheet({
         }),
       );
       release();
+      if (!error) touchServer();
 
       if (error) {
         const ids = new Set(rows.map((r) => r.id));
@@ -385,6 +413,7 @@ export function ClientSheet({
                 .delete()
                 .in("id", ids);
               if (undoError) toast.error(copy.billing.saveFailed);
+              else touchServer();
             })();
           },
         },
@@ -425,6 +454,7 @@ export function ClientSheet({
       await prior;
       const { error } = await put(to);
       release();
+      if (!error) touchServer();
 
       if (error) {
         setEntries((list) => list.map((e) => (idSet.has(e.id) ? { ...e, status: from } : e)));
@@ -439,6 +469,7 @@ export function ClientSheet({
             setEntries((list) => list.map((e) => (idSet.has(e.id) ? { ...e, status: from } : e)));
             void put(from).then(({ error: undoError }) => {
               if (undoError) toast.error(copy.billing.saveFailed);
+              else touchServer();
             });
           },
         },
@@ -473,6 +504,7 @@ export function ClientSheet({
 
     void enqueue(entry.id, async () => {
       const { error } = await supabase.from("billing_entries").delete().eq("id", entry.id);
+      if (!error) touchServer();
       if (error) {
         setEntries((list) => insertAt(list, entry, index));
         toast.error(copy.billing.saveFailed);
@@ -857,30 +889,10 @@ export function ClientSheet({
                   />
                 </Td>
                 <Td>
-                  <span className="relative block">
-                    <select
-                      value={e.status}
-                      onChange={(ev) => patchEntry(e.id, { status: ev.target.value as BillingStatus })}
-                      aria-label={copy.billing.col.status}
-                      className={cn(
-                        "h-7 w-full cursor-pointer appearance-none rounded-full pl-3 pr-7 text-[12px] font-medium",
-                        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent",
-                      )}
-                      style={{ color: STATUS_COLOR[e.status], backgroundColor: statusWash(e.status) }}
-                    >
-                      {STATUSES.map((st) => (
-                        <option key={st} value={st} style={{ color: "initial" }}>
-                          {copy.billing.status[st]}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      aria-hidden
-                      className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2"
-                      style={{ color: STATUS_COLOR[e.status] }}
-                      strokeWidth={2}
-                    />
-                  </span>
+                  <StatusPill
+                    value={e.status}
+                    onChange={(status) => patchEntry(e.id, { status })}
+                  />
                 </Td>
                 <td className="border-b border-border px-1 py-1.5 text-center">
                   <button
@@ -927,6 +939,48 @@ export function ClientSheet({
       </>
       )}
     </div>
+  );
+}
+
+/**
+ * The row's status, as a tinted pill that opens the app's own menu.
+ *
+ * It was a native <select>: the browser drew the open list on its own sheet,
+ * and the trigger's colour carried into the options — « À facturer » in pale
+ * grey on the platform's near-white menu, unreadable on the dark theme until
+ * you hovered it. The menu is the app's surface now, in both themes.
+ */
+function StatusPill({
+  value,
+  onChange,
+}: {
+  value: BillingStatus;
+  onChange: (next: BillingStatus) => void;
+}) {
+  return (
+    <Select value={value} onValueChange={(v) => onChange(v as BillingStatus)}>
+      <SelectTrigger
+        aria-label={copy.billing.col.status}
+        className="h-7 w-full px-2.5 font-medium"
+        style={{ color: STATUS_COLOR[value], backgroundColor: statusWash(value) }}
+      >
+        {copy.billing.status[value]}
+      </SelectTrigger>
+      <SelectContent>
+        {STATUSES.map((st) => (
+          <SelectItem key={st} value={st}>
+            <span className="flex items-center gap-1.5">
+              <span
+                aria-hidden
+                className="size-1.5 rounded-full"
+                style={{ backgroundColor: STATUS_COLOR[st] }}
+              />
+              {copy.billing.status[st]}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 

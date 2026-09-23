@@ -276,3 +276,78 @@ export function invoiceText(
   const total = sorted.reduce((n, l) => n + amountOf(l, clientRate), 0);
   return [`${clientName} — ${heading}`, '', ...body, '', `${totalLabel} : ${formatMoney(round2(total))}`].join('\n');
 }
+
+/* ------------------------------------------------------------- sorting -- */
+
+/** The columns of the client list, and what a click on each one sorts by. */
+export type SortKey = 'name' | 'pending' | 'invoiced' | 'paid' | 'last' | 'status';
+export type Sort = { key: SortKey; dir: 'asc' | 'desc' };
+
+export type SortableClient = {
+  name: string;
+  archived: boolean;
+  /** The day of its most recent line, or the day it was created. */
+  activity: string;
+  last: string | null;
+  pending: number;
+  invoiced: number;
+  paid: number;
+  outstanding: number;
+};
+
+/**
+ * The client list's order.
+ *
+ * With no sort chosen it is the useful default: what is owed, largest first,
+ * then whatever moved most recently, then the name. Clicking a column sorts by
+ * that column and falls back to the name, so two clients with nothing in the
+ * column are still in an order you can look a name up in.
+ *
+ * A client with no lines at all sorts last on the money columns whichever way
+ * the arrow points — « nothing » is not the smallest amount, it is the absence
+ * of one, and burying the clients you have worked for under the ones you have
+ * not would be the wrong answer to both readings of the arrow.
+ */
+export function sortClients<T extends SortableClient>(rows: T[], sort: Sort | null): T[] {
+  const byName = (a: T, b: T) => a.name.localeCompare(b.name, 'fr');
+  const out = [...rows];
+
+  if (!sort) {
+    return out.sort(
+      (a, b) =>
+        b.outstanding - a.outstanding || b.activity.localeCompare(a.activity) || byName(a, b),
+    );
+  }
+
+  const flip = sort.dir === 'asc' ? -1 : 1;
+  return out.sort((a, b) => {
+    if (sort.key === 'name') return flip * -byName(a, b);
+    if (sort.key === 'status') {
+      // the first click puts the active clients on top, which is the useful way
+      return flip * (Number(a.archived) - Number(b.archived)) || byName(a, b);
+    }
+    if (sort.key === 'last') {
+      // never billed sorts last either way, like an empty money column
+      if (a.last === null || b.last === null) {
+        if (a.last === b.last) return byName(a, b);
+        return a.last === null ? 1 : -1;
+      }
+      return flip * b.last.localeCompare(a.last) || byName(a, b);
+    }
+
+    const av = a[sort.key];
+    const bv = b[sort.key];
+    if (av === 0 || bv === 0) {
+      if (av === bv) return byName(a, b);
+      return av === 0 ? 1 : -1;
+    }
+    return flip * (bv - av) || byName(a, b);
+  });
+}
+
+/** What one more click on a column does: down, then up, then back to the default. */
+export function nextSort(current: Sort | null, key: SortKey): Sort | null {
+  if (current?.key !== key) return { key, dir: 'desc' };
+  if (current.dir === 'desc') return { key, dir: 'asc' };
+  return null;
+}

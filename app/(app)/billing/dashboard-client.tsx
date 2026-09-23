@@ -3,12 +3,27 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, Plus, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Chip } from "@/components/ui/chip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import { ACCENTS } from "@/components/task/assignee-dot";
-import { DEFAULT_RATE, formatMoney, totals, type Totals } from "@/lib/billing";
+import {
+  DEFAULT_RATE,
+  formatMoney,
+  nextSort,
+  sortClients,
+  totals,
+  type Sort,
+  type SortKey,
+  type Totals,
+} from "@/lib/billing";
 import { formatLedgerDate, instantToDay } from "@/lib/time";
 import { MICRO_LABEL } from "@/lib/type";
 import { copy } from "@/lib/copy";
@@ -125,6 +140,12 @@ export function BillingDashboard({
     the other tab, lets go.
   */
   const [owing, setOwing] = React.useState<"pending" | "invoiced" | null>(null);
+  /*
+    The column you clicked, or none for the default order. Kept in state rather
+    than in the URL: it is how you are reading the list this minute, not where
+    you are — a sorted list is not a place to come back to.
+  */
+  const [sort, setSort] = React.useState<Sort | null>(null);
   const [draft, setDraft] = React.useState("");
   const query = normalize(draft.trim());
   /** The new-client form, open, and the name it opened with (from the search). */
@@ -181,7 +202,7 @@ export function BillingDashboard({
       byClient.set(e.client_id, [...(byClient.get(e.client_id) ?? []), e]);
     }
 
-    return clients
+    const shown = clients
       // typing searches both lists: finding a client should not depend on
       // remembering whether you archived it
       .filter((c) =>
@@ -195,23 +216,27 @@ export function BillingDashboard({
         );
         return { client: c, t: totals(own, c.default_rate), last };
       })
-      .filter((r) => !owing || r.t[owing] > 0)
-      /*
-        What is owed first; then whatever moved most recently — its last row,
-        or, for a client with none yet, the day it was created. Alphabetical
-        put a client made a minute ago at the bottom of seventeen, which read
-        as though creating it had not worked.
-      */
-      .sort(
-        (a, b) =>
-          (owing ? b.t[owing] - a.t[owing] : 0) ||
-          b.t.outstanding - a.t.outstanding ||
-          (b.last ?? instantToDay(b.client.created_at)).localeCompare(
-            a.last ?? instantToDay(a.client.created_at),
-          ) ||
-          a.client.name.localeCompare(b.client.name, "fr"),
-      );
-  }, [clients, entries, showArchived, query, owing]);
+      .filter((r) => !owing || r.t[owing] > 0);
+
+    /*
+      Ordered by lib/billing.ts, where the rules are written down and tested:
+      the default is what is owed then what moved last, and a clicked column
+      sorts by itself with the name as the tie-break.
+    */
+    return sortClients(
+      shown.map((r) => ({
+        ...r,
+        name: r.client.name,
+        archived: r.client.archived_at !== null,
+        activity: r.last ?? instantToDay(r.client.created_at),
+        pending: r.t.pending,
+        invoiced: r.t.invoiced,
+        paid: r.t.paid,
+        outstanding: r.t.outstanding,
+      })),
+      sort,
+    );
+  }, [clients, entries, showArchived, query, owing, sort]);
 
   // the tiles count active clients only: an archived one is settled history
   const overall = React.useMemo(() => {
@@ -378,15 +403,32 @@ export function BillingDashboard({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[420px] sm:min-w-[560px] border-collapse text-[14px]">
             <thead>
+              {/*
+                Every heading sorts. Down, then up, then back to the default —
+                so there is always a way out of an order you did not want, and
+                what you get back is the order the page opens on.
+              */}
               <tr className="border-b border-border text-left">
-                <th className={cn(MICRO_LABEL, "py-2 pr-3 font-medium")}>{copy.billing.clients}</th>
-                <th className={cn(MICRO_LABEL, "whitespace-nowrap py-2 pr-3 text-right font-medium")}>{copy.billing.status.pending}</th>
-                <th className={cn(MICRO_LABEL, "whitespace-nowrap py-2 pr-3 text-right font-medium")}>{copy.billing.status.invoiced}</th>
+                <SortHeader sort={sort} onSort={setSort} column="name">
+                  {copy.billing.clients}
+                </SortHeader>
+                <SortHeader sort={sort} onSort={setSort} column="pending" right>
+                  {copy.billing.status.pending}
+                </SortHeader>
+                <SortHeader sort={sort} onSort={setSort} column="invoiced" right>
+                  {copy.billing.status.invoiced}
+                </SortHeader>
                 {/* paid is history; on a phone the column goes to what is still owed */}
-                <th className={cn(MICRO_LABEL, "hidden whitespace-nowrap py-2 pr-3 text-right font-medium sm:table-cell")}>{copy.billing.status.paid}</th>
+                <SortHeader sort={sort} onSort={setSort} column="paid" right className="hidden sm:table-cell">
+                  {copy.billing.status.paid}
+                </SortHeader>
                 {/* the one column a phone can do without; the money is what it is opened for */}
-                <th className={cn(MICRO_LABEL, "hidden py-2 pr-3 text-right font-medium sm:table-cell")}>{copy.billing.lastEntry}</th>
-                <th className={cn(MICRO_LABEL, "py-2 pr-3 font-medium")}>{copy.billing.statusLabel}</th>
+                <SortHeader sort={sort} onSort={setSort} column="last" right className="hidden sm:table-cell">
+                  {copy.billing.lastEntry}
+                </SortHeader>
+                <SortHeader sort={sort} onSort={setSort} column="status">
+                  {copy.billing.statusLabel}
+                </SortHeader>
                 <th className="w-6" aria-hidden />
               </tr>
             </thead>
@@ -508,6 +550,63 @@ function Tile({
   );
 }
 
+/**
+ * A column heading that sorts, and says which way.
+ *
+ * `aria-sort` on the cell is what a screen reader reads; the arrow is for
+ * everyone else. The button fills the cell, so the target is the heading
+ * rather than the word inside it.
+ */
+function SortHeader({
+  column,
+  sort,
+  onSort,
+  right = false,
+  className,
+  children,
+}: {
+  column: SortKey;
+  sort: Sort | null;
+  onSort: (next: Sort | null) => void;
+  right?: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const on = sort?.key === column;
+  return (
+    <th
+      aria-sort={on ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+      className={cn("whitespace-nowrap py-1 pr-3", className)}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(nextSort(sort, column))}
+        className={cn(
+          MICRO_LABEL,
+          "group/sort flex w-full items-center gap-1 rounded-sm py-1 font-medium hover:text-fg",
+          on && "text-fg",
+          right && "justify-end",
+        )}
+      >
+        {children}
+        {on ? (
+          sort.dir === "asc" ? (
+            <ArrowUp className="size-3" strokeWidth={2.5} aria-hidden />
+          ) : (
+            <ArrowDown className="size-3" strokeWidth={2.5} aria-hidden />
+          )
+        ) : (
+          <ArrowDown
+            className="size-3 opacity-0 transition-opacity group-hover/sort:opacity-40"
+            strokeWidth={2.5}
+            aria-hidden
+          />
+        )}
+      </button>
+    </th>
+  );
+}
+
 /** A zero is a dash, so the amounts that matter are the only numbers in the column. */
 function MoneyCell({
   value,
@@ -544,37 +643,47 @@ function StatusSelect({
   archived: boolean;
   onChange: (archived: boolean) => void;
 }) {
-  const color = archived ? "var(--color-fg-muted)" : "var(--color-accent)";
+  const colour = (a: boolean) => (a ? "var(--color-fg-muted)" : "var(--color-accent)");
+  const dot = (a: boolean) => (
+    <span
+      aria-hidden
+      className="size-1.5 shrink-0 rounded-full"
+      style={{ backgroundColor: colour(a) }}
+    />
+  );
+
   return (
-    <span className="relative inline-block">
-      <select
-        value={archived ? "archived" : "active"}
-        onChange={(e) => onChange(e.target.value === "archived")}
+    <Select
+      value={archived ? "archived" : "active"}
+      onValueChange={(v) => onChange(v === "archived")}
+    >
+      <SelectTrigger
         aria-label={copy.billing.statusLabel}
-        className={cn(
-          "h-7 cursor-pointer appearance-none rounded-full pl-6 pr-7 text-[12px] font-medium",
-          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent",
-        )}
-        style={{ color, backgroundColor: `color-mix(in srgb, ${color} 13%, transparent)` }}
+        className="h-7 px-2.5 font-medium"
+        style={{
+          color: colour(archived),
+          backgroundColor: `color-mix(in srgb, ${colour(archived)} 13%, transparent)`,
+        }}
       >
-        <option value="active" style={{ color: "initial" }}>
-          {copy.billing.clientStatus.active}
-        </option>
-        <option value="archived" style={{ color: "initial" }}>
-          {copy.billing.clientStatus.archived}
-        </option>
-      </select>
-      <span
-        aria-hidden
-        className="pointer-events-none absolute left-2.5 top-1/2 size-1.5 -translate-y-1/2 rounded-full"
-        style={{ backgroundColor: color }}
-      />
-      <ChevronDown
-        aria-hidden
-        className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2"
-        style={{ color }}
-        strokeWidth={2}
-      />
-    </span>
+        <span className="flex items-center gap-1.5">
+          {dot(archived)}
+          {archived ? copy.billing.clientStatus.archived : copy.billing.clientStatus.active}
+        </span>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="active">
+          <span className="flex items-center gap-2">
+            {dot(false)}
+            {copy.billing.clientStatus.active}
+          </span>
+        </SelectItem>
+        <SelectItem value="archived">
+          <span className="flex items-center gap-2">
+            {dot(true)}
+            {copy.billing.clientStatus.archived}
+          </span>
+        </SelectItem>
+      </SelectContent>
+    </Select>
   );
 }

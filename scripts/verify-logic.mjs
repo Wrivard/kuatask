@@ -1429,5 +1429,95 @@ section("Compositeur — « @nous » assigns to both");
   check("no handle, no sharing", make("Ranger").shared === false);
 }
 
+section("Facturation — the client list sorts by the column you click");
+{
+  const { sortClients, nextSort } = billing;
+  const c = (name, o = {}) => ({
+    name,
+    archived: false,
+    activity: "2026-01-01",
+    last: null,
+    pending: 0,
+    invoiced: 0,
+    paid: 0,
+    outstanding: 0,
+    ...o,
+  });
+  const rows = [
+    c("GCSM", { pending: 3750, outstanding: 3750, last: "2026-07-24", activity: "2026-07-24", paid: 3500 }),
+    c("AXUM", { invoiced: 753.75, outstanding: 753.75, last: "2026-08-17", activity: "2026-08-17" }),
+    c("Bégin", { invoiced: 300, outstanding: 300, last: "2026-06-18", activity: "2026-06-18" }),
+    c("test", { activity: "2026-09-22" }),
+    c("Vieux client", { archived: true, paid: 100, activity: "2025-01-01", last: "2025-01-01" }),
+  ];
+  const names = (r) => r.map((x) => x.name);
+
+  check(
+    "no sort: what is owed, then what moved last",
+    names(sortClients(rows, null)).join(",") === "GCSM,AXUM,Bégin,test,Vieux client",
+    names(sortClients(rows, null)).join(","),
+  );
+
+  check(
+    "by name ascending is alphabetical",
+    names(sortClients(rows, { key: "name", dir: "asc" })).join(",") ===
+      "AXUM,Bégin,GCSM,test,Vieux client",
+    names(sortClients(rows, { key: "name", dir: "asc" })).join(","),
+  );
+  check(
+    "and descending is its mirror",
+    names(sortClients(rows, { key: "name", dir: "desc" })).join(",") ===
+      "Vieux client,test,GCSM,Bégin,AXUM",
+  );
+
+  check(
+    "by Facturé, largest first",
+    names(sortClients(rows, { key: "invoiced", dir: "desc" })).slice(0, 2).join(",") === "AXUM,Bégin",
+  );
+  check(
+    "by Facturé ascending, smallest first — but the empty ones stay at the bottom",
+    names(sortClients(rows, { key: "invoiced", dir: "asc" })).join(",") ===
+      "Bégin,AXUM,GCSM,test,Vieux client",
+    names(sortClients(rows, { key: "invoiced", dir: "asc" })).join(","),
+  );
+
+  check(
+    "by Payé",
+    names(sortClients(rows, { key: "paid", dir: "desc" })).slice(0, 2).join(",") === "GCSM,Vieux client",
+  );
+
+  check(
+    "by Dernière entrée, newest first",
+    names(sortClients(rows, { key: "last", dir: "desc" })).slice(0, 2).join(",") === "AXUM,GCSM",
+    names(sortClients(rows, { key: "last", dir: "desc" })).join(","),
+  );
+  check(
+    "a client with no line yet has no last entry, so it sorts last either way",
+    names(sortClients(rows, { key: "last", dir: "asc" })).at(-1) === "test",
+    names(sortClients(rows, { key: "last", dir: "asc" })).join(","),
+  );
+
+  check(
+    "by Statut, the first click puts the active ones first",
+    names(sortClients(rows, { key: "status", dir: "desc" })).at(-1) === "Vieux client",
+    names(sortClients(rows, { key: "status", dir: "desc" })).join(","),
+  );
+  check(
+    "and the second puts the archived ones first",
+    names(sortClients(rows, { key: "status", dir: "asc" }))[0] === "Vieux client",
+  );
+
+  check("ties fall back to the name, so the list never shuffles",
+        names(sortClients(rows, { key: "pending", dir: "desc" })).slice(1).join(",") ===
+          "AXUM,Bégin,test,Vieux client");
+
+  check("sorting does not mutate what it was given", names(rows)[0] === "GCSM");
+
+  check("a first click sorts down", JSON.stringify(nextSort(null, "paid")) === JSON.stringify({ key: "paid", dir: "desc" }));
+  check("a second click sorts up", JSON.stringify(nextSort({ key: "paid", dir: "desc" }, "paid")) === JSON.stringify({ key: "paid", dir: "asc" }));
+  check("a third gives the default order back", nextSort({ key: "paid", dir: "asc" }, "paid") === null);
+  check("another column starts over", JSON.stringify(nextSort({ key: "paid", dir: "asc" }, "name")) === JSON.stringify({ key: "name", dir: "desc" }));
+}
+
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);
 process.exit(failures ? 1 : 0);
