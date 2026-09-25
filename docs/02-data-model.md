@@ -27,6 +27,7 @@ The full migration is in `supabase/migrations/0001_init.sql`. Apply it as-is. Th
 | `due_time` | Optional `time`, only meaningful with `due_on` |
 | `assignee_id` | Nullable, `on delete set null` |
 | `shared` | `boolean not null default false` — both members. Exclusive with `assignee_id` by CHECK; see 0024 |
+| `recur` | `daily / weekdays / weekly / biweekly / monthly`, nullable. The next occurrence is written by the client when this one is completed; see 0026 |
 | `created_by` | Not null — used for the "Créé par X" line in the modal |
 | `completed_at` / `completed_by` | Set by trigger, never by the client |
 | `position` | `double precision`, fractional indexing for manual reorder |

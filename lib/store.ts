@@ -16,12 +16,14 @@
 import { create } from 'zustand';
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/database.types';
-import { now, recentCompletionCutoff, type DayString } from '@/lib/time';
+import { instantToDay, now, recentCompletionCutoff, type DayString } from '@/lib/time';
+import { isRecurrence, nextFrom } from '@/lib/recurrence';
 import { isTransportFailure, type Refusal } from '@/lib/errors';
 import { parseQuery } from '@/lib/search';
 import { setSoundEnabled as applySoundEnabled } from '@/lib/sound';
 
 export type Task = Database['public']['Tables']['tasks']['Row'];
+export type Subtask = Database['public']['Tables']['subtasks']['Row'];
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 
 /**
@@ -53,6 +55,15 @@ const SERVER_OWNED: readonly (keyof Task)[] = ['completed_at', 'completed_by', '
 
 type Store = {
   tasks: Task[];
+  /**
+   * The steps inside tasks, by task id.
+   *
+   * A checklist, not tasks: no bucket, no assignee, no status of its own — see
+   * 0026. Held here rather than fetched per task because the list shows « 2/5 »
+   * on the row itself, and a count that arrives after the row has drawn is a
+   * row that moves under your eyes.
+   */
+  subtasks: Record<string, Subtask[]>;
   members: Profile[];
   me: Profile | null;
   workspaceId: string | null;
@@ -105,6 +116,7 @@ type Store = {
    */
   seed: (payload: {
     tasks: Task[];
+    subtasks: Subtask[];
     members: Profile[];
     me: Profile | null;
     workspaceId: string;
@@ -155,6 +167,12 @@ type Store = {
    * Shift+Enter creates it and opens it, for the ones that need a note.
    */
   createTask: (input: Partial<Task> & { title: string }) => string | null;
+
+  /** A step inside a task. Returns its id, like createTask, or null. */
+  addSubtask: (taskId: string, title: string) => string | null;
+  toggleSubtask: (id: string) => void;
+  renameSubtask: (id: string, title: string) => void;
+  deleteSubtask: (id: string) => void;
   updateTask: (id: string, patch: Partial<Task>) => void;
   toggleTask: (id: string) => void;
   deleteTask: (id: string) => void;
@@ -185,6 +203,9 @@ type Store = {
    * stayed open the board was labelled with a name that no longer existed.
    */
   applyRemoteProfile: (row: Profile) => void;
+
+  /** A checklist row changed on the other screen. */
+  applyRemoteSubtask: (type: 'INSERT' | 'UPDATE' | 'DELETE', row: Subtask) => void;
 
   /**
    * Empties the store on the way out.
@@ -369,6 +390,34 @@ export const useStore = create<Store>((set, get) => {
     return next;
   };
 
+  const setSubtasks = (taskId: string, list: Subtask[]) =>
+    set((s) => ({ subtasks: { ...s.subtasks, [taskId]: list } }));
+
+  /** One optimistic write to a checklist row, with its own rollback. */
+  const writeSubtask = (id: string, patch: Partial<Subtask>) => {
+    const found = findSubtask(get().subtasks, id);
+    if (!found) return;
+    const { taskId, row } = found;
+
+    patchSubtask(taskId, id, patch);
+
+    void serial([id], async () => {
+      const { error } = await withRetry(() => supabase.from('subtasks').update(patch).eq('id', id));
+      if (error) {
+        patchSubtask(taskId, id, pick(row, Object.keys(patch) as (keyof Subtask)[]));
+        toastError(error);
+      }
+    });
+  };
+
+  const patchSubtask = (taskId: string, id: string, patch: Partial<Subtask>) =>
+    set((s) => ({
+      subtasks: {
+        ...s.subtasks,
+        [taskId]: (s.subtasks[taskId] ?? []).map((x) => (x.id === id ? { ...x, ...patch } : x)),
+      },
+    }));
+
   const patchLocal = (id: string, patch: Partial<Task>) =>
     set((s) => ({
       tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)),
@@ -376,6 +425,7 @@ export const useStore = create<Store>((set, get) => {
 
   return {
     tasks: [],
+    subtasks: {},
     members: [],
     me: null,
     workspaceId: null,
@@ -434,7 +484,7 @@ export const useStore = create<Store>((set, get) => {
       }
     },
 
-    seed({ tasks, members, me, workspaceId, completionDays }) {
+    seed({ tasks, subtasks, members, me, workspaceId, completionDays }) {
       if (get().ready) return; // a second view mounting must not reset state
 
       if (me) applySoundEnabled(me.sound_enabled);
@@ -450,6 +500,7 @@ export const useStore = create<Store>((set, get) => {
 
       set({
         tasks,
+        subtasks: byTask(subtasks),
         members,
         me,
         workspaceId,
@@ -463,7 +514,8 @@ export const useStore = create<Store>((set, get) => {
       const wsId = get().workspaceId;
       if (!wsId) return;
 
-      const [{ data: rows }, { data: members }, { data: completions }] = await Promise.all([
+      const [{ data: rows }, { data: members }, { data: completions }, { data: steps }] =
+        await Promise.all([
         // the same window as the shell's first query — an unbounded refetch here
         // silently gave back everything the bounded first load had saved
         supabase
@@ -478,11 +530,16 @@ export const useStore = create<Store>((set, get) => {
         // more here: resync runs on every reconnect, every wake from sleep, and
         // once a minute while the socket is down.
         supabase.rpc('completion_days'),
-      ]);
+          // small, and scoped by RLS through the tasks they belong to
+          supabase.from('subtasks').select('*'),
+        ]);
       if (!rows) return;
 
       // the streak's history can move while a tab sleeps, so refresh it too
       const days = completions ?? get().completionDays;
+      // checklists come back whole: they are small, and a row being written
+      // locally keeps its optimistic copy through `pending` below
+      const freshSubtasks = steps ? byTask(steps) : null;
 
       set((s) => {
         /*
@@ -511,8 +568,26 @@ export const useStore = create<Store>((set, get) => {
         );
 
         const me = members?.find((m) => m.id === s.me?.id) ?? s.me;
+        /*
+          Checklists, with the same local precedence: a row being written keeps
+          the value on screen, and a row the server has not seen yet stays.
+        */
+        const subtasks = freshSubtasks
+          ? Object.fromEntries(
+              // the tasks the server answered for, plus any whose checklist is
+              // still being written here
+              Object.keys({ ...freshSubtasks, ...pendingOnly(s.subtasks, s.pending) }).map(
+                (taskId) => [
+                  taskId,
+                  mergeSubtasks(freshSubtasks[taskId] ?? [], s.subtasks[taskId] ?? [], s.pending),
+                ],
+              ),
+            )
+          : s.subtasks;
+
         return {
           tasks: [...merged, ...keep],
+          subtasks,
           members: members ?? s.members,
           completionDays: days,
           me,
@@ -536,6 +611,11 @@ export const useStore = create<Store>((set, get) => {
         due_time: input.due_time ?? null,
         assignee_id: input.shared ? null : (input.assignee_id ?? null),
         shared: input.shared ?? false,
+        // the colour and the repeat rule were not copied, so a task created
+        // with either — duplicating one, or the next turn of a recurring one —
+        // quietly lost it
+        color: input.color ?? null,
+        recur: input.recur ?? null,
         created_by: me.id,
         completed_at: null,
         completed_by: null,
@@ -583,6 +663,75 @@ export const useStore = create<Store>((set, get) => {
       })();
 
       return optimistic.id;
+    },
+
+    /*
+      The steps inside a task.
+
+      Optimistic and chained like everything else, but simpler: a checklist
+      item has no undo stack of its own — it is one checkbox inside a task, and
+      ⌘Z is for the task. A failed write puts the list back and says so.
+    */
+    addSubtask(taskId, title) {
+      const clean = title.trim().slice(0, 200);
+      if (clean === '' || !get().tasks.some((t) => t.id === taskId)) return null;
+
+      const list = get().subtasks[taskId] ?? [];
+      const row: Subtask = {
+        id: crypto.randomUUID(),
+        task_id: taskId,
+        title: clean,
+        done: false,
+        // after the last one, the way a list you are writing grows downwards
+        position: (list[list.length - 1]?.position ?? 0) + 1,
+        created_at: new Date(now()).toISOString(),
+      };
+
+      setSubtasks(taskId, [...list, row]);
+
+      void serial([row.id], async () => {
+        const { error } = await withRetry(() => supabase.from('subtasks').insert(row));
+        if (error) {
+          setSubtasks(taskId, (get().subtasks[taskId] ?? []).filter((x) => x.id !== row.id));
+          toastError(error);
+        }
+      });
+
+      return row.id;
+    },
+
+    toggleSubtask(id) {
+      const found = findSubtask(get().subtasks, id);
+      if (!found) return;
+      writeSubtask(id, { done: !found.row.done });
+    },
+
+    renameSubtask(id, title) {
+      const clean = title.trim().slice(0, 200);
+      if (clean === '') {
+        get().deleteSubtask(id);
+        return;
+      }
+      writeSubtask(id, { title: clean });
+    },
+
+    deleteSubtask(id) {
+      const found = findSubtask(get().subtasks, id);
+      if (!found) return;
+      const { taskId, row } = found;
+      const at = (get().subtasks[taskId] ?? []).findIndex((x) => x.id === id);
+
+      setSubtasks(taskId, (get().subtasks[taskId] ?? []).filter((x) => x.id !== id));
+
+      void serial([id], async () => {
+        const { error } = await withRetry(() => supabase.from('subtasks').delete().eq('id', id));
+        if (error) {
+          const list = [...(get().subtasks[taskId] ?? [])];
+          list.splice(Math.max(at, 0), 0, row);
+          setSubtasks(taskId, list);
+          toastError(error);
+        }
+      });
     },
 
     updateTask(id, patch) {
@@ -663,6 +812,41 @@ export const useStore = create<Store>((set, get) => {
         completed_at: done ? new Date(now()).toISOString() : null,
         completed_by: done ? (get().me?.id ?? null) : null,
       } as Partial<Task>);
+
+      /*
+        A task that comes back writes its next occurrence here, the moment this
+        one is ticked — no scheduler, nothing to run while nobody is, and
+        nothing to keep making occurrences of a routine that has been dropped.
+
+        Counted from the day it was due rather than from today, so a weekly
+        task finished three days late does not walk three days later every
+        week. Its steps come along, unticked: a routine's checklist is the
+        routine.
+      */
+      if (done && isRecurrence(t.recur)) {
+        const nextId = get().createTask({
+          ...pick(t, [
+            'title',
+            'notes',
+            'label',
+            'important',
+            'due_time',
+            'assignee_id',
+            'shared',
+            'color',
+            'recur',
+          ]),
+          title: t.title,
+          due_on: nextFrom(t.recur, t.due_on, instantToDay(new Date(now()).toISOString())),
+        });
+
+        if (nextId) {
+          for (const step of get().subtasks[id] ?? []) {
+            get().addSubtask(nextId, step.title);
+          }
+          toastRecurred(nextId);
+        }
+      }
     },
 
     /*
@@ -850,6 +1034,7 @@ export const useStore = create<Store>((set, get) => {
     clear() {
       set({
         tasks: [],
+        subtasks: {},
         members: [],
         me: null,
         workspaceId: null,
@@ -859,6 +1044,24 @@ export const useStore = create<Store>((set, get) => {
         undoStack: [],
         completionDays: [],
       });
+    },
+
+    applyRemoteSubtask(type, row) {
+      if (!row?.id) return;
+      // a row we are writing is newer here than whatever the socket just said
+      if (get().pending.has(row.id)) return;
+
+      const taskId = row.task_id;
+      const list = get().subtasks[taskId] ?? [];
+
+      if (type === 'DELETE') {
+        setSubtasks(taskId, list.filter((x) => x.id !== row.id));
+        return;
+      }
+
+      const at = list.findIndex((x) => x.id === row.id);
+      const next = at === -1 ? [...list, row] : list.map((x) => (x.id === row.id ? row : x));
+      setSubtasks(taskId, next.sort((a, b) => a.position - b.position));
     },
 
     applyRemoteProfile(row) {
@@ -911,6 +1114,44 @@ export const useStore = create<Store>((set, get) => {
   };
 });
 
+function findSubtask(
+  all: Record<string, Subtask[]>,
+  id: string,
+): { taskId: string; row: Subtask } | null {
+  for (const [taskId, list] of Object.entries(all)) {
+    const row = list.find((x) => x.id === id);
+    if (row) return { taskId, row };
+  }
+  return null;
+}
+
+/** The tasks whose checklist has a row still being written. */
+function pendingOnly(
+  all: Record<string, Subtask[]>,
+  pending: Map<string, number>,
+): Record<string, Subtask[]> {
+  return Object.fromEntries(
+    Object.entries(all).filter(([, list]) => list.some((x) => pending.has(x.id))),
+  );
+}
+
+/** The server's list, with any row of ours still in flight kept as it is here. */
+function mergeSubtasks(fresh: Subtask[], local: Subtask[], pending: Map<string, number>): Subtask[] {
+  const mine = new Map(local.filter((x) => pending.has(x.id)).map((x) => [x.id, x]));
+  const merged = fresh.map((row) => mine.get(row.id) ?? row);
+  const known = new Set(merged.map((x) => x.id));
+  const unsaved = [...mine.values()].filter((x) => !known.has(x.id));
+  return [...merged, ...unsaved].sort((a, b) => a.position - b.position);
+}
+
+/** Checklist rows as the store holds them: by task, in their own order. */
+function byTask(rows: Subtask[]): Record<string, Subtask[]> {
+  const out: Record<string, Subtask[]> = {};
+  for (const row of rows) (out[row.task_id] ??= []).push(row);
+  for (const list of Object.values(out)) list.sort((a, b) => a.position - b.position);
+  return out;
+}
+
 function pick<T extends object>(obj: T, keys: (keyof T)[]): Partial<T> {
   return Object.fromEntries(keys.map((k) => [k, obj[k]])) as Partial<T>;
 }
@@ -922,6 +1163,17 @@ function pick<T extends object>(obj: T, keys: (keyof T)[]): Partial<T> {
   naming a constraint nobody using this app has heard of — what the UI needs is
   the code, so it can say something in French or say nothing at all.
 */
+/**
+ * Told when a recurring task has written its next occurrence.
+ *
+ * Kept out of the store for the same reason as the error toast: the store is
+ * tested with the network replaced, and it should not need a UI to run.
+ */
+let toastRecurred: (taskId: string) => void = () => {};
+export function setRecurrenceHandler(fn: (taskId: string) => void) {
+  toastRecurred = fn;
+}
+
 let toastError: (error: Refusal) => void = () => {};
 export function setErrorHandler(fn: (error: Refusal) => void) {
   toastError = fn;

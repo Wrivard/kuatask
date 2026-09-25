@@ -63,6 +63,7 @@ export default async function AppLayout({
     { data: tasks, error: tasksError },
     { data: members },
     { data: completions },
+    { data: subtasks },
   ] = await Promise.all([
     supabase
       .from("workspaces")
@@ -85,6 +86,13 @@ export default async function AppLayout({
       arbitrary subset with nothing to say it had gone wrong.
     */
     supabase.rpc("completion_days"),
+    /*
+      Every checklist row the workspace can see. RLS scopes it through the
+      tasks, and the whole set is a few hundred short rows at most — the list
+      shows « 2/5 » on the row itself, and a count that arrives after the row
+      has drawn is a row that moves under your eyes.
+    */
+    supabase.from("subtasks").select("*"),
   ]);
 
   /*
@@ -155,6 +163,7 @@ export default async function AppLayout({
           initial={{
             // `rows`, not `tasks` — the retry above may be the attempt that worked
             tasks: rows ?? [],
+            subtasks: subtasks ?? [],
             members: members ?? [],
             me: members?.find((m) => m.id === user.id) ?? null,
             workspaceId: membership.workspace_id,

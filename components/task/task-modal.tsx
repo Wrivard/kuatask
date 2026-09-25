@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Chip } from "@/components/ui/chip";
 import { DatePicker } from "./date-picker";
 import { Avatar } from "./avatar";
+import { Subtasks } from "./subtasks";
+import { RECURRENCES } from "@/lib/recurrence";
 import { ACCENTS } from "./assignee-dot";
 import { useStore, type Task } from "@/lib/store";
 import { assign, assignmentOf, BOTH } from "@/lib/assignee";
@@ -455,6 +457,39 @@ export function TaskModal({
                 </Chip>
               )}
             </div>
+          </Field>
+
+          <Field label={copy.task.steps}>
+            {/*
+              The same checklist the list view opens under a row — one list,
+              edited from wherever you are looking at the task.
+            */}
+            <Subtasks taskId={task.id} />
+          </Field>
+
+          <Field label={copy.task.repeat}>
+            {/*
+              A rule, not a schedule: the next occurrence is written when this
+              one is ticked. Nothing runs while nobody is, and a routine you
+              stop doing stops making copies of itself.
+            */}
+            <div className="flex flex-wrap gap-1.5">
+              <Chip active={task.recur === null} onClick={() => updateTask(task.id, { recur: null })}>
+                {copy.task.repeatNever}
+              </Chip>
+              {RECURRENCES.map((rule) => (
+                <Chip
+                  key={rule}
+                  active={task.recur === rule}
+                  onClick={() => updateTask(task.id, { recur: rule })}
+                >
+                  {copy.task.repeatEvery[rule]}
+                </Chip>
+              ))}
+            </div>
+            {task.recur !== null && (
+              <p className="mt-1.5 text-[12px] text-fg-faint">{copy.task.repeatHint}</p>
+            )}
           </Field>
 
           {/*

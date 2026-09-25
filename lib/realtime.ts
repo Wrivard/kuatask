@@ -13,7 +13,7 @@
 
 import { useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useStore, type Profile, type Task } from '@/lib/store';
+import { useStore, type Profile, type Subtask, type Task } from '@/lib/store';
 
 /** Below this, a tab was never really away and the socket held. */
 const STALE_AFTER_MS = 15_000;
@@ -40,6 +40,7 @@ export function useRealtimeTasks() {
   const workspaceId = useStore((s) => s.workspaceId);
   const applyRemote = useStore((s) => s.applyRemote);
   const applyRemoteProfile = useStore((s) => s.applyRemoteProfile);
+  const applyRemoteSubtask = useStore((s) => s.applyRemoteSubtask);
 
   /** Set once the channel has been up, so the first SUBSCRIBED is not a "re"connect. */
   const wasConnected = useRef(false);
@@ -96,6 +97,19 @@ export function useRealtimeTasks() {
         already scopes what a member can see, so the rows that arrive are the
         rows they were entitled to read anyway.
       */
+      /*
+        Checklist rows. No workspace filter, because `subtasks` has no workspace
+        column — it belongs to its task, and RLS already decides which ones this
+        person may read, so what arrives is what they were entitled to anyway.
+      */
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'subtasks' },
+        (payload) => {
+          const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Subtask;
+          applyRemoteSubtask(payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE', row);
+        },
+      )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'profiles' },
@@ -146,5 +160,5 @@ export function useRealtimeTasks() {
       window.removeEventListener('online', resync);
       void supabase.removeChannel(channel);
     };
-  }, [workspaceId, applyRemote, applyRemoteProfile]);
+  }, [workspaceId, applyRemote, applyRemoteProfile, applyRemoteSubtask]);
 }

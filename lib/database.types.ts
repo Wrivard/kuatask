@@ -275,6 +275,33 @@ export type Database = {
         }
         Relationships: []
       }
+      subtasks: {
+        Row: {
+          created_at: string
+          done: boolean
+          id: string
+          position: number
+          task_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          done?: boolean
+          id?: string
+          position?: number
+          task_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          done?: boolean
+          id?: string
+          position?: number
+          task_id?: string
+          title?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           assignee_id: string | null
@@ -290,6 +317,7 @@ export type Database = {
           label: string | null
           notes: string | null
           position: number
+          recur: string | null
           shared: boolean
           status: Database["public"]["Enums"]["task_status"]
           title: string
@@ -310,6 +338,7 @@ export type Database = {
           label?: string | null
           notes?: string | null
           position?: number
+          recur?: string | null
           shared?: boolean
           status?: Database["public"]["Enums"]["task_status"]
           title: string
@@ -330,6 +359,7 @@ export type Database = {
           label?: string | null
           notes?: string | null
           position?: number
+          recur?: string | null
           shared?: boolean
           status?: Database["public"]["Enums"]["task_status"]
           title?: string

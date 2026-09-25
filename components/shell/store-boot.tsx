@@ -2,7 +2,14 @@
 
 import * as React from "react";
 import { toast } from "sonner";
-import { setErrorHandler, useStore, type Profile, type Task } from "@/lib/store";
+import {
+  setErrorHandler,
+  setRecurrenceHandler,
+  useStore,
+  type Profile,
+  type Subtask,
+  type Task,
+} from "@/lib/store";
 import { useRealtimeTasks } from "@/lib/realtime";
 import { setClockOffset } from "@/lib/time";
 import { copy } from "@/lib/copy";
@@ -34,6 +41,8 @@ export function StoreBoot({
 }: {
   initial: {
     tasks: Task[];
+    /** The checklist rows of those tasks — see 0026. */
+    subtasks: Subtask[];
     members: Profile[];
     me: Profile | null;
     workspaceId: string;
@@ -73,6 +82,13 @@ export function StoreBoot({
       logRefusal(refusal);
       toast.error(copy.error.saveFailed, { description: explain(refusal) });
     });
+    /*
+      A recurring task wrote its next turn. Said once, quietly: the work is
+      done and something new is on the list, which is worth knowing without
+      being asked about.
+    */
+    setRecurrenceHandler(() => toast(copy.task.repeated));
+
     useStore.getState().seed(initial);
     // so the login screen can tell a lapsed session from a first visit
     markAppSeen();

@@ -35,6 +35,7 @@ const NEEDED = [
   "fresh.ts",
   "billing.ts",
   "assignee.ts",
+  "recurrence.ts",
 ];
 
 // inside the project, so node resolves date-fns from the local node_modules
@@ -65,6 +66,7 @@ const routes = await load("routes.ts");
 const fresh = await load("fresh.ts");
 const billing = await load("billing.ts");
 const assignee = await load("assignee.ts");
+const recurrence = await load("recurrence.ts");
 const reset = await load("session-reset.ts");
 const sound = await load("sound.ts");
 
@@ -1579,6 +1581,37 @@ section("Facturation — a line that says nothing is not activity");
   check("so does a price", !isBlankEntry(row({ amount: 0 })), "a typed zero is a decision");
   check("and so does a rate typed alone", !isBlankEntry(row({ rate: 150 })));
   check("whitespace is still nothing", isBlankEntry(row({ title: "   ", detail: " " })));
+}
+
+section("Récurrence — a task that comes back, counted from the day it was due");
+{
+  const { nextOccurrence, nextFrom, isRecurrence, RECURRENCES } = recurrence;
+
+  // 2026-09-25 is a Friday
+  check("chaque jour", nextOccurrence("daily", "2026-09-25") === "2026-09-26");
+  check("chaque semaine", nextOccurrence("weekly", "2026-09-25") === "2026-10-02");
+  check("aux deux semaines", nextOccurrence("biweekly", "2026-09-25") === "2026-10-09");
+  check("chaque mois", nextOccurrence("monthly", "2026-09-25") === "2026-10-25");
+
+  check("jours de semaine: Friday hands to Monday", nextOccurrence("weekdays", "2026-09-25") === "2026-09-28",
+        nextOccurrence("weekdays", "2026-09-25"));
+  check("and so does Saturday", nextOccurrence("weekdays", "2026-09-26") === "2026-09-28");
+  check("Monday hands to Tuesday", nextOccurrence("weekdays", "2026-09-28") === "2026-09-29");
+
+  check("the 31st rolls into a short month rather than past it",
+        nextOccurrence("monthly", "2026-01-31") === "2026-02-28", nextOccurrence("monthly", "2026-01-31"));
+  check("a leap February", nextOccurrence("monthly", "2028-01-31") === "2028-02-29",
+        nextOccurrence("monthly", "2028-01-31"));
+
+  check("late does not drift: a weekly due Monday, finished Thursday, is due next Monday",
+        nextFrom("weekly", "2026-09-21", "2026-09-24") === "2026-09-28",
+        nextFrom("weekly", "2026-09-21", "2026-09-24"));
+  check("with no date at all it counts from the day it was done",
+        nextFrom("weekly", null, "2026-09-24") === "2026-10-01");
+
+  check("the rules are the five the database accepts",
+        RECURRENCES.join(",") === "daily,weekdays,weekly,biweekly,monthly");
+  check("anything else is not a rule", !isRecurrence("yearly") && !isRecurrence(null) && isRecurrence("daily"));
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);

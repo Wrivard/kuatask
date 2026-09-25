@@ -2,11 +2,12 @@
 
 import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { AlignLeft, Pencil } from "lucide-react";
+import { AlignLeft, ChevronRight, Pencil, Repeat } from "lucide-react";
 import { TaskCheckbox } from "./task-checkbox";
 import { LabelChip } from "./label-chip";
 import { StatusChip } from "./status-chip";
 import { AssigneeFace, SharedFaces } from "./assignee-dot";
+import { Subtasks, useStepCount } from "./subtasks";
 import { Avatar } from "./avatar";
 import { COMPLETION } from "@/lib/motion";
 import { daysFromToday, formatDueLabel, formatTime, isOverdue } from "@/lib/time";
@@ -91,6 +92,9 @@ function TaskRowImpl({
     more row in the same grey. Not on a finished task: once it is done, whether
     you noticed it arriving no longer matters.
   */
+  const steps = useStepCount(task.id);
+  const [stepsOpen, setStepsOpen] = React.useState(false);
+
   const minute = useMinute();
   const fresh = !done && isFresh(task.created_at, minute);
   const creator = fresh ? members.find((m) => m.id === task.created_by) : undefined;
@@ -114,20 +118,21 @@ function TaskRowImpl({
     return [formatDueLabel(task.due_on), time].filter(Boolean).join(" ");
   })();
 
-  return (
-    /*
-      The row is not a button. It looked like one — role="button" and a tabIndex
-      — but it contains a checkbox and, now, a label chip and an assignee dot
-      that are themselves controls, and a button cannot hold controls. Assistive
-      technology was told to expect one thing and handed another.
+  /*
+    The row is not a button. It looked like one — role="button" and a tabIndex
+    — but it contains a checkbox and, now, a label chip and an assignee dot
+    that are themselves controls, and a button cannot hold controls. Assistive
+    technology was told to expect one thing and handed another.
 
-      What it is instead: a container whose *title* is the button. That is the
-      real "open this task" target, it is what lands under Tab, and the chip and
-      the dot are its siblings rather than illegal descendants. Clicking
-      anywhere else on the row still opens the modal, because docs/06 says the
-      whole surface is the target — that is a convenience layered on top of a
-      correct structure rather than a substitute for one.
-    */
+    What it is instead: a container whose *title* is the button. That is the
+    real "open this task" target, it is what lands under Tab, and the chip and
+    the dot are its siblings rather than illegal descendants. Clicking
+    anywhere else on the row still opens the modal, because docs/06 says the
+    whole surface is the target — that is a convenience layered on top of a
+    correct structure rather than a substitute for one.
+  */
+  return (
+    <>
     <div
       onClick={(e) => {
         // a click that landed on a control has already been handled by it
@@ -156,6 +161,30 @@ function TaskRowImpl({
         onToggle={() => toggle(task.id)}
         label={task.title}
       />
+
+      {/*
+        The steps, one click away rather than a second screen. Only when there
+        are any: a caret on every row would be a column of carets, and a task
+        with no checklist has nothing to disclose. Steps are written in the
+        modal, or in the panel this opens.
+      */}
+      {steps.total > 0 && (
+        <button
+          type="button"
+          onClick={() => setStepsOpen((o) => !o)}
+          aria-expanded={stepsOpen}
+          title={stepsOpen ? copy.task.stepsHide : copy.task.stepsShow}
+          aria-label={stepsOpen ? copy.task.stepsHide : copy.task.stepsShow}
+          className="-ml-1 flex shrink-0 items-center gap-0.5 rounded-sm px-1 py-1 text-[12px] tabular-nums text-fg-faint hover:text-fg"
+        >
+          <ChevronRight
+            className={cn("size-3.5 transition-transform", stepsOpen && "rotate-90")}
+            strokeWidth={1.5}
+            aria-hidden
+          />
+          {copy.task.stepCount(steps.done, steps.total)}
+        </button>
+      )}
 
       {/*
         The title is the row's real control — it is what Tab lands on, and the
@@ -233,6 +262,15 @@ function TaskRowImpl({
           />
         )}
 
+        {/* it comes back: the next one is written when this one is ticked */}
+        {task.recur !== null && (
+          <Repeat
+            className="size-3 shrink-0 text-fg-faint"
+            strokeWidth={1.75}
+            aria-label={copy.task.repeat}
+          />
+        )}
+
         {task.status === "doing" && <StatusChip />}
 
         {task.label && <LabelChip label={task.label} onSelect={onSelectLabel} />}
@@ -288,6 +326,17 @@ function TaskRowImpl({
         <Pencil className="size-4" strokeWidth={1.5} aria-hidden />
       </button>
     </div>
+
+    {/*
+      Under the row rather than inside it: the row is a fixed height the whole
+      list is measured in, and a checklist has no height of its own.
+    */}
+    {stepsOpen && (
+      <div className="border-b border-border py-1.5 pl-11 pr-3">
+        <Subtasks taskId={task.id} />
+      </div>
+    )}
+    </>
   );
 }
 

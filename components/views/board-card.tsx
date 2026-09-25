@@ -7,6 +7,7 @@ import { TaskCheckbox } from "@/components/task/task-checkbox";
 import { LabelChip } from "@/components/task/label-chip";
 import { StatusChip } from "@/components/task/status-chip";
 import { AssigneeFace, SharedFaces } from "@/components/task/assignee-dot";
+import { useStepCount } from "@/components/task/subtasks";
 import { COMPLETION, spring } from "@/lib/motion";
 import { daysFromToday, formatDueLabel, formatTime, isOverdue } from "@/lib/time";
 import { useStore, type Task } from "@/lib/store";
@@ -47,6 +48,7 @@ function BoardCardImpl({
   const overdue = isOverdue(task.due_on, task.status);
   const hasNotes = task.notes !== null && task.notes.trim() !== "";
   const assignee = members.find((m) => m.id === task.assignee_id);
+  const steps = useStepCount(task.id);
 
   const dateText = (() => {
     if (!task.due_on) return "";
@@ -209,6 +211,12 @@ function BoardCardImpl({
             </span>
           )}
           <span className="ml-auto">
+            {steps.total > 0 && (
+              <span className="shrink-0 text-[12px] tabular-nums text-fg-faint" title={copy.task.steps}>
+                {copy.task.stepCount(steps.done, steps.total)}
+              </span>
+            )}
+
             {task.shared ? (
               <SharedFaces members={members} />
             ) : (

@@ -132,7 +132,7 @@ fs.writeFileSync(path.join(tmp, "supabase-stub.ts"), stub);
 // transport predicate it now shares with the toast; errors.ts pulls in copy
 // store.ts pulls in search.ts too: the archive lookup asks the same question
 // the list does, rather than approximating it (lib/search.ts)
-for (const file of ["store.ts", "sound.ts", "time.ts", "errors.ts", "copy.ts", "search.ts"]) {
+for (const file of ["store.ts", "sound.ts", "time.ts", "errors.ts", "copy.ts", "search.ts", "recurrence.ts"]) {
   const src = fs.readFileSync(path.join("lib", file), "utf8");
   fs.writeFileSync(
     path.join(tmp, file),
@@ -169,7 +169,7 @@ const reset = () => {
   useStore.setState({
     tasks: [], members: [ME], me: ME, workspaceId: "ws1",
     ready: true, pending: new Map(), fetched: new Set(),
-    undoStack: [], assigneeFilter: null,
+    undoStack: [], assigneeFilter: null, subtasks: {},
   });
   errors.length = 0;
 };
@@ -694,6 +694,100 @@ await settle();
   const row = s().tasks.find((t) => t.id === rid);
   check("the refused title went back", row?.title === "deux champs", row?.title);
   check("the notes that landed stayed", row?.notes === "acceptee", String(row?.notes));
+}
+
+// ------------------------------------------------------------- subtasks
+section("Sous-tâches — a checklist inside a task");
+reset();
+s().createTask({ title: "préparer la rencontre" });
+await settle();
+{
+  const parent = byTitle("préparer la rencontre").id;
+  const first = s().addSubtask(parent, "imprimer le devis");
+  check("the step is there on the same frame", s().subtasks[parent]?.length === 1);
+  check("and it is not a task", titles().length === 1, titles().join(","));
+  s().addSubtask(parent, "appeler le fournisseur");
+  await settle();
+  check("they keep the order they were written in",
+        s().subtasks[parent].map((x) => x.title).join(",") === "imprimer le devis,appeler le fournisseur",
+        s().subtasks[parent].map((x) => x.title).join(","));
+
+  s().toggleSubtask(first);
+  check("ticking one shows at once", s().subtasks[parent][0].done === true);
+  await settle();
+
+  supa.failNext("update refused");
+  s().toggleSubtask(first);
+  check("un-ticking shows at once too", s().subtasks[parent][0].done === false);
+  await settle();
+  check("and goes back when the write is refused", s().subtasks[parent][0].done === true);
+
+  s().renameSubtask(first, "  imprimer deux copies  ");
+  await settle();
+  check("renaming trims", s().subtasks[parent][0].title === "imprimer deux copies");
+
+  s().renameSubtask(first, "   ");
+  await settle();
+  check("renaming to nothing removes it", s().subtasks[parent].length === 1,
+        s().subtasks[parent].map((x) => x.title).join(","));
+
+  supa.failNext("delete refused");
+  const left = s().subtasks[parent][0].id;
+  s().deleteSubtask(left);
+  check("deleting shows at once", (s().subtasks[parent] ?? []).length === 0);
+  await settle();
+  check("and a refused delete puts it back", s().subtasks[parent].length === 1);
+
+  s().addSubtask(parent, "   ");
+  check("a step with no title is not written", s().subtasks[parent].length === 1);
+}
+
+// ------------------------------------------------------------ recurrence
+section("Récurrence — finishing one writes the next");
+reset();
+s().createTask({ title: "facturer les forfaits", due_on: "2026-09-21", recur: "weekly" });
+await settle();
+{
+  const id = byTitle("facturer les forfaits").id;
+  s().addSubtask(id, "vérifier les heures");
+  await settle();
+
+  s().toggleTask(id);
+  await settle();
+
+  const copies = s().tasks.filter((t) => t.title === "facturer les forfaits");
+  check("there are two of it now", copies.length === 2, String(copies.length));
+  const next = copies.find((t) => t.status !== "done");
+  check("the new one is open", next !== undefined && next.status === "todo");
+  check("due a week after the day it was due, not after today",
+        next?.due_on === "2026-09-28", String(next?.due_on));
+  check("and it repeats too", next?.recur === "weekly");
+  check("its steps came along", s().subtasks[next.id]?.length === 1,
+        String(s().subtasks[next.id]?.length));
+  check("unticked", s().subtasks[next.id]?.[0].done === false);
+  check("the one you finished stays done", copies.find((t) => t.id === id).status === "done");
+}
+
+reset();
+s().createTask({ title: "sans date", recur: "weekly" });
+await settle();
+{
+  const id = byTitle("sans date").id;
+  s().toggleTask(id);
+  await settle();
+  const next = s().tasks.find((t) => t.title === "sans date" && t.status !== "done");
+  check("with no date it counts from the day it was done", next?.due_on !== null && next?.due_on !== undefined);
+}
+
+reset();
+s().createTask({ title: "une seule fois" });
+await settle();
+{
+  const id = byTitle("une seule fois").id;
+  s().toggleTask(id);
+  await settle();
+  check("a task that does not repeat does not come back",
+        s().tasks.filter((t) => t.title === "une seule fois").length === 1);
 }
 
 console.log(`\n${failures === 0 ? "the store behaves" : `${failures} FAILED`}`);
