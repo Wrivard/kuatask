@@ -6,8 +6,7 @@ import { ArrowUpRight, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useStore } from "@/lib/store";
 import { useTaskModal } from "@/lib/events";
-import { useToday } from "@/lib/day";
-import { formatDueLabel, instantToDay, now } from "@/lib/time";
+import { formatDayHeading, instantToDay, now } from "@/lib/time";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -71,7 +70,6 @@ export function NotesClient({
     el.style.overflowY = el.scrollHeight > wanted ? "auto" : "hidden";
   }, [draft]);
 
-  const day = useToday();
   const modal = useTaskModal();
   const createTask = useStore((s) => s.createTask);
 
@@ -203,7 +201,7 @@ export function NotesClient({
           {byDay.map(([d, group]) => (
             <section key={d} className="mb-6">
               <h2 className="mb-1 text-[13px] font-medium text-fg-muted">
-                {d === day ? copy.nav.today : formatDueLabel(d)}
+                {formatDayHeading(d)}
               </h2>
 
               <ul className="[&>li:last-child]:border-b-0">

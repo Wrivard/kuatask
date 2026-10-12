@@ -365,6 +365,21 @@ export function formatDueLabel(day: DayString): string {
   return format(toDate(day), 'd MMMM', { locale: fr });
 }
 
+/**
+ * The same label, as a heading.
+ *
+ * `formatDueLabel` is lowercase because it is written inside a sentence — a row
+ * says « hier », a composer says « demain 9h ». Three screens use it as the
+ * title of a day instead, where it sat next to « Aujourd'hui » from the nav and
+ * read as a typo: a capitalised heading, a lowercase one, then a date. Those
+ * screens also each carried their own `day === today ? copy.nav.today` branch
+ * to paper over half of it; capitalising is the whole rule.
+ */
+export function formatDayHeading(day: DayString): string {
+  const label = formatDueLabel(day);
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 /** 24-hour with an h separator: 14h, 14h30. Never 2:00 PM, never 14:00. */
 /**
  * A date on a ledger: always with the year, never relative.

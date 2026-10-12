@@ -90,8 +90,10 @@ export const copy = {
   },
 
   notes: {
-    placeholder: "Vide-toi la tête… Entrée pour garder, Maj+Entrée pour une ligne",
-    hint: "Entrée pour garder",
+    // the box names the job; the line under it names the keys — as the task
+    // composer does, rather than saying both twice
+    placeholder: "Vide-toi la tête…",
+    hint: "Entrée pour garder, Maj+Entrée pour une ligne",
     empty: "Rien ici. Écris ce qui traîne, trie plus tard.",
     toTask: "En faire une tâche",
     discard: "Jeter",

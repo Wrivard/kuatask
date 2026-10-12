@@ -7,7 +7,7 @@ import { Plus, Pencil, Check, RotateCcw, Trash2, type LucideIcon } from "lucide-
 import { Button } from "@/components/ui/button";
 import { accentColor } from "@/components/task/assignee-dot";
 import { restoreTask } from "./actions";
-import { formatDueLabel, instantToDay, isOnDay, today as todayNow } from "@/lib/time";
+import { formatDayHeading, instantToDay } from "@/lib/time";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -58,7 +58,6 @@ export function ActivityClient({
 }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState<string | null>(null);
-  const today = todayNow();
 
   const byDay = React.useMemo(() => {
     const groups = new Map<string, Entry[]>();
@@ -97,9 +96,7 @@ export function ActivityClient({
       {byDay.map(([day, group]) => (
         <section key={day} className="mb-6">
           <h2 className="mb-1 text-[13px] font-medium text-fg-muted">
-            {isOnDay(group[0].created_at, today)
-              ? copy.nav.today
-              : formatDueLabel(day)}
+            {formatDayHeading(day)}
           </h2>
 
           {/* no rule under the last entry — see components/views/list-section.tsx */}

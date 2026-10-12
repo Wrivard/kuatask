@@ -5,7 +5,7 @@ import { addDays, startOfWeek } from "date-fns";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { TaskRow } from "@/components/task/task-row";
 import { TaskComposer } from "@/components/task/task-composer";
-import { formatDueLabel, toDate, toDayString, isToday } from "@/lib/time";
+import { formatDayHeading, formatDueLabel, toDate, toDayString, isToday } from "@/lib/time";
 import { useToday } from "@/lib/day";
 import { useDragToTarget } from "@/lib/drag";
 import { useRescheduleWithFeedback } from "@/lib/completion";
@@ -71,7 +71,7 @@ export function DaySheet({
       <SheetContent aria-describedby={undefined} side="right" className="w-full overflow-y-auto border-border bg-bg data-[side=right]:sm:max-w-[440px]">
         <SheetHeader className="px-5 pb-0 pt-5">
           <SheetTitle className="text-[22px] font-semibold tracking-[-0.02em]">
-            {current ? formatDueLabel(current) : ""}
+            {current ? formatDayHeading(current) : ""}
           </SheetTitle>
         </SheetHeader>
 
