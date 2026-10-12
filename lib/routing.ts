@@ -32,13 +32,6 @@ export const PUBLIC_PATHS = [
     nothing behind it to reach.
   */
   '/api/report',
-  /*
-    The daily backup. It has no session — Vercel's scheduler calls it — so the
-    middleware must let it through; the route itself refuses anything without
-    the bearer token built from CRON_SECRET, and refuses to run at all when
-    that variable is missing.
-  */
-  '/api/backup',
 ];
 
 export type RouteDecision =

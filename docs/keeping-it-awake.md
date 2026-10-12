@@ -41,8 +41,17 @@ shows « la base de données ne répond pas », the fix is the dashboard: restor
 the project, reload the page. Nothing is lost by a pause — it is a stop, not a
 deletion.
 
-It also does not replace backups. There are none on this plan; `npm run backup`
-is the answer to that, and `supabase/README.md` is blunt about it.
+It also does not take the backup. The database does that itself: `pg_cron` runs
+`public.take_snapshot()` every day at 09:00 UTC (05:00 Montreal), which writes
+every table as JSON into `public.snapshots` and keeps two weeks. It depends on
+nothing outside Postgres — not on a deploy, not on a secret, not on this cron.
+
+```sql
+select taken_at, rows from snapshots order by taken_at desc limit 5;
+select * from cron.job_run_details order by start_time desc limit 5;
+```
+
+`npm run backup` still writes a copy to disk when you want one in your hands.
 
 ## Checking it is working
 
