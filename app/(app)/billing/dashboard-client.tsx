@@ -25,7 +25,6 @@ import {
   totals,
   type Sort,
   type SortKey,
-  type Totals,
 } from "@/lib/billing";
 import { formatLedgerDate, instantToDay, monthsAgoDay } from "@/lib/time";
 import { MICRO_LABEL } from "@/lib/type";
