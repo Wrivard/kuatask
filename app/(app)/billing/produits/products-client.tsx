@@ -39,7 +39,40 @@ export function ProductsClient({
   const [name, setName] = React.useState("");
   const [price, setPrice] = React.useState("");
 
-  React.useEffect(() => setProducts(initial), [initial]);
+  /** Rows with a write of ours in the air. The server's copy is older than these. */
+  const pending = React.useRef(new Set<string>());
+
+  /*
+    The server's list, merged rather than imposed.
+
+    This used to be `setProducts(initial)`: every refresh — and one follows
+    every write, plus any change on the other screen — replaced the whole list
+    with whatever the server had just rendered. A refresh that landed between a
+    write leaving and the row changing put the old price back on screen, which
+    reads as the app undoing what you just typed. A row we are writing keeps the
+    value on screen; a row we have added and the server has not returned yet
+    stays.
+  */
+  React.useEffect(() => {
+    setProducts((local) => {
+      const mine = new Map(local.filter((p) => pending.current.has(p.id)).map((p) => [p.id, p]));
+      const merged = initial.map((row) => mine.get(row.id) ?? row);
+      const known = new Set(merged.map((row) => row.id));
+      const unsaved = [...mine.values()].filter((row) => !known.has(row.id));
+      return [...merged, ...unsaved].sort((a, b) => a.name.localeCompare(b.name, "fr"));
+    });
+  }, [initial]);
+
+  /** Marks a row as ours for the length of one write. */
+  // PromiseLike, not Promise: a PostgREST builder is thenable but not a promise
+  async function writing<T>(id: string, work: () => PromiseLike<T>): Promise<T> {
+    pending.current.add(id);
+    try {
+      return await work();
+    } finally {
+      pending.current.delete(id);
+    }
+  }
 
   /*
     Both people price the same services, so a price changed on the other screen
@@ -77,7 +110,9 @@ export function ProductsClient({
     setProducts((list) => list.map((x) => (x.id === id ? { ...x, ...p } : x)));
 
     void (async () => {
-      const { error } = await supabase.from("billing_products").update(p).eq("id", id);
+      const { error } = await writing(id, () =>
+        supabase.from("billing_products").update(p).eq("id", id),
+      );
       if (error) {
         setProducts((list) => list.map((x) => (x.id === id ? before : x)));
         toast.error(copy.billing.saveFailed);
@@ -107,9 +142,9 @@ export function ProductsClient({
     setPrice("");
 
     void (async () => {
-      const { error } = await supabase
-        .from("billing_products")
-        .insert({ ...product, workspace_id: workspaceId });
+      const { error } = await writing(product.id, () =>
+        supabase.from("billing_products").insert({ ...product, workspace_id: workspaceId }),
+      );
       if (error) {
         setProducts((list) => list.filter((x) => x.id !== product.id));
         toast.error(copy.billing.saveFailed);
@@ -123,7 +158,9 @@ export function ProductsClient({
     setProducts((list) => list.filter((x) => x.id !== product.id));
 
     void (async () => {
-      const { error } = await supabase.from("billing_products").delete().eq("id", product.id);
+      const { error } = await writing(product.id, () =>
+        supabase.from("billing_products").delete().eq("id", product.id),
+      );
       if (error) {
         setProducts((list) => [...list, product].sort((a, b) => a.name.localeCompare(b.name, "fr")));
         toast.error(copy.billing.saveFailed);

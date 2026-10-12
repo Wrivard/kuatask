@@ -418,6 +418,54 @@ export const useStore = create<Store>((set, get) => {
       },
     }));
 
+  /**
+   * The next turn of a recurring task, written as the current one is completed.
+   *
+   * Its steps come along unticked: a routine's checklist is the routine. The
+   * successor's own undo entry is folded into the completion's, so one ⌘Z
+   * reopens the task *and* takes the new one away — two presses for one action
+   * would be the app arguing with you about what you just did.
+   */
+  const spawnNextOccurrence = (task: Task): string | null => {
+    if (!isRecurrence(task.recur)) return null;
+
+    const id = get().createTask({
+      ...pick(task, [
+        'title',
+        'notes',
+        'label',
+        'important',
+        'due_time',
+        'assignee_id',
+        'shared',
+        'color',
+        'recur',
+      ]),
+      title: task.title,
+      due_on: nextFrom(task.recur, task.due_on, instantToDay(new Date(now()).toISOString())),
+    });
+    if (!id) return null;
+
+    for (const step of get().subtasks[task.id] ?? []) get().addSubtask(id, step.title);
+
+    set((s) => {
+      const stack = [...s.undoStack];
+      const created = stack.pop();
+      const completed = stack.pop();
+      if (!created || !completed) return {};
+      stack.push({
+        applies: completed.applies,
+        apply: () => {
+          created.apply();
+          completed.apply();
+        },
+      });
+      return { undoStack: stack };
+    });
+
+    return id;
+  };
+
   const patchLocal = (id: string, patch: Partial<Task>) =>
     set((s) => ({
       tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)),
@@ -530,8 +578,15 @@ export const useStore = create<Store>((set, get) => {
         // more here: resync runs on every reconnect, every wake from sleep, and
         // once a minute while the socket is down.
         supabase.rpc('completion_days'),
-          // small, and scoped by RLS through the tasks they belong to
-          supabase.from('subtasks').select('*'),
+          // the same bound as the tasks above, through the join: a resync that
+          // read every checklist ever written would grow with the history
+          supabase
+            .from('subtasks')
+            .select('*, tasks!inner(workspace_id, status, completed_at)')
+            .eq('tasks.workspace_id', wsId)
+            .or(`status.neq.done,completed_at.gte.${recentCompletionCutoff()}`, {
+              referencedTable: 'tasks',
+            }),
         ]);
       if (!rows) return;
 
@@ -539,7 +594,7 @@ export const useStore = create<Store>((set, get) => {
       const days = completions ?? get().completionDays;
       // checklists come back whole: they are small, and a row being written
       // locally keeps its optimistic copy through `pending` below
-      const freshSubtasks = steps ? byTask(steps) : null;
+      const freshSubtasks = steps ? byTask(steps.map(stripJoin)) : null;
 
       set((s) => {
         /*
@@ -772,12 +827,34 @@ export const useStore = create<Store>((set, get) => {
       if (Object.keys(changed).length === 0) return;
 
       patchLocal(id, changed);
+
+      /*
+        A task that comes back writes its next occurrence the moment this one is
+        completed — here rather than in `toggleTask`, because that is not the
+        path completion takes: the row, the card, the keyboard and the modal all
+        set the status through this function.
+
+        Not while replaying: undoing a reopen re-completes the task, and a
+        second successor for one routine is worse than none.
+      */
       const release = claim(id);
       pushUndo({
         applies: () => stillHolds(id, changed),
         apply: () =>
           get().updateTask(id, pick(before, Object.keys(changed) as (keyof Task)[])),
       });
+
+      /*
+        After the completion's own undo entry, never before: the successor folds
+        its entry into the one above it, and the one above it has to be the
+        completion. Spawning first put the entry of whatever the person did
+        before this — a different task's edit — into the pair, so ⌘Z undid two
+        unrelated things and left the new occurrence standing.
+      */
+      const recurred =
+        changed.status === 'done' && before.status !== 'done' && !replaying
+          ? spawnNextOccurrence(before)
+          : null;
 
       void (async () => {
         const { error } = await serial([id], () =>
@@ -787,6 +864,9 @@ export const useStore = create<Store>((set, get) => {
         if (error) {
           // only what this write changed goes back; edits made since survive
           patchLocal(id, pick(before, Object.keys(changed) as (keyof Task)[]));
+          // the completion did not happen, so neither did what it was going to
+          // start: a successor for a turn that was never finished is a ghost
+          if (recurred) get().deleteTask(recurred);
           toastError(error);
         }
       })();
@@ -812,42 +892,8 @@ export const useStore = create<Store>((set, get) => {
         completed_at: done ? new Date(now()).toISOString() : null,
         completed_by: done ? (get().me?.id ?? null) : null,
       } as Partial<Task>);
-
-      /*
-        A task that comes back writes its next occurrence here, the moment this
-        one is ticked — no scheduler, nothing to run while nobody is, and
-        nothing to keep making occurrences of a routine that has been dropped.
-
-        Counted from the day it was due rather than from today, so a weekly
-        task finished three days late does not walk three days later every
-        week. Its steps come along, unticked: a routine's checklist is the
-        routine.
-      */
-      if (done && isRecurrence(t.recur)) {
-        const nextId = get().createTask({
-          ...pick(t, [
-            'title',
-            'notes',
-            'label',
-            'important',
-            'due_time',
-            'assignee_id',
-            'shared',
-            'color',
-            'recur',
-          ]),
-          title: t.title,
-          due_on: nextFrom(t.recur, t.due_on, instantToDay(new Date(now()).toISOString())),
-        });
-
-        if (nextId) {
-          for (const step of get().subtasks[id] ?? []) {
-            get().addSubtask(nextId, step.title);
-          }
-          toastRecurred(nextId);
-        }
-      }
     },
+
 
     /*
       Calendar drag-to-reschedule. A thin wrapper over updateTask rather than a
@@ -913,7 +959,13 @@ export const useStore = create<Store>((set, get) => {
       const before = get().tasks.find((t) => t.id === id);
       if (!before) return;
 
-      set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) }));
+      set((s) => {
+        // the row's steps go with it — the database cascades, and holding them
+        // here would keep a deleted task's checklist alive in memory
+        const subtasks = { ...s.subtasks };
+        delete subtasks[id];
+        return { tasks: s.tasks.filter((t) => t.id !== id), subtasks };
+      });
       const release = claim(id);
       pushUndo({
         // if it is back, somebody already restored it
@@ -1144,6 +1196,18 @@ function mergeSubtasks(fresh: Subtask[], local: Subtask[], pending: Map<string, 
   return [...merged, ...unsaved].sort((a, b) => a.position - b.position);
 }
 
+/**
+ * The row without the task joined onto it.
+ *
+ * The checklist reads filter through `tasks!inner`, which makes PostgREST
+ * return the joined task on every row. The store wants the checklist row.
+ */
+export function stripJoin<T extends Record<string, unknown>>(row: T): Subtask {
+  const copy = { ...row };
+  delete copy.tasks;
+  return copy as unknown as Subtask;
+}
+
 /** Checklist rows as the store holds them: by task, in their own order. */
 function byTask(rows: Subtask[]): Record<string, Subtask[]> {
   const out: Record<string, Subtask[]> = {};
@@ -1163,17 +1227,6 @@ function pick<T extends object>(obj: T, keys: (keyof T)[]): Partial<T> {
   naming a constraint nobody using this app has heard of — what the UI needs is
   the code, so it can say something in French or say nothing at all.
 */
-/**
- * Told when a recurring task has written its next occurrence.
- *
- * Kept out of the store for the same reason as the error toast: the store is
- * tested with the network replaced, and it should not need a UI to run.
- */
-let toastRecurred: (taskId: string) => void = () => {};
-export function setRecurrenceHandler(fn: (taskId: string) => void) {
-  toastRecurred = fn;
-}
-
 let toastError: (error: Refusal) => void = () => {};
 export function setErrorHandler(fn: (error: Refusal) => void) {
   toastError = fn;

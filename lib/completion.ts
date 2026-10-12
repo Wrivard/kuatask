@@ -3,7 +3,8 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { useStore, type Task } from "@/lib/store";
-import { formatDueLabel, now } from "@/lib/time";
+import { formatDueLabel, instantToDay, now } from "@/lib/time";
+import { isRecurrence, nextFrom } from "@/lib/recurrence";
 import { completionTone, uncompleteTone, tick } from "@/lib/sound";
 import { announce } from "@/components/shell/live-region";
 import { copy } from "@/lib/copy";
@@ -48,7 +49,7 @@ function endBatch() {
  * Each completion pushes exactly one undo entry, so a depth that did not grow by
  * exactly one means something else intervened, and the batch starts over.
  */
-function notify(undo: () => void) {
+function notify(undo: () => void, description?: string) {
   const depth = useStore.getState().undoStack.length;
   if (depth !== batchDepth + 1) batch = 0;
   batchDepth = depth;
@@ -59,6 +60,8 @@ function notify(undo: () => void) {
   toast(count === 1 ? copy.toast.completed : copy.toast.completedMany(count), {
     id: TOAST_ID,
     duration: TOAST_MS,
+    // a recurring task says where it went; one toast rather than two stacked
+    description,
     action: {
       label: copy.toast.undo,
       onClick: () => {
@@ -94,7 +97,14 @@ export function useSetStatusWithFeedback() {
         completed_at: new Date(now()).toISOString(),
         completed_by: state.me?.id ?? null,
       });
-      notify(state.undo);
+      notify(
+        state.undo,
+        isRecurrence(task.recur)
+          ? copy.toast.recurred(
+              formatDueLabel(nextFrom(task.recur, task.due_on, instantToDay(new Date(now()).toISOString()))),
+            )
+          : undefined,
+      );
       announce(`${task.title} ${copy.nav.done.toLowerCase()}`);
       return;
     }

@@ -790,5 +790,77 @@ await settle();
         s().tasks.filter((t) => t.title === "une seule fois").length === 1);
 }
 
+section("Récurrence — the path completion actually takes, and one undo");
+reset();
+s().createTask({ title: "vider les courriels", due_on: "2026-09-21", recur: "weekdays" });
+await settle();
+{
+  const id = byTitle("vider les courriels").id;
+
+  /*
+    Not toggleTask: the row, the card, the keyboard and the modal all complete
+    through updateTask (lib/completion.ts). The rule lived on toggleTask once,
+    where nothing in the app would ever have reached it.
+  */
+  s().updateTask(id, { status: "done", completed_at: new Date().toISOString(), completed_by: "u1" });
+  await settle();
+
+  const all = s().tasks.filter((t) => t.title === "vider les courriels");
+  check("completing through updateTask writes the next one", all.length === 2, String(all.length));
+  check("Monday, because Friday's next weekday is Monday",
+        all.find((t) => t.status !== "done")?.due_on === "2026-09-22",
+        String(all.find((t) => t.status !== "done")?.due_on));
+
+  s().undo();
+  await settle();
+  const after = s().tasks.filter((t) => t.title === "vider les courriels");
+  check("one undo takes the new one away", after.length === 1, String(after.length));
+  check("and reopens the one you finished", after[0].status === "todo", after[0].status);
+}
+
+reset();
+s().createTask({ title: "arroser les plantes", due_on: "2026-09-21", recur: "weekly" });
+await settle();
+{
+  const id = byTitle("arroser les plantes").id;
+  s().updateTask(id, { status: "done", completed_at: new Date().toISOString() });
+  await settle();
+  s().undo();
+  await settle();
+  // undoing a reopen re-completes it; a second successor would be one too many
+  s().undo();
+  await settle();
+  check("undoing back and forth never leaves two of it",
+        s().tasks.filter((t) => t.title === "arroser les plantes").length <= 2,
+        String(s().tasks.filter((t) => t.title === "arroser les plantes").length));
+}
+
+reset();
+s().createTask({ title: "refusée", due_on: "2026-09-21", recur: "weekly" });
+await settle();
+{
+  const id = byTitle("refusée").id;
+  // the successor's insert is sent first, so the refusal is scripted second
+  supa.failSequence([null, { message: "update refused", code: "23514" }]);
+  s().updateTask(id, { status: "done", completed_at: new Date().toISOString() });
+  await settle();
+  check("a completion the server refuses leaves no successor behind",
+        s().tasks.filter((t) => t.title === "refusée").length === 1,
+        String(s().tasks.filter((t) => t.title === "refusée").length));
+  check("and the task is open again", byTitle("refusée").status === "todo");
+}
+
+reset();
+s().createTask({ title: "avec étapes", recur: "daily" });
+await settle();
+{
+  const id = byTitle("avec étapes").id;
+  s().addSubtask(id, "une étape");
+  await settle();
+  s().deleteTask(id);
+  await settle();
+  check("deleting a task takes its steps out of the store too", s().subtasks[id] === undefined);
+}
+
 console.log(`\n${failures === 0 ? "the store behaves" : `${failures} FAILED`}`);
 process.exit(failures ? 1 : 0);

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/shell/sidebar";
 import { StoreBoot } from "@/components/shell/store-boot";
+import { stripJoin } from "@/lib/store";
 import { AppChrome } from "@/components/shell/app-chrome";
 import { BottomBar } from "@/components/shell/bottom-bar";
 import { LiveRegion } from "@/components/shell/live-region";
@@ -87,12 +88,19 @@ export default async function AppLayout({
     */
     supabase.rpc("completion_days"),
     /*
-      Every checklist row the workspace can see. RLS scopes it through the
-      tasks, and the whole set is a few hundred short rows at most — the list
-      shows « 2/5 » on the row itself, and a count that arrives after the row
-      has drawn is a row that moves under your eyes.
+      The checklist rows of the tasks this load actually brings back.
+
+      Bounded the same way the tasks are, through the join: without the filter
+      this read grew for ever, carrying the steps of every task finished months
+      ago — rows the app has no way to show. They are fetched with the tasks
+      rather than after them because the list prints « 2/5 » on the row itself,
+      and a count that arrives later is a row that moves under your eyes.
     */
-    supabase.from("subtasks").select("*"),
+    supabase
+      .from("subtasks")
+      .select("*, tasks!inner(workspace_id, status, completed_at)")
+      .eq("tasks.workspace_id", membership.workspace_id)
+      .or(`status.neq.done,completed_at.gte.${recent}`, { referencedTable: "tasks" }),
   ]);
 
   /*
@@ -163,7 +171,8 @@ export default async function AppLayout({
           initial={{
             // `rows`, not `tasks` — the retry above may be the attempt that worked
             tasks: rows ?? [],
-            subtasks: subtasks ?? [],
+            // the joined task comes back on each row; the store wants the row
+            subtasks: (subtasks ?? []).map(stripJoin),
             members: members ?? [],
             me: members?.find((m) => m.id === user.id) ?? null,
             workspaceId: membership.workspace_id,
