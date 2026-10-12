@@ -50,3 +50,7 @@ backups/
 
 # client billing data, imported into Facturation; never committed
 Facturation_Clients*.xlsx
+
+# A visual bench for the agent: boots the store with fake rows and renders a
+# view, so a screenshot can be taken without a session. Dev only, never shipped.
+app/login-dev-preview/

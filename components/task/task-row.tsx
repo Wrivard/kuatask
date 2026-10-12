@@ -163,30 +163,6 @@ function TaskRowImpl({
       />
 
       {/*
-        The steps, one click away rather than a second screen. Only when there
-        are any: a caret on every row would be a column of carets, and a task
-        with no checklist has nothing to disclose. Steps are written in the
-        modal, or in the panel this opens.
-      */}
-      {steps.total > 0 && (
-        <button
-          type="button"
-          onClick={() => setStepsOpen((o) => !o)}
-          aria-expanded={stepsOpen}
-          title={stepsOpen ? copy.task.stepsHide : copy.task.stepsShow}
-          aria-label={stepsOpen ? copy.task.stepsHide : copy.task.stepsShow}
-          className="-ml-1 flex shrink-0 items-center gap-0.5 rounded-sm px-1 py-1 text-[12px] tabular-nums text-fg-faint hover:text-fg"
-        >
-          <ChevronRight
-            className={cn("size-3.5 transition-transform", stepsOpen && "rotate-90")}
-            strokeWidth={1.5}
-            aria-hidden
-          />
-          {copy.task.stepCount(steps.done, steps.total)}
-        </button>
-      )}
-
-      {/*
         The title is the row's real control — it is what Tab lands on, and the
         chip and the dot are its siblings rather than descendants of a button
         that cannot legally hold them. It does what the row does.
@@ -247,6 +223,36 @@ function TaskRowImpl({
             {creator && <Avatar member={creator} size="xs" />}
             {copy.task.fresh}
           </span>
+        )}
+
+        {/*
+          The steps, one click away rather than a second screen. Only when there
+          are any: a caret on every row would be a column of carets, and a task
+          with no checklist has nothing to disclose.
+
+          On the right, with the rest of the metadata, rather than between the
+          checkbox and the title where it started. There it pushed the title of
+          every task that had steps a few pixels further than the title of every
+          task that had none — one row in a list reading out of line with its
+          neighbours, for a control that belongs with « what is true about this
+          task » and not with the row's own handle.
+        */}
+        {steps.total > 0 && (
+          <button
+            type="button"
+            onClick={() => setStepsOpen((o) => !o)}
+            aria-expanded={stepsOpen}
+            title={stepsOpen ? copy.task.stepsHide : copy.task.stepsShow}
+            aria-label={stepsOpen ? copy.task.stepsHide : copy.task.stepsShow}
+            className="flex shrink-0 items-center gap-0.5 rounded-sm text-[12px] tabular-nums text-fg-faint hover:text-fg"
+          >
+            {copy.task.stepCount(steps.done, steps.total)}
+            <ChevronRight
+              className={cn("size-3.5 transition-transform", stepsOpen && "rotate-90")}
+              strokeWidth={1.5}
+              aria-hidden
+            />
+          </button>
         )}
 
         {/*

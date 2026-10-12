@@ -352,12 +352,20 @@ export const copy = {
     searchTagHint: "Essaie #étiquette pour filtrer par étiquette.",
   },
 
-  // Rotate through these in the clear-out state. Keep them flat — no praise.
+  /*
+    Rotate through these in the clear-out state. Keep them flat — no praise.
+
+    Every line is about **the day**, never about the list. § 8.5 fires on the
+    last task due today, and undated work keeps its own section on screen: two
+    of these used to say « la liste est vide » directly under three visible
+    rows, which is the app telling you something you can see is false. The
+    moment is worth more than the sentence; the sentence has to be true.
+  */
   clearOut: [
     "C'est tout pour aujourd'hui.",
     "Journée vidée.",
-    "Plus rien dans ta liste.",
-    "La liste est vide.",
+    "Plus rien de dû aujourd'hui.",
+    "La journée est vide.",
     "Fini pour aujourd'hui.",
   ],
 

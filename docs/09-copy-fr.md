@@ -74,8 +74,8 @@ export const copy = {
   clearOut: [
     "C'est tout pour aujourd'hui.",
     'Journée vidée.',
-    'Plus rien dans ta liste.',
-    'La liste est vide.',
+    "Plus rien de dû aujourd'hui.",
+    'La journée est vide.',
     'Fini pour aujourd\'hui.',
   ],
 
