@@ -267,7 +267,13 @@ export const copy = {
     todo: "À faire",
     doing: "En cours",
     done: "Terminé",
-    unassigned: "Personne",
+    /*
+      « Personne » twice on one screen meant two different things: the chip
+      that says the board is grouped by person, and the column holding what
+      nobody owns. This one is the column, and it borrows the list's phrasing
+      — « Sans date », « Sans personne ».
+    */
+    unassigned: "Sans personne",
     dropHere: "Déposer ici",
     addHere: "Ajouter ici",
     tooMuchDoing: "Beaucoup de choses en cours en même temps.",

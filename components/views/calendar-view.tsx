@@ -27,7 +27,7 @@ import {
   stepInGrid,
   type GridStep,
 } from "@/lib/time";
-import { useStore, type Task } from "@/lib/store";
+import { useStore, type Profile, type Task } from "@/lib/store";
 import { matchesFilter } from "@/lib/assignee";
 import { useDragToTarget } from "@/lib/drag";
 import { useRescheduleWithFeedback } from "@/lib/completion";
@@ -39,6 +39,45 @@ import { cn } from "@/lib/utils";
 
 const WEEKDAYS = ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"];
 const MODES = ["month", "week"] as const;
+
+/**
+ * One day's column in the week: its tasks, under a heading per band.
+ *
+ * A heading separates bands, so one band needs none — a day whose only tasks
+ * are untimed was printing « SANS HEURE » over them, which is the column
+ * saying out loud what their missing time already said. The second band is
+ * what makes the first worth naming.
+ */
+function DayBands({
+  tasks,
+  members,
+  onGrab,
+  onOpen,
+}: {
+  tasks: Task[];
+  members: Profile[];
+  onGrab: (id: string, e: React.PointerEvent) => void;
+  onOpen: (id: string) => void;
+}) {
+  const bands = bandsFor(tasks);
+
+  return bands.map(({ band, tasks: banded }) => (
+    <React.Fragment key={band}>
+      {bands.length > 1 && (
+        <span className={cn("mt-0.5", MICRO_LABEL)}>{copy.calendar.bands[band]}</span>
+      )}
+      {banded.map((task) => (
+        <CalendarCard
+          key={task.id}
+          task={task}
+          member={members.find((m) => m.id === task.assignee_id)}
+          onGrab={onGrab}
+          onOpen={onOpen}
+        />
+      ))}
+    </React.Fragment>
+  ));
+}
 
 /**
  * The week's tasks in bands, so 9h and 17h stop looking equally placed.
@@ -427,22 +466,12 @@ export function CalendarView() {
               >
                 {day.slice(-2)}
               </span>
-              {bandsFor(byDay.get(day) ?? []).map(({ band, tasks: banded }) => (
-                <React.Fragment key={band}>
-                  <span className={cn("mt-0.5", MICRO_LABEL)}>
-                    {copy.calendar.bands[band]}
-                  </span>
-                  {banded.map((task) => (
-                    <CalendarCard
-                      key={task.id}
-                      task={task}
-                      member={members.find((m) => m.id === task.assignee_id)}
-                      onGrab={grab}
-                      onOpen={modal.open}
-                    />
-                  ))}
-                </React.Fragment>
-              ))}
+              <DayBands
+                tasks={byDay.get(day) ?? []}
+                members={members}
+                onGrab={grab}
+                onOpen={modal.open}
+              />
             </div>
             ))}
             </div>
