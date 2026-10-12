@@ -10,7 +10,9 @@ import { Chip } from "@/components/ui/chip";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
 } from "@/components/ui/select";
 import { ACCENTS } from "@/components/task/assignee-dot";
@@ -652,37 +654,51 @@ export function ClientSheet({
           {copy.billing.allClients}
         </Link>
 
+        {/*
+          The last native <select> in the app, and it had the same problem the
+          status cells had: the browser draws the open list on its own sheet,
+          in the platform's colours rather than ours, so on a dark theme the
+          client you are looking at is white on white. The app paints this one
+          now — same component, same keyboard, both themes.
+        */}
         {others.length > 0 && (
-          <select
+          <Select
             value={client.id}
-            onChange={(e) => router.push(`/billing/${e.target.value}`)}
-            aria-label={copy.billing.switchClient}
-            title={copy.billing.switchClient}
-            className="h-8 max-w-[240px] rounded-sm border border-control bg-bg px-2 text-[13px] text-fg focus-visible:border-accent focus-visible:outline-none"
+            onValueChange={(id) => router.push(`/billing/${id}`)}
           >
-            {/*
-              Every client in its own group, this one included. It used to be
-              listed on its own above the groups, which read as though it
-              belonged to neither — an active client that looked set apart.
-            */}
-            {(
-              [
-                [copy.billing.active, switcher.filter((c) => c.archived_at === null)],
-                [copy.billing.archived, switcher.filter((c) => c.archived_at !== null)],
-              ] as const
-            ).map(
-              ([label, group]) =>
-                group.length > 0 && (
-                  <optgroup key={label} label={label}>
-                    {group.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                ),
-            )}
-          </select>
+            <SelectTrigger
+              aria-label={copy.billing.switchClient}
+              title={copy.billing.switchClient}
+              className="h-8 max-w-[240px] border border-control bg-bg px-2 text-fg"
+            >
+              {client.name}
+            </SelectTrigger>
+            <SelectContent className="max-h-[320px] overflow-y-auto">
+              {/*
+                Every client in its own group, this one included. It used to be
+                listed on its own above the groups, which read as though it
+                belonged to neither — an active client that looked set apart.
+              */}
+              {(
+                [
+                  [copy.billing.active, switcher.filter((c) => c.archived_at === null)],
+                  [copy.billing.archived, switcher.filter((c) => c.archived_at !== null)],
+                ] as const
+              ).map(
+                ([label, group]) =>
+                  group.length > 0 && (
+                    <SelectGroup key={label}>
+                      <SelectLabel>{label}</SelectLabel>
+                      {group.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ),
+              )}
+            </SelectContent>
+          </Select>
         )}
 
         {/* always shown, active included: the absence of « Archivé » said nothing */}
