@@ -48,6 +48,8 @@ export const copy = {
     doneToday: "Terminé aujourd'hui",
     doneRecent: "Terminé cette semaine",
     doneWeek: (n: number) => `${plural(n, "autre")} cette semaine`,
+    doneMonth: "Terminé ce mois-ci",
+    doneMonthMore: (n: number) => `${plural(n, "autre")} ce mois-ci`,
   },
 
   filter: {

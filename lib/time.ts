@@ -36,7 +36,10 @@ export const TZ = 'America/Montreal';
  * It lives here because both a server component and the browser store need it,
  * and this is the only module they share that pulls in nothing from either side.
  */
-export const RECENT_COMPLETION_DAYS = 7;
+export const RECENT_COMPLETION_DAYS = 30;
+
+/** The shorter step the list offers inside that window: « cette semaine ». */
+export const DONE_WEEK_DAYS = 7;
 
 /** The instant that window starts at. */
 export function recentCompletionCutoff(): string {

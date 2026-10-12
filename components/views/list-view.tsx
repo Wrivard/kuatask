@@ -23,6 +23,7 @@ import {
   today,
   tomorrow,
   type Bucket,
+  DONE_WEEK_DAYS,
 } from "@/lib/time";
 import { useStore, type Task } from "@/lib/store";
 import { assign, assignmentOf, BOTH, matchesFilter } from "@/lib/assignee";
@@ -68,7 +69,7 @@ export function ListView() {
   const reduced = useReducedMotion();
   // expanded is a preference, not a transient: closing it on every trip to
   // the calendar means re-opening it every time you want yesterday's context
-  const [doneOpenRaw, setDoneOpen] = useLocalLens<"0" | "1" | "7">("kua-done-open", "0");
+  const [doneOpenRaw, setDoneOpen] = useLocalLens<"0" | "1" | "7" | "30">("kua-done-open", "0");
   const doneOpen = doneOpenRaw !== "0";
   /*
     What is being searched comes from the URL, not from state here.
@@ -160,8 +161,12 @@ export function ListView() {
     above cheap.
   */
   const recentCutoff = React.useMemo(() => recentCompletionCutoff(), [day]); // eslint-disable-line react-hooks/exhaustive-deps
+  const weekCutoff = React.useMemo(
+    () => new Date(Date.now() - DONE_WEEK_DAYS * 86_400_000).toISOString(),
+    [day], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
-  const { sections, completedToday, completedRecently } = React.useMemo(() => {
+  const { sections, completedToday, completedWeek, completedRecently } = React.useMemo(() => {
     const byBucket = new Map<Bucket, Task[]>();
     const done: Task[] = [];
 
@@ -209,9 +214,11 @@ export function ListView() {
     return {
       sections: SECTIONS.map((s) => ({ ...s, tasks: byBucket.get(s.bucket) ?? [] })),
       completedToday: done.filter((t) => isOnDay(t.completed_at, day)),
+      // the week, and everything the app holds — which is the month
+      completedWeek: done.filter((t) => (t.completed_at ?? "") >= weekCutoff),
       completedRecently: done,
     };
-  }, [tasks, holding, day, recentCutoff]);
+  }, [tasks, holding, day, recentCutoff, weekCutoff]);
 
   /*
     Three states rather than two. Shut, today, and the week the browser is
@@ -224,8 +231,22 @@ export function ListView() {
     was not there. Yesterday's work is the honest answer to what it is
     holding, and the count then means something.
   */
-  const showsWeek = doneOpenRaw === "7" || completedToday.length === 0;
-  const doneShows = showsWeek ? completedRecently : completedToday;
+  /*
+    Three depths rather than two: today, the week, and the month the app now
+    holds. The window used to be a week — so a completed task left the app
+    entirely after seven days, and what stayed on screen was the undated work
+    nobody had finished. Finishing something and watching it disappear while the
+    old pile remains is the wrong way round.
+
+    The week still stands in whenever today is empty, which is every morning.
+  */
+  const showsMonth = doneOpenRaw === "30";
+  const showsWeek = !showsMonth && (doneOpenRaw === "7" || completedToday.length === 0);
+  const doneShows = showsMonth
+    ? completedRecently
+    : showsWeek
+      ? completedWeek
+      : completedToday;
 
   const visibleCount = sections.reduce((n, s) => n + s.tasks.length, 0);
 
@@ -447,7 +468,11 @@ export function ListView() {
               strokeWidth={1.5}
             />
             <span className="text-[13px] font-medium text-fg-muted">
-              {showsWeek ? copy.nav.doneRecent : copy.nav.doneToday}
+              {showsMonth
+                ? copy.nav.doneMonth
+                : showsWeek
+                  ? copy.nav.doneRecent
+                  : copy.nav.doneToday}
             </span>
             <span className="ml-auto font-mono text-[12px] tabular-nums text-fg-faint">
               {doneShows.length}
@@ -486,15 +511,28 @@ export function ListView() {
                   the section is open — a control for something you cannot see
                   is a control you have to think about.
                 */}
-                {!showsWeek && completedRecently.length > completedToday.length && (
+                {/* one step further down, as far as the month the app holds */}
+                <div className="flex flex-wrap items-center gap-4">
+                {!showsWeek && !showsMonth && completedWeek.length > completedToday.length && (
                   <button
                     type="button"
                     onClick={() => setDoneOpen("7")}
                     className="py-2 text-left text-[12px] text-fg-faint hover:text-fg"
                   >
-                    {copy.nav.doneWeek(completedRecently.length - completedToday.length)}
+                    {copy.nav.doneWeek(completedWeek.length - completedToday.length)}
                   </button>
                 )}
+
+                {!showsMonth && completedRecently.length > doneShows.length && (
+                  <button
+                    type="button"
+                    onClick={() => setDoneOpen("30")}
+                    className="py-2 text-left text-[12px] text-fg-faint hover:text-fg"
+                  >
+                    {copy.nav.doneMonthMore(completedRecently.length - doneShows.length)}
+                  </button>
+                )}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
