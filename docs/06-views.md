@@ -160,6 +160,6 @@ Opens from a row with a spring scale from `0.96` and a backdrop blur. Fields in 
 
 **Every field saves on change, optimistically. There is no save button and there is no cancel.** `Esc` closes. This is the same model as Linear and Notion and it is correct: a modal with Save/Cancel makes the user responsible for a transaction they did not ask to open.
 
-Footer: `Supprimer` on the left, `Créé par {nom}` in faint metadata on the right. Deleting closes the modal immediately and shows an undo toast.
+Footer: `Supprimer` on the left, `Créée par {nom}` in faint metadata on the right. Deleting closes the modal immediately and shows an undo toast.
 
 Keyboard: `Esc` closes, `⌘Enter` closes, `⌘Backspace` deletes.

@@ -294,7 +294,8 @@ export const copy = {
 
   task: {
     hasNotes: "Contient des notes",
-    fresh: "Nouveau",
+    // feminine, like every other word in this file that describes a tâche
+    fresh: "Nouvelle",
     freshHint: "Créée il y a moins de 3 h",
     freshBy: (name: string) => `Ajoutée par ${name}, il y a moins de 3 h`,
     duplicate: "Dupliquer",
@@ -337,7 +338,7 @@ export const copy = {
     important: "Important",
     status: "Statut",
     delete: "Supprimer",
-    createdBy: (name: string) => `Créé par ${name}`,
+    createdBy: (name: string) => `Créée par ${name}`,
     overdue: "En retard",
     quickToday: "Aujourd'hui",
     quickTomorrow: "Demain",

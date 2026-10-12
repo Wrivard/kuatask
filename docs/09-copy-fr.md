@@ -55,7 +55,7 @@ export const copy = {
     label: 'Étiquette',
     important: 'Important',
     delete: 'Supprimer',
-    createdBy: (name: string) => `Créé par ${name}`,
+    createdBy: (name: string) => `Créée par ${name}`,
     overdue: 'En retard',
     quickToday: "Aujourd'hui",
     quickTomorrow: 'Demain',

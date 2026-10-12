@@ -35,11 +35,22 @@ export function Avatar({
   member,
   size = "md",
   className,
+  onAccent = false,
   onBroken,
 }: {
   member: Pick<Profile, "display_name" | "accent" | "avatar_url"> | undefined;
   size?: keyof typeof SIZES;
   className?: string;
+  /**
+   * The face is sitting on the accent itself — the « Nouvelle » tag.
+   *
+   * The usual fill is the person's colour at 20% with that colour as the
+   * letter, which is legible on every surface the app has except this one: a
+   * fifth of amber laid over green is green, and the initial goes with it. On
+   * the accent the disc becomes the page background, so the person stays the
+   * colour they are everywhere else and is still readable.
+   */
+  onAccent?: boolean;
   /**
    * Told when the image refuses to load.
    *
@@ -85,7 +96,7 @@ export function Avatar({
           onBroken?.();
         }}
         className={cn("shrink-0 rounded-full object-cover", SIZES[size], className)}
-        style={{ boxShadow: `0 0 0 1px ${colour}` }}
+        style={{ boxShadow: `0 0 0 1px ${onAccent ? "var(--color-bg)" : colour}` }}
       />
     );
   }
@@ -101,7 +112,11 @@ export function Avatar({
       )}
       // the accent at low opacity with the accent as text: legible on both
       // themes without needing a second colour per person
-      style={{ backgroundColor: `${colour}33`, color: colour }}
+      style={
+        onAccent
+          ? { backgroundColor: "var(--color-bg)", color: colour }
+          : { backgroundColor: `${colour}33`, color: colour }
+      }
     >
       {initials(member.display_name)}
     </span>

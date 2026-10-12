@@ -220,7 +220,7 @@ function TaskRowImpl({
               creator ? "pl-0.5" : "pl-2",
             )}
           >
-            {creator && <Avatar member={creator} size="xs" />}
+            {creator && <Avatar member={creator} size="xs" onAccent />}
             {copy.task.fresh}
           </span>
         )}
