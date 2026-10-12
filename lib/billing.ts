@@ -59,6 +59,30 @@ export function totals(entries: EntryMoney[], clientRate: number): Totals {
 }
 
 /**
+ * The whole ledger in one set of totals, each line at its own client's rate.
+ *
+ * Separate from `totals` because the page-level figure cannot assume one rate:
+ * it spans every client, and an hours-only line is worth whatever that client
+ * charges. Separate from the component because of what it must *not* do —
+ * it takes every entry it is given and filters nothing. The tiles once skipped
+ * archived clients, so archiving somebody who still owed took their invoice
+ * out of « en souffrance » without a word. Money does not stop being owed
+ * because a row was tidied away.
+ */
+export function ledgerTotals(
+  entries: (EntryMoney & { client_id: string })[],
+  rateOf: (clientId: string) => number,
+): Totals {
+  const sum: Totals = { pending: 0, invoiced: 0, paid: 0, outstanding: 0, all: 0 };
+  for (const e of entries) {
+    const t = totals([e], rateOf(e.client_id));
+    for (const k of Object.keys(sum) as (keyof Totals)[]) sum[k] += t[k];
+  }
+  for (const k of Object.keys(sum) as (keyof Totals)[]) sum[k] = round2(sum[k]);
+  return sum;
+}
+
+/**
  * Reads what somebody typed into a number cell.
  *
  * Accepts both decimal marks, because Quebec writes « 2,5 » and a keyboard

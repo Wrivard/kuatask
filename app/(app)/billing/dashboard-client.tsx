@@ -21,6 +21,7 @@ import {
   taxesOn,
   nextSort,
   sortClients,
+  ledgerTotals,
   totals,
   type Sort,
   type SortKey,
@@ -295,17 +296,22 @@ export function BillingDashboard({
     );
   }, [clients, scoped, showArchived, query, owing, sort, since]);
 
-  // the tiles count active clients only: an archived one is settled history
+  /*
+    Every client in the period, archived or not.
+
+    These used to count active clients only — « an archived one is settled
+    history », which nothing enforced. Archiving a client who still had an
+    unpaid invoice took their money straight out of « en souffrance », quietly,
+    in the one place on the page you would look to find out who owes you. Money
+    that disappears when you tidy up is the worst failure this page can have.
+
+    Archiving stays what it is: a way to get a dormant client out of the list.
+    The list is what the Actifs/Archivés toggle filters; narrowing *when* is the
+    period's job, and it applies here already.
+  */
   const overall = React.useMemo(() => {
-    const active = new Set(clients.filter((c) => c.archived_at === null).map((c) => c.id));
     const rate = new Map(clients.map((c) => [c.id, c.default_rate]));
-    const sum: Totals = { pending: 0, invoiced: 0, paid: 0, outstanding: 0, all: 0 };
-    for (const e of scoped) {
-      if (!active.has(e.client_id)) continue;
-      const t = totals([e], rate.get(e.client_id) ?? DEFAULT_RATE);
-      for (const k of Object.keys(sum) as (keyof Totals)[]) sum[k] += t[k];
-    }
-    return sum;
+    return ledgerTotals(scoped, (id) => rate.get(id) ?? DEFAULT_RATE);
   }, [clients, scoped]);
 
   const exact = query ? clients.find((c) => normalize(c.name) === query) : undefined;

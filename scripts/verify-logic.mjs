@@ -1296,6 +1296,50 @@ section("Facturation — the page agrees with the sheet it replaces");
   check("what we print, we can read back", parseAmount(formatMoney(2950.5)) === 2950.5, formatMoney(2950.5));
 }
 
+/*
+  The five tiles. Their one job is to be the whole truth about the money, so
+  the test that matters is the one about what they must not leave out.
+*/
+section("Facturation — the tiles leave nothing out");
+{
+  const { ledgerTotals } = billing;
+  const line = (client_id, o) => ({
+    client_id,
+    hours: null,
+    rate: null,
+    amount: null,
+    status: "pending",
+    ...o,
+  });
+
+  const rateOf = (id) => (id === "cheap" ? 50 : 100);
+  const ledger = [
+    line("active", { amount: 500, status: "paid" }),
+    line("active", { amount: 117 }),
+    line("gone", { amount: 1250, status: "invoiced" }),
+    line("cheap", { hours: 2 }),
+  ];
+
+  const t = ledgerTotals(ledger, rateOf);
+  check("each line takes its own client's rate", t.pending === 217, String(t.pending));
+  check("an archived client's invoice is still owed", t.invoiced === 1250, String(t.invoiced));
+  check("outstanding is everything not paid", t.outstanding === 1467, String(t.outstanding));
+  check("paid is what came in", t.paid === 500, String(t.paid));
+
+  /*
+    The regression this exists for: archiving is a way to tidy the list, and it
+    used to take the client's money off the page with them.
+  */
+  const without = ledgerTotals(ledger.filter((e) => e.client_id !== "gone"), rateOf);
+  check(
+    "dropping a client is the only thing that changes the total",
+    t.outstanding - without.outstanding === 1250,
+    String(t.outstanding - without.outstanding),
+  );
+
+  check("nothing at all is zero, not NaN", ledgerTotals([], rateOf).all === 0);
+}
+
 section("Facturation — pasting the sheet in");
 {
   const { parseSheetPaste, parseDay, parseStatus, parseTsv } = billing;
