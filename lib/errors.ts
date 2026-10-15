@@ -38,6 +38,35 @@ export function isTransportFailure(error: Refusal): boolean {
 }
 
 /**
+ * Did the request go out with a token that had just expired?
+ *
+ * This is neither of the two cases above, and reading it as a refusal is what
+ * made the app look like it was rolling the database back. An access token
+ * lives about an hour. supabase-js refreshes it on a timer, but a tab that was
+ * asleep — or simply busy at the wrong moment — fires its next request while
+ * the refresh is still in the air. Production shows exactly that: a tasks read
+ * refused at 02:36:46.474 and the new token arriving at 02:36:46.958, half a
+ * second too late.
+ *
+ * On a read that costs nothing. On a write the store treated it as the
+ * database saying no: it put the old value back and said the change had not
+ * been saved. Tick three tasks at the wrong minute and they come back unticked;
+ * add one and it vanishes. Nothing is wrong in the database, which is why
+ * nothing could be found there.
+ *
+ * It is not a refusal, it is a request that left too early. Refresh, ask again.
+ *
+ * PostgREST answers these as the PGRST3xx family, and older versions send only
+ * a message, so both are matched.
+ */
+export function isStaleSession(error: Refusal): boolean {
+  if (!error) return false;
+  const code = error.code ?? '';
+  if (code.startsWith('PGRST3')) return true;
+  return /jwt|token is expired|invalid claim/i.test(error.message ?? '');
+}
+
+/**
  * Postgres SQLSTATEs, plus PostgREST's own. Only the ones reachable from this
  * app's writes are listed; anything else is deliberately unexplained.
  */

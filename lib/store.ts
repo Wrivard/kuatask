@@ -18,7 +18,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/database.types';
 import { instantToDay, now, recentCompletionCutoff, type DayString } from '@/lib/time';
 import { isRecurrence, nextFrom } from '@/lib/recurrence';
-import { isTransportFailure, type Refusal } from '@/lib/errors';
+import { isStaleSession, isTransportFailure, type Refusal } from '@/lib/errors';
 import { parseQuery } from '@/lib/search';
 import { setSoundEnabled as applySoundEnabled } from '@/lib/sound';
 
@@ -246,10 +246,34 @@ const RETRY_DELAY = 400;
 
 async function withRetry<T extends { error: Refusal }>(run: () => PromiseLike<T>): Promise<T> {
   const first = await run();
+  // a token that expired in flight is not the database saying no — see
+  // isStaleSession. Get a fresh one and send the same write again.
+  if (isStaleSession(first.error)) return afterRefresh(run);
   // the same predicate the toast uses, so the two can never disagree about
   // what a blip is — one retried and the other explained it differently
   if (!isTransportFailure(first.error)) return first;
   await new Promise((r) => setTimeout(r, RETRY_DELAY));
+  return run();
+}
+
+/**
+ * Refresh the session, then send the write once more.
+ *
+ * `getSession` is the refresh: supabase-js renews an expired token on the way
+ * out and hands back the live one, and because the browser client is a
+ * singleton every other request in flight picks up the same new token. One
+ * retry, because a second failure is a session that is genuinely gone rather
+ * than one that was a moment stale, and that deserves the rollback and the
+ * message.
+ */
+async function afterRefresh<T extends { error: Refusal }>(
+  run: () => PromiseLike<T>,
+): Promise<T> {
+  try {
+    await createClient().auth.getSession();
+  } catch {
+    // a refresh that throws is still worth one more attempt with what we have
+  }
   return run();
 }
 
@@ -279,6 +303,8 @@ async function insertWithRetry<T extends { error: Refusal }>(
   run: () => PromiseLike<T>,
 ): Promise<T> {
   const first = await run();
+  // the same stale token, on the write that would otherwise lose a new task
+  if (isStaleSession(first.error)) return afterRefresh(run);
   if (!isTransportFailure(first.error)) return first;
 
   await new Promise((r) => setTimeout(r, RETRY_DELAY));

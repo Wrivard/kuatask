@@ -35,6 +35,8 @@ export let failCount = 0;
 export function failNext(message) { nextError = { message, code: "23514" }; }
 /** A refusal that arrived with a blank code, which a falsy test reads as absent. */
 export function failNextBlankCode(message) { nextError = { message, code: "" }; }
+/** A token that expired between the click and the request. PostgREST's PGRST301. */
+export function failNextStale(message) { nextError = { message, code: "PGRST301" }; }
 export function failNextTransport(message, times = 1) {
   nextError = { message, code: null };
   failCount = times;
@@ -111,7 +113,14 @@ export function createClient() {
     return b;
   };
   return {
-    auth: { getUser: async () => ({ data: { user: null } }) },
+    auth: {
+      getUser: async () => ({ data: { user: null } }),
+      /* the refresh the store asks for when a token expired in flight */
+      getSession: async () => {
+        calls.push("auth:getSession");
+        return { data: { session: { access_token: "fresh" } }, error: null };
+      },
+    },
     from: (table) => builder(table, null),
     /*
       Writes through rpc answer to the same script as writes through from() —
@@ -860,6 +869,69 @@ await settle();
   s().deleteTask(id);
   await settle();
   check("deleting a task takes its steps out of the store too", s().subtasks[id] === undefined);
+}
+
+/*
+  A token that expired in flight.
+
+  This is the one that made the app look like it was rolling the database
+  back: production refused a read at 02:36:46.474 and handed out the new token
+  at 02:36:46.958. On a write, the store used to read that refusal as the
+  database saying no — it put the old value back and said nothing had been
+  saved, while the database was perfectly willing. Tick three tasks in that
+  half-second and they come back unticked.
+*/
+section("Un jeton périmé n'est pas un refus");
+
+reset();
+s().createTask({ title: "jeton périmé", due_on: "2026-09-21" });
+await settle();
+{
+  const id = byTitle("jeton périmé").id;
+  supa.resetCalls();
+  // first attempt: PGRST301. Second, after the refresh: it lands.
+  supa.failSequence([{ message: "JWT expired", code: "PGRST301" }, null]);
+  s().updateTask(id, { title: "gardé" });
+  await settle();
+
+  check("the write survives a token that expired in flight",
+        byTitle("gardé") !== undefined,
+        s().tasks.map((t) => t.title).join(","));
+  check("and the store refreshed the session rather than giving up",
+        supa.calls.includes("auth:getSession"),
+        supa.calls.join(","));
+}
+
+reset();
+{
+  supa.resetCalls();
+  supa.failSequence([{ message: "JWT expired", code: "PGRST301" }, null]);
+  s().createTask({ title: "créée pendant l'expiration" });
+  await settle();
+  check("a new task is not lost to a stale token either",
+        byTitle("créée pendant l'expiration") !== undefined,
+        s().tasks.map((t) => t.title).join(","));
+}
+
+/*
+  The other half of the rule: a session that is genuinely gone must still roll
+  back and say so, or the person would be told their work was saved when it
+  was not.
+*/
+reset();
+s().createTask({ title: "session morte", due_on: "2026-09-21" });
+await settle();
+{
+  const id = byTitle("session morte").id;
+  supa.failSequence([
+    { message: "JWT expired", code: "PGRST301" },
+    { message: "JWT expired", code: "PGRST301" },
+  ]);
+  s().updateTask(id, { title: "jamais enregistré" });
+  await settle();
+  check("a session that stays gone still rolls the change back",
+        byTitle("session morte") !== undefined && byTitle("jamais enregistré") === undefined,
+        s().tasks.map((t) => t.title).join(","));
 }
 
 console.log(`\n${failures === 0 ? "the store behaves" : `${failures} FAILED`}`);
