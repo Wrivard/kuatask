@@ -186,6 +186,13 @@ renders use `requestSession()`, whose client has no auth machinery at all and
 therefore cannot rotate anything. `npm run verify:session` proves it against a
 running build — a page that renders at all is a page that never asked.
 
+Measured in production at 15:51:56 on 15 October, four authenticated renders:
+three `/auth/v1/user` calls, all `createServerClient`, which is the middleware
+and nothing else; **zero** `/auth/v1/token`; and every data read — tasks,
+subtasks, profiles, notes — under `supabase-js … runtime=node`, which is the
+auth-free client. Before, `/` alone made two calls to `/auth/v1/user` and any
+of those reads could start a renewal.
+
 The same query is how to confirm it stays fixed: renewals from
 `createServerClient` should now be rare — one per hour of real use, from the
 middleware — and `response.headers.sb_auth_refresh_token_reuse` should stop
