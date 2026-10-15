@@ -347,7 +347,10 @@ export const useStore = create<Store>((set, get) => {
     patchSubtask(taskId, id, patch);
 
     void serial([id], async () => {
-      const { error } = await withRetry(() => supabase.from('subtasks').update(patch).eq('id', id));
+      const { error } = await withRetry(
+        () => supabase.from('subtasks').update(patch).eq('id', id),
+        { op: 'update', table: 'subtasks', patch, ids: [id] },
+      );
       if (error) {
         patchSubtask(taskId, id, pick(row, Object.keys(patch) as (keyof Subtask)[]));
         toastError(error);
@@ -636,7 +639,11 @@ export const useStore = create<Store>((set, get) => {
 
       void (async () => {
         const { data, error } = await serial([optimistic.id], () =>
-          insertWithRetry(() => supabase.from('tasks').insert(optimistic).select().single()),
+          insertWithRetry(() => supabase.from('tasks').insert(optimistic).select().single(), {
+            op: 'insert',
+            table: 'tasks',
+            rows: [optimistic],
+          }),
         );
 
         releaseNew();
@@ -690,7 +697,11 @@ export const useStore = create<Store>((set, get) => {
       setSubtasks(taskId, [...list, row]);
 
       void serial([row.id], async () => {
-        const { error } = await withRetry(() => supabase.from('subtasks').insert(row));
+        const { error } = await withRetry(() => supabase.from('subtasks').insert(row), {
+          op: 'insert',
+          table: 'subtasks',
+          rows: [row],
+        });
         if (error) {
           setSubtasks(taskId, (get().subtasks[taskId] ?? []).filter((x) => x.id !== row.id));
           toastError(error);
@@ -724,7 +735,10 @@ export const useStore = create<Store>((set, get) => {
       setSubtasks(taskId, (get().subtasks[taskId] ?? []).filter((x) => x.id !== id));
 
       void serial([id], async () => {
-        const { error } = await withRetry(() => supabase.from('subtasks').delete().eq('id', id));
+        const { error } = await withRetry(
+          () => supabase.from('subtasks').delete().eq('id', id),
+          { op: 'delete', table: 'subtasks', ids: [id] },
+        );
         if (error) {
           const list = [...(get().subtasks[taskId] ?? [])];
           list.splice(Math.max(at, 0), 0, row);
@@ -803,7 +817,12 @@ export const useStore = create<Store>((set, get) => {
 
       void (async () => {
         const { error } = await serial([id], () =>
-          withRetry(() => supabase.from('tasks').update(changed).eq('id', id)),
+          withRetry(() => supabase.from('tasks').update(changed).eq('id', id), {
+            op: 'update',
+            table: 'tasks',
+            patch: changed,
+            ids: [id],
+          }),
         );
         release();
         if (error) {
@@ -879,6 +898,15 @@ export const useStore = create<Store>((set, get) => {
           renumbered, and the old code created it on the far side of the wire
           while carefully avoiding it on this one.
         */
+        /*
+          No outbox entry, deliberately. Everything else that fails for want of
+          a session is kept and sent after the next sign-in; an order is the one
+          thing where that is worse than losing it. The positions were computed
+          against the list as it stood, and replaying them ten minutes and one
+          sign-in later would impose a stale arrangement on a list the other
+          person may have added to — scrambling it rather than restoring it.
+          A dragged row that springs back is a small, visible, honest failure.
+        */
         const releases = positions.map(({ id }) => claim(id));
         const { error } = await serial(
           positions.map((p) => p.id),
@@ -920,7 +948,11 @@ export const useStore = create<Store>((set, get) => {
         const releaseUndo = claim(before.id);
         void (async () => {
           const { error } = await serial([before.id], () =>
-            insertWithRetry(() => supabase.from('tasks').insert(before)),
+            insertWithRetry(() => supabase.from('tasks').insert(before), {
+              op: 'insert',
+              table: 'tasks',
+              rows: [before],
+            }),
           );
           releaseUndo();
           if (error) {
@@ -936,7 +968,11 @@ export const useStore = create<Store>((set, get) => {
 
       void (async () => {
         const { error } = await serial([id], () =>
-          withRetry(() => supabase.from('tasks').delete().eq('id', id)),
+          withRetry(() => supabase.from('tasks').delete().eq('id', id), {
+            op: 'delete',
+            table: 'tasks',
+            ids: [id],
+          }),
         );
         release();
         if (error) {

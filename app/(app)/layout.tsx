@@ -9,6 +9,7 @@ import { LiveRegion } from "@/components/shell/live-region";
 import { SetupRequired } from "@/components/shell/setup-required";
 import { Unreachable } from "@/components/shell/unreachable";
 import { PreviewBanner } from "@/components/shell/preview-banner";
+import { SessionBanner } from "@/components/shell/session-banner";
 import { recentCompletionCutoff } from "@/lib/time";
 import { isTransportFailure } from "@/lib/errors";
 import { copy } from "@/lib/copy";
@@ -166,6 +167,8 @@ export default async function AppLayout({
     */
     <div className="flex min-h-dvh flex-col">
       <PreviewBanner />
+      {/* the same place and for the same reason: a fact about the whole window */}
+      <SessionBanner />
       <div className="flex min-h-0 flex-1">
         <StoreBoot
           initial={{

@@ -92,11 +92,12 @@ export function NotesClient({
     const landed = (async () => {
       // the id is ours, so a token that expired in flight costs nothing: ask
       // again rather than quietly taking the note off the screen
-      const { error } = await insertWithRetry(() =>
-        supabase
-          .from("notes")
-          .insert({ id: note.id, workspace_id: workspaceId, user_id: userId, body }),
-      );
+      const row = { id: note.id, workspace_id: workspaceId, user_id: userId, body };
+      const { error } = await insertWithRetry(() => supabase.from("notes").insert(row), {
+        op: "insert",
+        table: "notes",
+        rows: [row],
+      });
       if (error) setNotes((n) => n.filter((x) => x.id !== note.id));
     })();
     inflight.current.set(note.id, landed);
@@ -123,9 +124,11 @@ export function NotesClient({
       */
       await inflight.current.get(id);
 
-      const { error } = await withRetry(() =>
-        supabase.from("notes").delete().eq("id", id),
-      );
+      const { error } = await withRetry(() => supabase.from("notes").delete().eq("id", id), {
+        op: "delete",
+        table: "notes",
+        ids: [id],
+      });
       if (error) setNotes(before);
     })();
   }

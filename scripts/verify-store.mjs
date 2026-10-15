@@ -81,6 +81,8 @@ export function createClient() {
     const b = {
       select: () => b,
       eq: () => b,
+      /* the outbox replays by id list, the way the bulk writes already do */
+      in: () => b,
       ilike: () => b,
       order: () => b,
       limit: () => b,
@@ -141,7 +143,7 @@ fs.writeFileSync(path.join(tmp, "supabase-stub.ts"), stub);
 // transport predicate it now shares with the toast; errors.ts pulls in copy
 // store.ts pulls in search.ts too: the archive lookup asks the same question
 // the list does, rather than approximating it (lib/search.ts)
-for (const file of ["store.ts", "write.ts", "sound.ts", "time.ts", "errors.ts", "copy.ts", "search.ts", "recurrence.ts"]) {
+for (const file of ["store.ts", "write.ts", "outbox.ts", "session.ts", "sound.ts", "time.ts", "errors.ts", "copy.ts", "search.ts", "recurrence.ts"]) {
   const src = fs.readFileSync(path.join("lib", file), "utf8");
   fs.writeFileSync(
     path.join(tmp, file),
@@ -151,9 +153,23 @@ for (const file of ["store.ts", "write.ts", "sound.ts", "time.ts", "errors.ts", 
   );
 }
 
+/*
+  A localStorage, because the outbox is the thing under test here and without
+  one it silently keeps nothing — which would make every assertion below pass
+  for the wrong reason. Map-backed, cleared between sections by reset().
+*/
+const store_ = new Map();
+globalThis.localStorage = {
+  getItem: (k) => (store_.has(k) ? store_.get(k) : null),
+  setItem: (k, v) => void store_.set(k, String(v)),
+  removeItem: (k) => void store_.delete(k),
+  clear: () => store_.clear(),
+};
+
 const { useStore, setErrorHandler } = await import(
   pathToFileURL(path.join(tmp, "store.ts")).href
 );
+const outbox = await import(pathToFileURL(path.join(tmp, "outbox.ts")).href);
 const supa = await import(pathToFileURL(path.join(tmp, "supabase-stub.ts")).href);
 
 let failures = 0;
@@ -914,24 +930,68 @@ reset();
 }
 
 /*
-  The other half of the rule: a session that is genuinely gone must still roll
-  back and say so, or the person would be told their work was saved when it
-  was not.
+  The other half, and the point of the whole thing: a session that is genuinely
+  gone must not cost you the work.
+
+  Refused twice is the refresh token itself being rejected — production, 12
+  October 14:37:51. The old behaviour was to put the old value back and say
+  « non enregistré », which is honest and useless. The write is described and
+  kept instead, so it can go after the next sign-in.
 */
+section("Une session morte ne coûte pas le travail");
+
 reset();
+outbox.clearOutbox();
 s().createTask({ title: "session morte", due_on: "2026-09-21" });
 await settle();
 {
   const id = byTitle("session morte").id;
-  supa.failSequence([
-    { message: "JWT expired", code: "PGRST301" },
-    { message: "JWT expired", code: "PGRST301" },
-  ]);
-  s().updateTask(id, { title: "jamais enregistré" });
+  const dead = { message: "JWT expired", code: "PGRST301" };
+  supa.failSequence([dead, dead]);
+  s().updateTask(id, { title: "gardé malgré tout" });
   await settle();
-  check("a session that stays gone still rolls the change back",
-        byTitle("session morte") !== undefined && byTitle("jamais enregistré") === undefined,
+
+  check("the change stays on screen rather than springing back",
+        byTitle("gardé malgré tout") !== undefined,
         s().tasks.map((t) => t.title).join(","));
+  check("and it is waiting in the outbox", outbox.count() === 1, String(outbox.count()));
+
+  /*
+    Durable, not merely remembered. Signing in again means a magic link, which
+    means leaving for a mail client and coming back as a fresh page load — a
+    queue that lived in memory would be empty by the time it was needed. So the
+    assertion is against the stored bytes, not the module.
+  */
+  const raw = globalThis.localStorage.getItem("kua-outbox");
+  const parsed = raw ? JSON.parse(raw) : [];
+  check("written to storage, so it survives the reload a magic link causes",
+        parsed.length === 1 && parsed[0].write.patch.title === "gardé malgré tout",
+        raw ? raw.slice(0, 90) : "nothing stored");
+}
+
+/* And the queue actually drains, against a server that is answering again. */
+{
+  const result = await outbox.flushOutbox();
+  check("flushing sends what was waiting", result.sent === 1, JSON.stringify(result));
+  check("and the queue is empty afterwards", outbox.count() === 0, String(outbox.count()));
+}
+
+/*
+  A refusal from the database is a real no. Queueing it would be a count that
+  never reaches zero and a change on screen that never becomes true.
+*/
+reset();
+outbox.clearOutbox();
+s().createTask({ title: "refus réel", due_on: "2026-09-21" });
+await settle();
+{
+  const id = byTitle("refus réel").id;
+  supa.failNext("violates check constraint");
+  s().updateTask(id, { title: "x".repeat(600) });
+  await settle();
+  check("a refusal from the database still rolls back", byTitle("refus réel") !== undefined,
+        s().tasks.map((t) => t.title).join(","));
+  check("and is not queued for ever", outbox.count() === 0, String(outbox.count()));
 }
 
 console.log(`\n${failures === 0 ? "the store behaves" : `${failures} FAILED`}`);

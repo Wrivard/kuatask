@@ -112,7 +112,12 @@ export function ProductsClient({
 
     void (async () => {
       const { error } = await writing(id, () =>
-        withRetry(() => supabase.from("billing_products").update(p).eq("id", id)),
+        withRetry(() => supabase.from("billing_products").update(p).eq("id", id), {
+          op: "update",
+          table: "billing_products",
+          patch: p,
+          ids: [id],
+        }),
       );
       if (error) {
         setProducts((list) => list.map((x) => (x.id === id ? before : x)));
@@ -144,8 +149,13 @@ export function ProductsClient({
 
     void (async () => {
       const { error } = await writing(product.id, () =>
-        insertWithRetry(() =>
-          supabase.from("billing_products").insert({ ...product, workspace_id: workspaceId }),
+        insertWithRetry(
+          () => supabase.from("billing_products").insert({ ...product, workspace_id: workspaceId }),
+          {
+            op: "insert",
+            table: "billing_products",
+            rows: [{ ...product, workspace_id: workspaceId }],
+          },
         ),
       );
       if (error) {
@@ -162,7 +172,11 @@ export function ProductsClient({
 
     void (async () => {
       const { error } = await writing(product.id, () =>
-        withRetry(() => supabase.from("billing_products").delete().eq("id", product.id)),
+        withRetry(() => supabase.from("billing_products").delete().eq("id", product.id), {
+          op: "delete",
+          table: "billing_products",
+          ids: [product.id],
+        }),
       );
       if (error) {
         setProducts((list) => [...list, product].sort((a, b) => a.name.localeCompare(b.name, "fr")));
@@ -175,8 +189,16 @@ export function ProductsClient({
           label: copy.toast.undo,
           onClick: () => {
             setProducts((list) => [...list, product].sort((a, b) => a.name.localeCompare(b.name, "fr")));
-            void insertWithRetry(() =>
-              supabase.from("billing_products").insert({ ...product, workspace_id: workspaceId }),
+            void insertWithRetry(
+              () =>
+                supabase
+                  .from("billing_products")
+                  .insert({ ...product, workspace_id: workspaceId }),
+              {
+                op: "insert",
+                table: "billing_products",
+                rows: [{ ...product, workspace_id: workspaceId }],
+              },
             ).then(({ error: undoError }) => {
               if (undoError) toast.error(copy.billing.saveFailed);
               else router.refresh();

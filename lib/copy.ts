@@ -392,6 +392,15 @@ export const copy = {
 
   auth: {
     returning: "Ta session s'est terminée. Redemande un lien pour revenir.",
+    /*
+      Said while it is happening, not discovered afterwards. The second line
+      exists because « reconnecte-toi » alone reads as « ce que tu viens de
+      faire est perdu », and it is not — it is held until you are back.
+    */
+    expired: "Ta session a expiré.",
+    waiting: (n: number) =>
+      n === 1 ? "1 modification en attente." : `${n} modifications en attente.`,
+    signInAgain: "Se reconnecter",
     title: "Küa Tasks",
     emailPlaceholder: "Courriel",
     send: "Envoyer le lien",

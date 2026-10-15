@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { isStaleSession, isTransportFailure, type Refusal } from '@/lib/errors';
+import { remember, type Write } from '@/lib/outbox';
+import { sessionLost } from '@/lib/session';
 
 /*
   What to do when a write comes back with an error, in one place.
@@ -26,11 +28,21 @@ import { isStaleSession, isTransportFailure, type Refusal } from '@/lib/errors';
  */
 const RETRY_DELAY = 400;
 
-export async function withRetry<T extends { error: Refusal }>(run: () => PromiseLike<T>): Promise<T> {
+export async function withRetry<T extends { error: Refusal }>(
+  run: () => PromiseLike<T>,
+  /**
+   * What this write *is*, so it can be sent again after a sign-in.
+   *
+   * Optional only because a caller without one still behaves as it did: it
+   * rolls back. With one, a write the session was too dead to send is kept
+   * rather than thrown away. Every call site in the app passes it.
+   */
+  write?: Write,
+): Promise<T> {
   const first = await run();
   // a token that expired in flight is not the database saying no — see
   // isStaleSession. Get a fresh one and send the same write again.
-  if (isStaleSession(first.error)) return afterRefresh(run);
+  if (isStaleSession(first.error)) return afterRefresh(run, write);
   // the same predicate the toast uses, so the two can never disagree about
   // what a blip is — one retried and the other explained it differently
   if (!isTransportFailure(first.error)) return first;
@@ -50,13 +62,31 @@ export async function withRetry<T extends { error: Refusal }>(run: () => Promise
  */
 async function afterRefresh<T extends { error: Refusal }>(
   run: () => PromiseLike<T>,
+  write?: Write,
 ): Promise<T> {
   try {
     await createClient().auth.getSession();
   } catch {
     // a refresh that throws is still worth one more attempt with what we have
   }
-  return run();
+  const second = await run();
+  if (!isStaleSession(second.error)) return second;
+
+  /*
+    Refused twice: the session is not stale, it is gone. The refresh token
+    itself was rejected, which is what happened in production on 12 October,
+    and no amount of asking again will help until somebody signs in.
+
+    This is the point the app used to throw the work away. Instead the write is
+    described and kept, the screen keeps what it is showing, and the banner says
+    there is something waiting. Reporting no error is not a lie: the change has
+    not been lost, it has not arrived yet.
+  */
+  if (write && remember(write)) {
+    sessionLost();
+    return { ...second, error: null };
+  }
+  return second;
 }
 
 /** Postgres unique_violation. On a retried insert it means "already written". */
@@ -83,10 +113,11 @@ const UNIQUE_VIOLATION = '23505';
  */
 export async function insertWithRetry<T extends { error: Refusal }>(
   run: () => PromiseLike<T>,
+  write?: Write,
 ): Promise<T> {
   const first = await run();
   // the same stale token, on the write that would otherwise lose a new task
-  if (isStaleSession(first.error)) return afterRefresh(run);
+  if (isStaleSession(first.error)) return afterRefresh(run, write);
   if (!isTransportFailure(first.error)) return first;
 
   await new Promise((r) => setTimeout(r, RETRY_DELAY));

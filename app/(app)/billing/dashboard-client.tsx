@@ -130,8 +130,9 @@ export function BillingDashboard({
     setStatusOf((s) => ({ ...s, [client.id]: next }));
 
     const put = (value: string | null) =>
-      withRetry(() =>
-        supabase.from("clients").update({ archived_at: value }).eq("id", client.id),
+      withRetry(
+        () => supabase.from("clients").update({ archived_at: value }).eq("id", client.id),
+        { op: "update", table: "clients", patch: { archived_at: value }, ids: [client.id] },
       );
 
     void (async () => {
@@ -347,8 +348,9 @@ export function BillingDashboard({
 
     void (async () => {
       // the id is ours, so the insert is safe to send twice
-      const { error } = await insertWithRetry(() =>
-        supabase.from("clients").insert({ ...client, workspace_id: workspaceId }),
+      const { error } = await insertWithRetry(
+        () => supabase.from("clients").insert({ ...client, workspace_id: workspaceId }),
+        { op: "insert", table: "clients", rows: [{ ...client, workspace_id: workspaceId }] },
       );
       if (error) {
         setCreated((c) => c.filter((x) => x.id !== client.id));

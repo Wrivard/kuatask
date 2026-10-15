@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { resetSession } from "@/lib/session-reset";
+import { clearOutbox } from "@/lib/outbox";
 import { copy } from "@/lib/copy";
 import { Button } from "@/components/ui/button";
 
@@ -23,6 +24,8 @@ export function SignOutButton() {
       whose entire job is one line of copy and a way out.
     */
     resetSession();
+    // unsent writes are this person's work, not the next person's inheritance
+    clearOutbox();
 
     router.replace("/login");
     router.refresh();
