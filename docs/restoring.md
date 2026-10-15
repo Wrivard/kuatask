@@ -218,6 +218,31 @@ the token after its last query, that the browser client is still the singleton
 `@supabase/ssr` makes it by default. Each one was checked by breaking the thing
 it protects and watching it go red.
 
+Measured in production on the deployed build, one run of `verify:session`
+against four authenticated requests: **four `/auth/v1/user`, all
+`createServerClient`** — the middleware, once per request — and **zero
+`/auth/v1/token`**. Twenty-four data reads, every one of them under
+`supabase-js … runtime=node`, the auth-free client; the only `createServerClient`
+query left is the middleware's own membership check, four of those, in the one
+place that could store a rotation if it caused one. The last server renewal in
+the logs is 2026-10-15 14:35:18, before the fix shipped.
+
+### The one that was invisible
+
+Two regexes in this repo contained a real backspace byte (0x08) where the
+source meant `\b`, written by a shell heredoc that read the escape. One made
+the `img-src` assertion in `verify:headers` permanently red against a policy
+that was correct all along — and the `script-src` assertion beside it
+permanently green for a rule it had stopped testing. The other was in
+`isStaleSession` (`lib/errors.ts`), the predicate deciding whether a write that
+came back with an expired token gets sent again or rolled back on screen.
+
+A character nobody can see is not something to be careful about, so
+`verify:logic` now walks every source file and refuses any control character
+but tab, newline and carriage return. If a regex in this repo ever looks right
+and behaves as though it is not, read the bytes: `od -An -tx1`, not `od -c` —
+`od -c` prints 0x08 as `\b` too.
+
 Measured in production at 15:51:56 on 15 October, four authenticated renders:
 three `/auth/v1/user` calls, all `createServerClient`, which is the middleware
 and nothing else; **zero** `/auth/v1/token`; and every data read — tasks,
