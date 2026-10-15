@@ -170,6 +170,7 @@ const { useStore, setErrorHandler } = await import(
   pathToFileURL(path.join(tmp, "store.ts")).href
 );
 const outbox = await import(pathToFileURL(path.join(tmp, "outbox.ts")).href);
+const session = await import(pathToFileURL(path.join(tmp, "session.ts")).href);
 const supa = await import(pathToFileURL(path.join(tmp, "supabase-stub.ts")).href);
 
 let failures = 0;
@@ -942,6 +943,18 @@ section("Une session morte ne coûte pas le travail");
 
 reset();
 outbox.clearOutbox();
+
+/*
+  And a second tab that renewed the token forty seconds ago. That is the
+  leading explanation for 12 October — two tabs, two renewal timers, one
+  rotating token — and the only way to stop guessing is for the app to be able
+  to say so out loud the next time it happens (lib/session.ts).
+*/
+globalThis.localStorage.setItem(
+  "kua-last-refresh",
+  JSON.stringify({ at: Date.now() - 40_000, tab: "other1" }),
+);
+
 s().createTask({ title: "session morte", due_on: "2026-09-21" });
 await settle();
 {
@@ -992,6 +1005,28 @@ await settle();
   check("a refusal from the database still rolls back", byTitle("refus réel") !== undefined,
         s().tasks.map((t) => t.title).join(","));
   check("and is not queued for ever", outbox.count() === 0, String(outbox.count()));
+}
+
+/*
+  Why it died, not only that it did.
+
+  The outbox makes a dead session survivable, which is the part that matters,
+  but it leaves the cause unexplained — and one 400 in four days of logs is not
+  enough to name it. So a death writes down what tells the candidates apart: a
+  token spent seconds ago by another tab is the multi-tab race, while this
+  tab's own hour-old token is an invalidation server-side that nothing on the
+  client could have prevented.
+*/
+section("Une session morte laisse un diagnostic");
+{
+  const log = session.sessionLog();
+  const note = log[log.length - 1];
+  check("the death was written down", log.length === 1, JSON.stringify(log));
+  check("with the work that was waiting at the time", note?.waiting === 1, String(note?.waiting));
+  check("and it names the other tab that spent the token",
+        note?.otherTabAgo === 40, String(note?.otherTabAgo));
+  check("rather than this tab, which never renewed anything",
+        note?.sinceMine === null, String(note?.sinceMine));
 }
 
 console.log(`\n${failures === 0 ? "the store behaves" : `${failures} FAILED`}`);

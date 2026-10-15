@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { resetSession } from "@/lib/session-reset";
 import { clearOutbox } from "@/lib/outbox";
+import { signingOutOnPurpose } from "@/lib/session";
 import { copy } from "@/lib/copy";
 import { Button } from "@/components/ui/button";
 
@@ -11,6 +12,9 @@ export function SignOutButton() {
   const router = useRouter();
 
   async function signOut() {
+    // SIGNED_OUT is the same event whether you asked for it or the refresh
+    // token was refused, and only one of those is worth writing down
+    signingOutOnPurpose();
     await createClient().auth.signOut();
 
     /*

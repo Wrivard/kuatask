@@ -131,6 +131,51 @@ four days; zero is the thing being asked about.
 For rows that disappeared rather than reverted, the « What is gone » query
 above answers it against the live tables.
 
+## Why the session died
+
+The 15 October look at the edge logs found two auth failures from the browser,
+and they are different problems:
+
+- `02:36:46.474 GET /rest/v1/tasks → 401` followed 0.5 s later by
+  `POST /auth/v1/token → 200`. A request that left with a token expiring while
+  the renewal was still in flight. Handled: `lib/write.ts` renews and sends the
+  same write again.
+- `14:37:51.735 POST /auth/v1/token?grant_type=refresh_token → 400`, then a
+  magic link five seconds later. The refresh token itself was refused, so the
+  session was gone and signing in again was the only way back. The work is now
+  kept across that (`lib/outbox.ts`) — but **why it was refused is still a
+  hypothesis**.
+
+The refresh token rotates: each renewal mints a new one and the old one is
+honoured for roughly ten seconds afterwards. A 400 therefore means the token
+presented had been spent longer ago than that, and the question is who spent
+it. Two tabs is the leading answer — each holds its own copy of the session and
+runs its own renewal timer against one shared cookie. The middleware, which
+renews on navigation when the access token has expired, is the other.
+
+One occurrence in four days is not enough to choose, so the app now writes down
+the circumstances. Every successful renewal leaves a mark (`kua-last-refresh`:
+when, and which tab), and a session death reads it back into
+`kua-session-log`. In the browser console, on the tab it happened in:
+
+```js
+JSON.parse(localStorage.getItem('kua-session-log'))
+```
+
+Each entry is also printed as it happens, prefixed `[kua] session lost`. Read
+it like this:
+
+| Field | What it means |
+|---|---|
+| `otherTabAgo` | seconds since **another** tab renewed the token. A small number is the multi-tab race, and the fix is to stop the second renewer. |
+| `sinceMine` | seconds since **this** tab renewed it. Around 3600 with no other tab means the token was invalidated server-side — nothing on the client could have prevented it. |
+| `slept` | the tab was hidden at some point since its last renewal: a laptop that closed. |
+| `waiting` | writes queued at that moment, i.e. what the outbox saved. |
+| `online`, `visibility` | the state of the browser when it happened. |
+
+A deliberate sign-out is not recorded; it reaches the app as the same event, so
+the button says it was on purpose first.
+
 ## What this does not cover
 
 Auth users. `auth.users` is Supabase's, not ours, and a snapshot does not hold
