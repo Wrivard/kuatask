@@ -37,6 +37,7 @@ const NEEDED = [
   "assignee.ts",
   "recurrence.ts",
   "request-auth.ts",
+  "errors.ts",
 ];
 
 // inside the project, so node resolves date-fns from the local node_modules
@@ -85,6 +86,7 @@ const sound = await load("sound.ts");
 // loaded here with the rest: the temp directory is removed partway down
 const requestAuth = await load("request-auth.ts");
 const cookieSession = await load("cookie-session.ts");
+const errors = await load("errors.ts");
 
 let failures = 0;
 const check = (name, ok, detail = "") => {
@@ -1880,6 +1882,70 @@ section("Jeton — le serveur ne peut plus dépenser celui du navigateur");
     check("the browser client is left as the singleton it is by default",
           !src.includes("isSingleton"));
   }
+}
+
+/*
+  Nothing invisible in the source.
+
+  Two regexes in this repo were written through a shell heredoc that read `\b`
+  as an escape and wrote a real backspace byte (0x08) in its place. Both
+  survived review, a typecheck and ESLint, because `/\x08jwt\x08|…/` is a
+  perfectly valid regex — it just cannot match anything, and the editor and
+  `git diff` both render the byte as though the backslash were there.
+
+  One was in `verify-headers.mjs`, where it made two CSP assertions dead: one
+  permanently red for a policy that was correct all along, the other
+  permanently green for a rule it was no longer testing. The other was in
+  `lib/errors.ts`, in the predicate that decides whether a write that came back
+  with an expired token gets sent again or gets rolled back — the rollback this
+  whole file is about.
+
+  An invisible character is not a bug class a person can be careful about, so
+  it is checked instead. Tab, newline and carriage return are the only control
+  characters a source file has any business containing.
+*/
+section("Source — rien d'invisible dans le code");
+{
+  const ALLOWED = new Set([0x09, 0x0a, 0x0d]);
+  const EXTENSIONS = /\.(ts|tsx|mjs|js|json|md|sql|css)$/;
+  const SKIP = new Set(["node_modules", ".next", ".git", ".vercel"]);
+
+  const walk = (dir) =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      if (SKIP.has(e.name) || e.name.startsWith(".verify-tmp-")) return [];
+      const full = path.join(dir, e.name);
+      return e.isDirectory() ? walk(full) : EXTENSIONS.test(e.name) ? [full] : [];
+    });
+
+  const files = walk(".");
+  const offenders = [];
+  for (const file of files) {
+    const bytes = fs.readFileSync(file);
+    for (let i = 0; i < bytes.length; i += 1) {
+      const b = bytes[i];
+      if (b < 0x20 && !ALLOWED.has(b)) {
+        const line = bytes.subarray(0, i).toString("utf8").split("\n").length;
+        offenders.push(`${file}:${line} 0x${b.toString(16).padStart(2, "0")}`);
+        break;
+      }
+    }
+  }
+
+  check(`no control characters in ${files.length} source files`,
+        offenders.length === 0, offenders.slice(0, 5).join(", "));
+
+  /*
+    And the two that were actually broken, asserted on their behaviour rather
+    than on their bytes — the byte check above would not notice a regex that
+    was simply wrong.
+  */
+  check("an expired jwt with no PostgREST code is still a stale session",
+        errors.isStaleSession({ message: "JWT expired", code: null }));
+  check("and so is one that only says the token expired",
+        errors.isStaleSession({ message: "token is expired by 5m", code: "PGRST301" }));
+  check("a real refusal is not one",
+        !errors.isStaleSession({ message: 'violates check constraint "tasks_title_check"', code: "23514" }));
+  check("and neither is nothing", !errors.isStaleSession(null));
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);

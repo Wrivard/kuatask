@@ -143,8 +143,8 @@ try {
       refused and the component's onError fallback hid it perfectly. Nothing
       failed, nothing logged, and the feature simply did not work.
     */
-    check("img-src allows a pasted avatar", /img-src[^;]*https:/.test(csp));
-    check("...without script-src following it", !/script-src[^;]*https:(?!\/)/.test(csp));
+    check("img-src allows a pasted avatar", /img-src[^;]*\bhttps:/.test(csp));
+    check("...without script-src following it", !/script-src[^;]*\bhttps:(?!\/)/.test(csp));
 
     // the static ones from next.config.ts, which travel on the same responses
     check("nosniff", r.headers.get("x-content-type-options") === "nosniff");

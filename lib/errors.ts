@@ -63,7 +63,7 @@ export function isStaleSession(error: Refusal): boolean {
   if (!error) return false;
   const code = error.code ?? '';
   if (code.startsWith('PGRST3')) return true;
-  return /jwt|token is expired|invalid claim/i.test(error.message ?? '');
+  return /\bjwt\b|token is expired|invalid claim/i.test(error.message ?? '');
 }
 
 /**
