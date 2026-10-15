@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { insertWithRetry, withRetry } from "@/lib/write";
 import { formatAmount, formatMoney, parseAmount, taxesOn } from "@/lib/billing";
 import { MICRO_LABEL } from "@/lib/type";
 import { copy } from "@/lib/copy";
@@ -111,7 +112,7 @@ export function ProductsClient({
 
     void (async () => {
       const { error } = await writing(id, () =>
-        supabase.from("billing_products").update(p).eq("id", id),
+        withRetry(() => supabase.from("billing_products").update(p).eq("id", id)),
       );
       if (error) {
         setProducts((list) => list.map((x) => (x.id === id ? before : x)));
@@ -143,7 +144,9 @@ export function ProductsClient({
 
     void (async () => {
       const { error } = await writing(product.id, () =>
-        supabase.from("billing_products").insert({ ...product, workspace_id: workspaceId }),
+        insertWithRetry(() =>
+          supabase.from("billing_products").insert({ ...product, workspace_id: workspaceId }),
+        ),
       );
       if (error) {
         setProducts((list) => list.filter((x) => x.id !== product.id));
@@ -159,7 +162,7 @@ export function ProductsClient({
 
     void (async () => {
       const { error } = await writing(product.id, () =>
-        supabase.from("billing_products").delete().eq("id", product.id),
+        withRetry(() => supabase.from("billing_products").delete().eq("id", product.id)),
       );
       if (error) {
         setProducts((list) => [...list, product].sort((a, b) => a.name.localeCompare(b.name, "fr")));
@@ -172,13 +175,12 @@ export function ProductsClient({
           label: copy.toast.undo,
           onClick: () => {
             setProducts((list) => [...list, product].sort((a, b) => a.name.localeCompare(b.name, "fr")));
-            void supabase
-              .from("billing_products")
-              .insert({ ...product, workspace_id: workspaceId })
-              .then(({ error: undoError }) => {
-                if (undoError) toast.error(copy.billing.saveFailed);
-                else router.refresh();
-              });
+            void insertWithRetry(() =>
+              supabase.from("billing_products").insert({ ...product, workspace_id: workspaceId }),
+            ).then(({ error: undoError }) => {
+              if (undoError) toast.error(copy.billing.saveFailed);
+              else router.refresh();
+            });
           },
         },
       });

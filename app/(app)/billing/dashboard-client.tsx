@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, ChevronRight, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { insertWithRetry, withRetry } from "@/lib/write";
 import { Chip } from "@/components/ui/chip";
 import {
   Select,
@@ -129,7 +130,9 @@ export function BillingDashboard({
     setStatusOf((s) => ({ ...s, [client.id]: next }));
 
     const put = (value: string | null) =>
-      supabase.from("clients").update({ archived_at: value }).eq("id", client.id);
+      withRetry(() =>
+        supabase.from("clients").update({ archived_at: value }).eq("id", client.id),
+      );
 
     void (async () => {
       const { error } = await put(next);
@@ -343,9 +346,10 @@ export function BillingDashboard({
     setShowArchived(false);
 
     void (async () => {
-      const { error } = await supabase
-        .from("clients")
-        .insert({ ...client, workspace_id: workspaceId });
+      // the id is ours, so the insert is safe to send twice
+      const { error } = await insertWithRetry(() =>
+        supabase.from("clients").insert({ ...client, workspace_id: workspaceId }),
+      );
       if (error) {
         setCreated((c) => c.filter((x) => x.id !== client.id));
         toast.error(copy.billing.saveFailed);

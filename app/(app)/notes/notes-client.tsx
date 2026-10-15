@@ -4,6 +4,7 @@ import * as React from "react";
 import { TaskModal } from "@/components/task/task-modal-lazy";
 import { ArrowUpRight, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { insertWithRetry, withRetry } from "@/lib/write";
 import { useStore } from "@/lib/store";
 import { useTaskModal } from "@/lib/events";
 import { formatDayHeading, instantToDay, now } from "@/lib/time";
@@ -89,9 +90,13 @@ export function NotesClient({
     inputRef.current?.focus();
 
     const landed = (async () => {
-      const { error } = await supabase
-        .from("notes")
-        .insert({ id: note.id, workspace_id: workspaceId, user_id: userId, body });
+      // the id is ours, so a token that expired in flight costs nothing: ask
+      // again rather than quietly taking the note off the screen
+      const { error } = await insertWithRetry(() =>
+        supabase
+          .from("notes")
+          .insert({ id: note.id, workspace_id: workspaceId, user_id: userId, body }),
+      );
       if (error) setNotes((n) => n.filter((x) => x.id !== note.id));
     })();
     inflight.current.set(note.id, landed);
@@ -118,7 +123,9 @@ export function NotesClient({
       */
       await inflight.current.get(id);
 
-      const { error } = await supabase.from("notes").delete().eq("id", id);
+      const { error } = await withRetry(() =>
+        supabase.from("notes").delete().eq("id", id),
+      );
       if (error) setNotes(before);
     })();
   }

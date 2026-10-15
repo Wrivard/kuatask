@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Copy, Plus, Settings2, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { insertWithRetry, withRetry } from "@/lib/write";
 import { Chip } from "@/components/ui/chip";
 import {
   Select,
@@ -308,7 +309,9 @@ export function ClientSheet({
     setEntries((list) => list.map((e) => (e.id === id ? { ...e, ...patch } : e)));
 
     void enqueue(id, async () => {
-      const { error } = await supabase.from("billing_entries").update(patch).eq("id", id);
+      const { error } = await withRetry(() =>
+        supabase.from("billing_entries").update(patch).eq("id", id),
+      );
       if (!error) touchServer();
       if (error) {
         // only the fields this write touched go back; later edits survive
@@ -327,7 +330,9 @@ export function ClientSheet({
     setClient((c) => ({ ...c, ...patch }));
 
     return enqueue(client.id, async () => {
-      const { error } = await supabase.from("clients").update(patch).eq("id", client.id);
+      const { error } = await withRetry(() =>
+        supabase.from("clients").update(patch).eq("id", client.id),
+      );
       if (error) {
         setClient(before);
         toast.error(copy.billing.saveFailed);
@@ -345,9 +350,11 @@ export function ClientSheet({
     delete row.created_at;
     delete row.updated_at;
     return enqueue(entry.id, async () => {
-      const { error } = await supabase
-        .from("billing_entries")
-        .insert({ ...(row as Omit<Entry, "created_at">), workspace_id: workspaceId });
+      const { error } = await insertWithRetry(() =>
+        supabase
+          .from("billing_entries")
+          .insert({ ...(row as Omit<Entry, "created_at">), workspace_id: workspaceId }),
+      );
       if (!error) touchServer();
       if (error) {
         setEntries((list) => list.filter((e) => e.id !== entry.id));
@@ -439,13 +446,15 @@ export function ClientSheet({
     for (const row of rows) void enqueue(row.id, () => gate);
 
     void (async () => {
-      const { error } = await supabase.from("billing_entries").insert(
-        rows.map((row) => {
-          const copyRow: Partial<Entry> = { ...row };
-          delete copyRow.created_at;
-          delete copyRow.updated_at;
-          return { ...(copyRow as Omit<Entry, "created_at">), workspace_id: workspaceId };
-        }),
+      const { error } = await insertWithRetry(() =>
+        supabase.from("billing_entries").insert(
+          rows.map((row) => {
+            const copyRow: Partial<Entry> = { ...row };
+            delete copyRow.created_at;
+            delete copyRow.updated_at;
+            return { ...(copyRow as Omit<Entry, "created_at">), workspace_id: workspaceId };
+          }),
+        ),
       );
       release();
       if (!error) touchServer();
@@ -465,10 +474,9 @@ export function ClientSheet({
             const gone = new Set(ids);
             setEntries((list) => list.filter((e) => !gone.has(e.id)));
             void (async () => {
-              const { error: undoError } = await supabase
-                .from("billing_entries")
-                .delete()
-                .in("id", ids);
+              const { error: undoError } = await withRetry(() =>
+                supabase.from("billing_entries").delete().in("id", ids),
+              );
               if (undoError) toast.error(copy.billing.saveFailed);
               else touchServer();
             })();
@@ -505,7 +513,7 @@ export function ClientSheet({
     for (const id of ids) void enqueue(id, () => gate);
 
     const put = (status: BillingStatus) =>
-      supabase.from("billing_entries").update({ status }).in("id", ids);
+      withRetry(() => supabase.from("billing_entries").update({ status }).in("id", ids));
 
     void (async () => {
       await prior;
@@ -565,7 +573,9 @@ export function ClientSheet({
     setEntries((list) => list.filter((e) => e.id !== entry.id));
 
     void enqueue(entry.id, async () => {
-      const { error } = await supabase.from("billing_entries").delete().eq("id", entry.id);
+      const { error } = await withRetry(() =>
+        supabase.from("billing_entries").delete().eq("id", entry.id),
+      );
       if (!error) touchServer();
       if (error) {
         setEntries((list) => insertAt(list, entry, index));
@@ -595,7 +605,9 @@ export function ClientSheet({
     if (!deletable) return;
     void (async () => {
       await chain.current.get(client.id);
-      const { error } = await supabase.from("clients").delete().eq("id", client.id);
+      const { error } = await withRetry(() =>
+        supabase.from("clients").delete().eq("id", client.id),
+      );
       if (error) {
         toast.error(copy.billing.saveFailed);
         return;
