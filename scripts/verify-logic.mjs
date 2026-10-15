@@ -36,6 +36,7 @@ const NEEDED = [
   "billing.ts",
   "assignee.ts",
   "recurrence.ts",
+  "request-auth.ts",
 ];
 
 // inside the project, so node resolves date-fns from the local node_modules
@@ -69,6 +70,8 @@ const assignee = await load("assignee.ts");
 const recurrence = await load("recurrence.ts");
 const reset = await load("session-reset.ts");
 const sound = await load("sound.ts");
+// loaded here with the rest: the temp directory is removed partway down
+const requestAuth = await load("request-auth.ts");
 
 let failures = 0;
 const check = (name, ok, detail = "") => {
@@ -1656,6 +1659,66 @@ section("Récurrence — a task that comes back, counted from the day it was due
   check("the rules are the five the database accepts",
         RECURRENCES.join(",") === "daily,weekdays,weekly,biweekly,monthly");
   check("anything else is not a rule", !isRecurrence("yearly") && !isRecurrence(null) && isRecurrence("daily"));
+}
+
+/*
+  The identity the middleware hands to the render of the same request.
+
+  This replaced nine `auth.getUser()` calls in server components, and the
+  reason is in lib/request-auth.ts: a server component that renews a token
+  cannot store the rotated one, which left the browser holding a token the
+  server had already spent — the 400 and the magic link of 12 October.
+
+  What is checked here is the part that could be made unsafe by a mistake: the
+  header is readable by anyone who can send one, so it must be stripped on the
+  way in and must refuse a shape it should not have seen.
+*/
+section("Requête — l'identité que le middleware passe vers l'intérieur");
+{
+  const { USER_HEADER, TOKEN_HEADER, clearRequestAuth, stampRequestAuth, readRequestAuth } =
+    requestAuth;
+
+  const ID = "7c9e6679-7425-40de-944b-e07fc1f90ae7";
+  const JWT = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2lnbmF0dXJl";
+
+  const h = (entries) => new Headers(entries);
+
+  check("stamped, it reads back", (() => {
+    const headers = h();
+    stampRequestAuth(headers, ID, JWT);
+    const got = readRequestAuth(headers);
+    return got?.userId === ID && got?.accessToken === JWT;
+  })());
+
+  check("nothing stamped, nothing read", readRequestAuth(h()) === null);
+
+  /* The whole security of the thing: what the caller sent cannot survive. */
+  check("a forged header is removed on the way in", (() => {
+    const headers = h([[USER_HEADER, ID], [TOKEN_HEADER, JWT]]);
+    clearRequestAuth(headers);
+    return readRequestAuth(headers) === null;
+  })());
+
+  check("and stamping overwrites rather than appends", (() => {
+    const other = "11111111-2222-3333-4444-555555555555";
+    const headers = h([[USER_HEADER, other], [TOKEN_HEADER, JWT]]);
+    stampRequestAuth(headers, ID, JWT);
+    return headers.get(USER_HEADER) === ID;
+  })());
+
+  /* Both or neither: an id without a token cannot query as anyone. */
+  check("an id with no token is not an identity",
+        readRequestAuth(h([[USER_HEADER, ID]])) === null);
+  check("a token with no id is not an identity",
+        readRequestAuth(h([[TOKEN_HEADER, JWT]])) === null);
+
+  /* The value becomes `user_id` in queries, so its shape is not a detail. */
+  check("an id that is not a uuid is refused",
+        readRequestAuth(h([[USER_HEADER, "admin"], [TOKEN_HEADER, JWT]])) === null);
+  check("a token that is not a jwt is refused",
+        readRequestAuth(h([[USER_HEADER, ID], [TOKEN_HEADER, "nope"]])) === null);
+  check("an empty pair is refused",
+        readRequestAuth(h([[USER_HEADER, ""], [TOKEN_HEADER, ""]])) === null);
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);

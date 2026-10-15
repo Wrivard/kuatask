@@ -1,22 +1,18 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requestSession } from "@/lib/supabase/server";
 import { Header } from "@/components/shell/header";
 import { SettingsTabs } from "@/components/shell/settings-tabs";
 import { PeopleClient } from "./people-client";
 import { copy } from "@/lib/copy";
 
 export default async function PeoplePage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { supabase, userId } = await requestSession();
+  if (!userId) redirect("/login");
 
   const { data: membership } = await supabase
     .from("workspace_members")
     .select("workspace_id, role")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1)
     .maybeSingle();
 
@@ -51,7 +47,7 @@ export default async function PeoplePage() {
       <PeopleClient
         members={rows}
         invites={invites ?? []}
-        meId={user.id}
+        meId={userId}
         isAdmin={membership.role === "admin"}
       />
     </>

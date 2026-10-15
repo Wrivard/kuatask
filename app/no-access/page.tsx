@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { isSupabaseConfigured, requestSession } from "@/lib/supabase/server";
 import { copy } from "@/lib/copy";
 import { SignOutButton } from "@/components/shell/sign-out-button";
 import { SetupRequired } from "@/components/shell/setup-required";
@@ -14,12 +14,9 @@ export const dynamic = "force-dynamic";
 export default async function NoAccessPage() {
   if (!isSupabaseConfigured()) return <SetupRequired />;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { userId } = await requestSession();
 
-  if (!user) redirect("/login");
+  if (!userId) redirect("/login");
 
   return (
     <main className="flex min-h-dvh items-center justify-center px-6">

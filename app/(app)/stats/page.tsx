@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requestSession } from "@/lib/supabase/server";
 import { Header } from "@/components/shell/header";
 import { Unreachable } from "@/components/shell/unreachable";
 import { StatsClient, type PersonStats } from "./stats-client";
@@ -23,12 +23,8 @@ export const dynamic = "force-dynamic";
  * micro-tasks is only fun while it stays information.
  */
 export default async function StatsPage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { supabase, userId } = await requestSession();
+  if (!userId) redirect("/login");
 
   const [{ data: rows, error: statsError }, { data: profiles }] = await Promise.all([
     supabase.rpc("person_stats"),
@@ -73,7 +69,7 @@ export default async function StatsPage() {
     <div className="flex min-h-0 flex-1 flex-col">
       <Header title={copy.nav.stats} />
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <StatsClient people={people} me={user.id} />
+        <StatsClient people={people} me={userId} />
       </div>
     </div>
   );

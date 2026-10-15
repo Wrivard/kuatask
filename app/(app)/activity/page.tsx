@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requestSession } from "@/lib/supabase/server";
 import { Header } from "@/components/shell/header";
 import { ActivityClient, type ActivityAction } from "./activity-client";
 import { copy } from "@/lib/copy";
@@ -20,12 +20,8 @@ const PAGE_SIZE = 200;
  * somebody asks for it.
  */
 export default async function ActivityPage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { supabase, userId } = await requestSession();
+  if (!userId) redirect("/login");
 
   // RLS scopes both of these to the caller's workspace
   const [{ data: entries }, { data: profiles }] = await Promise.all([

@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient as createServerClient } from "@/lib/supabase/server";
+import { requestSession } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import type { Database } from "@/lib/database.types";
@@ -22,23 +22,19 @@ function adminClient() {
 
 /** Resolves the caller and asserts they administer the workspace. Never trust the client. */
 async function requireAdmin() {
-  const supabase = await createServerClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const { supabase, userId } = await requestSession();
+  if (!userId) return null;
 
   const { data: membership } = await supabase
     .from("workspace_members")
     .select("workspace_id, role")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1)
     .maybeSingle();
 
   if (!membership || membership.role !== "admin") return null;
 
-  return { supabase, userId: user.id, workspaceId: membership.workspace_id };
+  return { supabase, userId, workspaceId: membership.workspace_id };
 }
 
 /** One @, something either side, a dot in the domain, no whitespace. */

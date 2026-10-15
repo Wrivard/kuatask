@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { isSupabaseConfigured, requestSession } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/shell/sidebar";
 import { StoreBoot } from "@/components/shell/store-boot";
 import { stripJoin } from "@/lib/store";
@@ -33,19 +33,15 @@ export default async function AppLayout({
   // a misconfigured deploy should explain itself rather than emit a digest
   if (!isSupabaseConfigured()) return <SetupRequired />;
 
-  const supabase = await createClient();
+  const { supabase, userId } = await requestSession();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  if (!userId) redirect("/login");
 
   // RLS means membership decides all three of these, not the query
   const { data: membership } = await supabase
     .from("workspace_members")
     .select("workspace_id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1)
     .maybeSingle();
 
@@ -177,7 +173,7 @@ export default async function AppLayout({
             // the joined task comes back on each row; the store wants the row
             subtasks: (subtasks ?? []).map(stripJoin),
             members: members ?? [],
-            me: members?.find((m) => m.id === user.id) ?? null,
+            me: members?.find((m) => m.id === userId) ?? null,
             workspaceId: membership.workspace_id,
             completionDays,
             /*

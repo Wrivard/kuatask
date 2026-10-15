@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requestSession } from "@/lib/supabase/server";
 
 /**
  * The signed-in person and their workspace, or a redirect.
@@ -8,17 +8,13 @@ import { createClient } from "@/lib/supabase/server";
  * is written once here rather than twice inline.
  */
 export async function billingContext() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { supabase, userId } = await requestSession();
+  if (!userId) redirect("/login");
 
   const { data: membership } = await supabase
     .from("workspace_members")
     .select("workspace_id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1)
     .maybeSingle();
   if (!membership) redirect("/no-access");

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requestSession } from "@/lib/supabase/server";
 import { Header } from "@/components/shell/header";
 import { Unreachable } from "@/components/shell/unreachable";
 import { NotesClient, type Note } from "./notes-client";
@@ -23,17 +23,13 @@ export const dynamic = "force-dynamic";
  * thinking you edit as you write it.
  */
 export default async function NotesPage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { supabase, userId } = await requestSession();
+  if (!userId) redirect("/login");
 
   const { data: membership } = await supabase
     .from("workspace_members")
     .select("workspace_id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1)
     .maybeSingle();
 
@@ -62,7 +58,7 @@ export default async function NotesPage() {
         <NotesClient
           initial={(notes ?? []) as Note[]}
           workspaceId={membership.workspace_id}
-          userId={user.id}
+          userId={userId}
         />
       </div>
     </div>

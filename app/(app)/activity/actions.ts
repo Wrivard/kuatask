@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { requestSession } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { copy } from "@/lib/copy";
 
@@ -19,12 +19,8 @@ export type ActionResult = { ok: true } | { ok: false; error: string };
  * log records the insert as a creation, because that is what it is.
  */
 export async function restoreTask(activityId: string): Promise<ActionResult> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: copy.error.saveFailed };
+  const { supabase, userId } = await requestSession();
+  if (!userId) return { ok: false, error: copy.error.saveFailed };
 
   // RLS scopes the read to the caller's workspace
   const { data: entry } = await supabase
@@ -79,7 +75,7 @@ export async function restoreTask(activityId: string): Promise<ActionResult> {
     assignee_id: (snapshot.assignee_id as string | null) ?? null,
     shared: (snapshot.shared as boolean) ?? false,
     position: (snapshot.position as number) ?? Date.now() / 1000,
-    created_by: user.id,
+    created_by: userId,
   });
 
   if (error) return { ok: false, error: copy.error.cannotRestore };

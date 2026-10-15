@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 import { routeFor } from "@/lib/routing";
 import { buildCsp, makeNonce } from "@/lib/csp";
+import { clearRequestAuth, stampRequestAuth } from "@/lib/request-auth";
 
 /**
  * Refreshes the session cookie and gates routes.
@@ -31,12 +32,29 @@ export async function updateSession(request: NextRequest) {
   const nonce = makeNonce();
   const csp = buildCsp(nonce, url);
 
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-nonce", nonce);
-  requestHeaders.set("Content-Security-Policy", csp);
+  /**
+   * The identity to hand inward, once it is known. See lib/request-auth.ts.
+   */
+  let identity: { userId: string; accessToken: string } | null = null;
 
+  /*
+    The request headers are rebuilt on every call rather than copied once up
+    front, and that is the fix for half the rollback bug.
+
+    `setAll` below writes the renewed cookies back onto `request`. A Headers
+    copied before that — which is what this did — handed the render the *old*
+    token, so every server component renewed it again on its own, and a Server
+    Component cannot store what it renews. Six of those in one second are in
+    the edge logs for 02:36:45 on 15 October.
+  */
   const next = () => {
-    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    const headers = new Headers(request.headers);
+    headers.set("x-nonce", nonce);
+    headers.set("Content-Security-Policy", csp);
+    // whatever the caller sent under our names is removed before ours goes on
+    clearRequestAuth(headers);
+    if (identity) stampRequestAuth(headers, identity.userId, identity.accessToken);
+    const response = NextResponse.next({ request: { headers } });
     response.headers.set("Content-Security-Policy", csp);
     return response;
   };
@@ -79,6 +97,18 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  /*
+    The renewal, if there was one, has happened by now and its cookies are on
+    `request` and on the response. Reading the session here is free — it is the
+    one in memory — and it is the token the render will use, so nothing
+    downstream has to ask the auth server for one again.
+  */
+  if (user) {
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (accessToken) identity = { userId: user.id, accessToken };
+  }
 
   const { pathname } = request.nextUrl;
 
@@ -124,7 +154,16 @@ export async function updateSession(request: NextRequest) {
     hadSessionCookie,
   });
 
-  return decision.action === "pass"
-    ? supabaseResponse
-    : redirect(decision.to, decision.search);
+  /*
+    Rebuilt one last time, because `supabaseResponse` may have been made before
+    the identity was known — `setAll` builds one as soon as a cookie is renewed.
+    The cookies it collected are carried over; the headers are the current ones.
+  */
+  const pass = () => {
+    const response = next();
+    supabaseResponse.cookies.getAll().forEach((c) => response.cookies.set(c));
+    return response;
+  };
+
+  return decision.action === "pass" ? pass() : redirect(decision.to, decision.search);
 }

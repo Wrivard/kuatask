@@ -146,17 +146,58 @@ and they are different problems:
   kept across that (`lib/outbox.ts`) — but **why it was refused is still a
   hypothesis**.
 
+### Who spent the refresh token
+
 The refresh token rotates: each renewal mints a new one and the old one is
 honoured for roughly ten seconds afterwards. A 400 therefore means the token
-presented had been spent longer ago than that, and the question is who spent
-it. Two tabs is the leading answer — each holds its own copy of the session and
-runs its own renewal timer against one shared cookie. The middleware, which
-renews on navigation when the access token has expired, is the other.
+presented had been spent longer ago than that, and the question was who spent
+it. The answer was us, and it is now fixed. The audit, because the reasoning is
+worth keeping:
 
-One occurrence in four days is not enough to choose, so the app now writes down
-the circumstances. Every successful renewal leaves a mark (`kua-last-refresh`:
-when, and which tab), and a session death reads it back into
-`kua-session-log`. In the browser console, on the tab it happened in:
+```sql
+select timestamp,
+       log_attributes['response.status_code'] as status,
+       log_attributes['request.headers.x_client_info'] as client
+from logs
+where source = 'edge_logs' and log_attributes['request.path'] = '/auth/v1/token'
+order by timestamp desc;
+```
+
+On 15 October that returned **eight renewals inside 1.1 seconds** — two from the
+browser, six from `createServerClient` on Vercel. Six, for one navigation,
+because:
+
+- every Supabase client renews when the access token is within ninety seconds
+  of expiry, and not only on `auth.getUser()`: each `from(...)` fetches the
+  token through `getSession()` first, so a page reading three tables can start
+  three renewals;
+- in a Server Component cookies are read-only, so the rotated token could not
+  be stored. `lib/supabase/server.ts` caught the throw and carried on;
+- the middleware *could* store it, but it copied the request headers before the
+  renewal, so the render was handed the old token and renewed it all over again.
+
+The browser was left holding a refresh token the server had already spent. It
+worked for ten seconds. An hour later the browser renewed with it, got the 400,
+and supabase-js concluded the session was dead.
+
+Both halves are fixed: the middleware rebuilds the request headers after the
+renewal and passes the verified identity inward (`lib/request-auth.ts`), and
+renders use `requestSession()`, whose client has no auth machinery at all and
+therefore cannot rotate anything. `npm run verify:session` proves it against a
+running build — a page that renders at all is a page that never asked.
+
+The same query is how to confirm it stays fixed: renewals from
+`createServerClient` should now be rare — one per hour of real use, from the
+middleware — and `response.headers.sb_auth_refresh_token_reuse` should stop
+appearing.
+
+### If a session dies anyway
+
+A session can still end for reasons outside the app: a revoked token, a long
+absence, a password change. The app writes down the circumstances so the next
+one is diagnosable rather than archaeological. Every successful renewal leaves
+a mark (`kua-last-refresh`: when, and which tab), and a session death reads it
+back into `kua-session-log`. In the browser console, on the tab it happened in:
 
 ```js
 JSON.parse(localStorage.getItem('kua-session-log'))
@@ -167,7 +208,7 @@ it like this:
 
 | Field | What it means |
 |---|---|
-| `otherTabAgo` | seconds since **another** tab renewed the token. A small number is the multi-tab race, and the fix is to stop the second renewer. |
+| `otherTabAgo` | seconds since **another** tab renewed the token. A small number means two renewers again, and the second one has to be found and stopped. |
 | `sinceMine` | seconds since **this** tab renewed it. Around 3600 with no other tab means the token was invalidated server-side — nothing on the client could have prevented it. |
 | `slept` | the tab was hidden at some point since its last renewal: a laptop that closed. |
 | `waiting` | writes queued at that moment, i.e. what the outbox saved. |
