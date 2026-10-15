@@ -78,6 +78,59 @@ Order matters if several tables lost rows: `workspaces` → `profiles` →
 A child inserted before its parent fails the foreign key, which is the database
 stopping you from building something inconsistent.
 
+## Did something roll back?
+
+The app has twice looked like it was reverting to an older version of itself.
+Both times it was the app, not the database — a window that dropped finished
+tasks after seven days, and a page that replaced what you had just typed with
+the server's older copy. Neither left a mark in Postgres, which is exactly why
+they were hard to argue about.
+
+A row that rolls back has a signature: its `updated_at` goes **backwards**
+between two snapshots, or it is in one snapshot and not the next. Both are now
+answerable, because the snapshots are daily.
+
+```sql
+with snapped as (
+  select s.taken_at, t.key as tbl, jsonb_array_elements(s.payload -> t.key) as row
+  from snapshots s
+  cross join (values ('tasks'), ('billing_entries'), ('subtasks'), ('clients')) as t(key)
+),
+stamped as (
+  select taken_at, tbl, row ->> 'id' as id, (row ->> 'updated_at')::timestamptz as updated_at
+  from snapped
+  where row ? 'updated_at'
+),
+stepped as (
+  select tbl, id, taken_at, updated_at,
+         lag(updated_at) over (partition by tbl, id order by taken_at) as prev
+  from stamped
+)
+select tbl, id, prev as was, updated_at as became, taken_at
+from stepped
+where prev is not null and updated_at < prev
+order by taken_at desc;
+```
+
+**Empty is the answer you want, and an empty result from a broken query looks
+exactly the same.** So prove the query is reading something before you trust
+its silence — swap the last `where` for the counts:
+
+```sql
+select
+  count(*) filter (where prev is not null)                       as pairs_compared,
+  count(*) filter (where prev is not null and updated_at > prev) as moved_forward,
+  count(*) filter (where prev is not null and updated_at < prev) as moved_back
+from stepped;
+```
+
+Run on 2026-10-15, over four days of snapshots: 746 pairs compared, 9 moved
+forward, **0 moved back**. Nine is the real editing both of you did in those
+four days; zero is the thing being asked about.
+
+For rows that disappeared rather than reverted, the « What is gone » query
+above answers it against the live tables.
+
 ## What this does not cover
 
 Auth users. `auth.users` is Supabase's, not ours, and a snapshot does not hold
