@@ -162,6 +162,61 @@ try {
     check("no cookie, no app", r.status === 307 && (r.location ?? "").includes("/login"),
           `${r.status} ${r.location ?? ""}`);
   }
+
+  /*
+    The guarantee the whole fix rests on, asserted rather than assumed. With the
+    `accessToken` option set, supabase-js replaces `client.auth` with a proxy
+    that throws — so the client every render queries through cannot renew a
+    token, cannot rotate one and cannot sign anybody out. This is why a 200 up
+    there counts as proof of anything.
+  */
+  section("Le client du rendu ne peut pas toucher à la session");
+  {
+    const render = createClient(URL_, ANON, { accessToken: async () => signedIn.session.access_token });
+    let threw = false;
+    try {
+      render.auth.getSession();
+    } catch {
+      threw = true;
+    }
+    check("reaching for auth on it throws", threw);
+
+    const { data, error } = await render.from("profiles").select("id").eq("id", me).maybeSingle();
+    check("while it still reads data as the right person", !error && data?.id === me,
+          error?.message ?? String(data?.id));
+  }
+
+  /*
+    The tier below the headers: a request the middleware did not stamp reads the
+    session out of the cookie itself and validates the token, which costs one
+    call to /auth/v1/user and cannot renew anything. Exercised here against a
+    real session rather than a fixture, because the cookie format is
+    @supabase/ssr's and the point is to agree with it.
+  */
+  section("Le palier du dessous — le cookie, sans pouvoir le dépenser");
+  {
+    const { readCookieSession, stillUsable, storageKeyFor } =
+      await import("../lib/supabase/cookie-session.ts");
+
+    const jar = Object.fromEntries(
+      cookie.split("; ").map((c) => [c.slice(0, c.indexOf("=")), c.slice(c.indexOf("=") + 1)]),
+    );
+    const key = storageKeyFor(URL_);
+    const read = await readCookieSession((name) => jar[name], key);
+
+    check("the cookie the browser would send decodes", read?.accessToken === signedIn.session.access_token);
+    check("and its token is fresh enough to render with", read ? stillUsable(read) : false);
+
+    /* persistSession/autoRefreshToken off: no storage to write a rotation to. */
+    const verifier = createClient(URL_, ANON, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+    const { data: { user } } = await verifier.auth.getUser(read.accessToken);
+    check("validating it names the right person", user?.id === me, String(user?.id));
+
+    const { data: { user: nobody } } = await verifier.auth.getUser("a.b.c");
+    check("and a token that is not one names nobody", !nobody);
+  }
 } finally {
   await cleanup();
 }

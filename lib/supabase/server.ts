@@ -3,6 +3,11 @@ import { createClient as createDataOnlyClient, type SupabaseClient } from "@supa
 import { cookies, headers } from "next/headers";
 import type { Database } from "@/lib/database.types";
 import { readRequestAuth } from "@/lib/request-auth";
+import {
+  readCookieSession,
+  stillUsable,
+  storageKeyFor,
+} from "@/lib/supabase/cookie-session";
 
 /** Server client, bound to the request cookies. Server components and route handlers. */
 export class SupabaseConfigError extends Error {
@@ -82,18 +87,43 @@ function dataClient(url: string, anonKey: string, accessToken: string) {
 }
 
 /**
+ * Verifies a token without owning a session.
+ *
+ * `auth.getUser(jwt)` with an explicit token goes straight to the auth server
+ * (`_getUser(jwt)` in auth-js) — it never loads the stored session, so it
+ * cannot renew one and cannot rotate anything. `persistSession: false` and
+ * `autoRefreshToken: false` make that structural rather than incidental: this
+ * client has no storage to write a rotated token into and no ticker to start
+ * one.
+ */
+function verifierClient(url: string, anonKey: string) {
+  return createDataOnlyClient<Database>(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+}
+
+/**
  * The signed-in person and a client to query as them, for this one request.
  *
- * The middleware has already done the work: it verified the user, renewed the
- * token if it needed renewing, stored the result in a context that can
- * actually write cookies, and handed both inward on the request headers. A
- * render asking the auth server again is a round trip for an answer it already
- * has — and, worse, a renewal it cannot keep.
+ * Three tiers, and the order is the whole design. Only the last one is capable
+ * of spending a refresh token, and it exists because locking somebody out of
+ * their own task manager is worse than the bug this file is about.
  *
- * Falls back to asking, when the headers are not there. Nothing in the app
- * should reach this: the matcher covers every path that renders. But a request
- * that somehow does must still work, so the old behaviour is the floor rather
- * than an error.
+ *   1. **The middleware's headers.** It verified the user, renewed the token if
+ *      it needed renewing, stored the result somewhere that can actually write
+ *      cookies, and handed both inward. Nothing to ask anybody. This is what
+ *      every page in the app takes.
+ *
+ *   2. **The session cookie, if its access token is still good.** For a request
+ *      the matcher missed. One call to validate the token, no session loaded,
+ *      so still nothing that can rotate. See lib/supabase/cookie-session.ts.
+ *
+ *   3. **A full auth client.** Reached only when there are no headers *and* the
+ *      cookie's token is past its margin, which means the token has to be
+ *      renewed for the request to work at all. In a Server Component the
+ *      rotated token cannot be stored — that is the rollback bug — so this logs
+ *      loudly instead of happening quietly. If it ever appears in the Vercel
+ *      logs, the fix is the matcher, not this function.
  */
 export async function requestSession(): Promise<{
   supabase: SupabaseClient<Database>;
@@ -110,7 +140,33 @@ export async function requestSession(): Promise<{
         userId: identity.userId,
       };
     }
+
+    const storageKey = storageKeyFor(url);
+    if (storageKey) {
+      const cookieStore = await cookies();
+      const session = await readCookieSession(
+        (name) => cookieStore.get(name)?.value,
+        storageKey,
+      );
+      if (session && stillUsable(session)) {
+        const {
+          data: { user },
+        } = await verifierClient(url, anonKey).auth.getUser(session.accessToken);
+        if (user) {
+          return {
+            supabase: dataClient(url, anonKey, session.accessToken),
+            userId: user.id,
+          };
+        }
+      }
+    }
   }
+
+  console.warn(
+    "[kua] requestSession: no stamped identity and no usable cookie token — " +
+      "falling back to a client that can renew, which a Server Component cannot store. " +
+      "Check the middleware matcher.",
+  );
 
   const supabase = await createClient();
   const {

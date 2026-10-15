@@ -18,7 +18,7 @@
     "backup": "node scripts/backup.mjs",
     "hooks": "git config core.hooksPath .githooks",
     "verify:headers": "node scripts/verify-headers.mjs",
-    "verify:session": "node scripts/verify-session.mjs",
+    "verify:session": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-session.mjs",
     "cold": "node scripts/cold-load.mjs",
     "verify:contrast": "node scripts/verify-contrast.mjs"
   },

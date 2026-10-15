@@ -186,6 +186,38 @@ renders use `requestSession()`, whose client has no auth machinery at all and
 therefore cannot rotate anything. `npm run verify:session` proves it against a
 running build — a page that renders at all is a page that never asked.
 
+### Exactly one thing on the server can renew
+
+A patch holds until somebody writes the next reasonable-looking line, so the
+fix is a shape and the shape is checked. **The middleware is the only place on
+the server that renews a token**, because it is the only one that can store the
+result in a cookie. Everything else is structurally incapable of it:
+
+- `requestSession()` has three tiers, and only the last can spend a token.
+  First the identity the middleware stamped on the request headers. Then, for a
+  request the matcher somehow missed, the session cookie read directly
+  (`lib/supabase/cookie-session.ts`, decoded with `@supabase/ssr`'s own
+  `combineChunks`) and validated with `auth.getUser(jwt)` — an explicit token
+  never loads the stored session, so it cannot renew one. Only when there are
+  no headers *and* the cookie's token is past its margin does a full auth
+  client appear, and that path logs `[kua] requestSession:` loudly. **If that
+  line ever shows up in the Vercel logs, the fix is the matcher.**
+- `/auth/callback` is the single legitimate holder of an auth client on the
+  server. Turning a magic link into a session is its whole job and a route
+  handler can write the cookie.
+- `deleteOwnAccount` clears the auth cookies by hand rather than calling
+  `auth.signOut()`. The user row is already gone, so there is nothing left to
+  revoke — and it keeps an auth client out of a server action.
+
+`npm run verify:logic` holds the shape in place, under « Jeton ». Nine of those
+checks read the source rather than call a function, because the property is
+that no *other* file acquires the ability: that only `/auth/callback` imports
+the auth-capable client, that the render's client still passes `accessToken`,
+that the middleware still rebuilds its headers inside `next()` and still reads
+the token after its last query, that the browser client is still the singleton
+`@supabase/ssr` makes it by default. Each one was checked by breaking the thing
+it protects and watching it go red.
+
 Measured in production at 15:51:56 on 15 October, four authenticated renders:
 three `/auth/v1/user` calls, all `createServerClient`, which is the middleware
 and nothing else; **zero** `/auth/v1/token`; and every data read — tasks,

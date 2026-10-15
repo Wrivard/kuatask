@@ -98,18 +98,6 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  /*
-    The renewal, if there was one, has happened by now and its cookies are on
-    `request` and on the response. Reading the session here is free — it is the
-    one in memory — and it is the token the render will use, so nothing
-    downstream has to ask the auth server for one again.
-  */
-  if (user) {
-    const { data } = await supabase.auth.getSession();
-    const accessToken = data.session?.access_token;
-    if (accessToken) identity = { userId: user.id, accessToken };
-  }
-
   const { pathname } = request.nextUrl;
 
   const redirect = (to: string, search?: string) => {
@@ -145,6 +133,25 @@ export async function updateSession(request: NextRequest) {
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id);
     hasWorkspace = (count ?? 0) > 0;
+  }
+
+  /*
+    Read last, after every call this client is going to make, and that ordering
+    is deliberate.
+
+    `getUser()` above renews the token when it is close to expiry, so by here it
+    has well over the ninety-second margin left and the `workspace_members`
+    query cannot start a second renewal. But "cannot, because of how the call
+    above happens to behave" is not a property worth depending on: reading the
+    token after the last query means a renewal anywhere in between is picked up
+    rather than stamped over. Stamping a token the client has since replaced
+    would hand the render one about to expire, and the render's client cannot
+    renew by design — it would be a page of 401s instead of a double spend.
+  */
+  if (user) {
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (accessToken) identity = { userId: user.id, accessToken };
   }
 
   const decision = routeFor({

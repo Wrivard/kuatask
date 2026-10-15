@@ -50,6 +50,18 @@ for (const file of NEEDED) {
     src.replace(/from ["']@\/lib\/([a-z-]+)["']/g, 'from "./$1.ts"'),
   );
 }
+/*
+  lib/supabase/ is not flat, and the loop above only walks the top level. This
+  one module is wanted here because it decodes the session cookie by hand, and
+  a decoder that is subtly wrong reads as "no session" — which silently
+  downgrades a render to the client that can rotate a refresh token. It imports
+  only @supabase/ssr, which resolves from the project's own node_modules.
+*/
+fs.writeFileSync(
+  path.join(tmp, "cookie-session.ts"),
+  fs.readFileSync(path.join("lib", "supabase", "cookie-session.ts"), "utf8"),
+);
+
 const load = (f) => import(pathToFileURL(path.join(tmp, f)).href);
 
 const time = await load("time.ts");
@@ -72,6 +84,7 @@ const reset = await load("session-reset.ts");
 const sound = await load("sound.ts");
 // loaded here with the rest: the temp directory is removed partway down
 const requestAuth = await load("request-auth.ts");
+const cookieSession = await load("cookie-session.ts");
 
 let failures = 0;
 const check = (name, ok, detail = "") => {
@@ -1719,6 +1732,154 @@ section("Requête — l'identité que le middleware passe vers l'intérieur");
         readRequestAuth(h([[USER_HEADER, ID], [TOKEN_HEADER, "nope"]])) === null);
   check("an empty pair is refused",
         readRequestAuth(h([[USER_HEADER, ""], [TOKEN_HEADER, ""]])) === null);
+}
+
+/*
+  The rollback bug was a refresh token spent twice: the server renewed it,
+  could not store the rotated one, and the browser was left holding a
+  credential that had already been used. The fix is a shape rather than a
+  patch — exactly one thing on the server can renew, and it is the middleware,
+  because it is the only one that can write the result to a cookie.
+
+  A shape has to be held in place, so half of this section reads the source
+  back. Every check here is a way the fix could be undone by a later change
+  that looks entirely reasonable on its own.
+*/
+section("Jeton — le serveur ne peut plus dépenser celui du navigateur");
+{
+  const { stringToBase64URL } = await import("@supabase/ssr");
+  const { readCookieSession, stillUsable, storageKeyFor, USABLE_MARGIN_MS } = cookieSession;
+
+  const KEY = "sb-ngececyvzuuixizilusy-auth-token";
+  check("the cookie name is derived from the project url",
+        storageKeyFor("https://ngececyvzuuixizilusy.supabase.co") === KEY);
+  check("and a url that is not one does not throw",
+        storageKeyFor("not a url") === null);
+
+  const payload = (overrides = {}) =>
+    "base64-" + stringToBase64URL(JSON.stringify({
+      access_token: "a.b.c",
+      refresh_token: "rt",
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      ...overrides,
+    }));
+
+  const from = (jar) => readCookieSession((name) => jar[name], KEY);
+
+  check("a session in one cookie is read", (await from({ [KEY]: payload() }))?.accessToken === "a.b.c");
+
+  /* @supabase/ssr splits a large session across name.0, name.1 — a reader that
+     only knows the single-cookie form sees nothing and downgrades the render. */
+  {
+    const whole = payload();
+    const half = Math.ceil(whole.length / 2);
+    const got = await from({ [KEY + ".0"]: whole.slice(0, half), [KEY + ".1"]: whole.slice(half) });
+    check("a session split across chunks is read too", got?.accessToken === "a.b.c");
+  }
+
+  check("no cookie is no session", (await from({})) === null);
+  check("a truncated payload is no session", (await from({ [KEY]: "base64-%%%" })) === null);
+  check("a payload that is not json is no session",
+        (await from({ [KEY]: "base64-" + stringToBase64URL("hello") })) === null);
+  check("a payload with no access token is no session",
+        (await from({ [KEY]: payload({ access_token: undefined }) })) === null);
+
+  /* The margin is the point: a token good for two more seconds is not good
+     enough for a render about to make three queries with it. */
+  const now = Date.now();
+  const at = (ms) => ({ accessToken: "a.b.c", expiresAt: Math.floor((now + ms) / 1000) });
+  check("a fresh token is usable", stillUsable(at(3_600_000), now));
+  check("an expired token is not", !stillUsable(at(-1_000), now));
+  check("nor is one inside the margin", !stillUsable(at(USABLE_MARGIN_MS - 5_000), now));
+  check("and a payload with no expiry is never trusted",
+        !stillUsable({ accessToken: "a.b.c", expiresAt: null }, now));
+
+  /*
+    From here the checks read the source. The guarantee they protect cannot be
+    expressed as a function call: it is that no *other* file acquires the
+    ability to renew a token.
+  */
+  const read = (p) => fs.readFileSync(p, "utf8");
+
+  const walk = (dir) =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const full = path.join(dir, e.name);
+      return e.isDirectory() ? walk(full) : /\.tsx?$/.test(full) ? [full] : [];
+    });
+
+  /*
+    `createClient` from lib/supabase/server is the auth-capable one: it holds
+    the session, so any query through it can start a renewal, and in a Server
+    Component the rotated token cannot be stored. /auth/callback is the single
+    legitimate caller — turning a magic link into a session is its entire job,
+    and a route handler can write the cookie.
+  */
+  {
+    const ALLOWED = new Set([path.join("app", "auth", "callback", "route.ts")]);
+    const offenders = walk("app").filter((f) => {
+      if (ALLOWED.has(f)) return false;
+      const src = read(f);
+      const imports = src.match(/import\s*\{([^}]*)\}\s*from\s*["']@\/lib\/supabase\/server["']/);
+      return imports ? /\bcreateClient\b/.test(imports[1]) : false;
+    });
+    check("only /auth/callback holds an auth-capable client on the server",
+          offenders.length === 0, offenders.join(", "));
+  }
+
+  /* Nothing that renders may reach for the browser client's factory either. */
+  {
+    const offenders = walk("app").filter((f) => {
+      const src = read(f);
+      return !src.includes('"use client"') && src.includes("@/lib/supabase/client");
+    });
+    check("and no server file imports the browser client",
+          offenders.length === 0, offenders.join(", "));
+  }
+
+  /*
+    The render's client is safe because of one option. With `accessToken` set,
+    supabase-js replaces `client.auth` with a proxy that throws — so it cannot
+    renew, cannot rotate and cannot sign anybody out. Drop the option and it
+    silently becomes an ordinary client again.
+  */
+  {
+    const src = read(path.join("lib", "supabase", "server.ts"));
+    check("the render's client is built with accessToken, so its auth throws",
+          /accessToken:\s*async\s*\(\)\s*=>/.test(src));
+    check("the verifier client persists nothing and refreshes nothing",
+          /persistSession:\s*false/.test(src) && /autoRefreshToken:\s*false/.test(src));
+  }
+
+  /*
+    The other half of the original bug: the middleware copied the request
+    headers once, before the renewal, so `setAll`'s renewed cookies never
+    reached the render and every server component renewed the token again. The
+    copy has to happen inside the builder, on every call.
+  */
+  {
+    const src = read(path.join("lib", "supabase", "middleware.ts"));
+    const builder = src.slice(src.indexOf("const next = ()"), src.indexOf("let supabaseResponse"));
+    check("the middleware rebuilds the request headers inside next()",
+          builder.includes("new Headers(request.headers)"));
+    check("and copies them nowhere else",
+          src.split("new Headers(request.headers)").length - 1 === 1);
+    check("setAll rebuilds the response so the renewal travels inward",
+          /setAll\(cookiesToSet\)\s*\{[\s\S]*?supabaseResponse = next\(\)/.test(src));
+    /* Stamped after the last query this client makes, never before it. */
+    check("the token is read after the membership query, not before",
+          src.indexOf("getSession()") > src.indexOf('from("workspace_members")'));
+  }
+
+  /*
+    One auth client per tab. @supabase/ssr memoises createBrowserClient in a
+    browser, which is why twelve call sites are not twelve renewers; passing
+    `isSingleton: false` would quietly make them so.
+  */
+  {
+    const src = read(path.join("lib", "supabase", "client.ts"));
+    check("the browser client is left as the singleton it is by default",
+          !src.includes("isSingleton"));
+  }
 }
 
 console.log(`\n${failures === 0 ? "all logic invariants hold" : `${failures} FAILED`}`);

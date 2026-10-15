@@ -1,7 +1,8 @@
 "use server";
 
-import { createClient as createServerClient } from "@/lib/supabase/server";
+import { requestSession } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import type { Database } from "@/lib/database.types";
 import { copy } from "@/lib/copy";
@@ -43,17 +44,13 @@ function adminClient() {
  * login and their other workspaces.
  */
 export async function deleteOwnAccount(): Promise<ActionResult> {
-  const supabase = await createServerClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: copy.error.saveFailed };
+  const { supabase, userId } = await requestSession();
+  if (!userId) return { ok: false, error: copy.error.saveFailed };
 
   const { data: membership } = await supabase
     .from("workspace_members")
     .select("workspace_id, role")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1)
     .maybeSingle();
 
@@ -76,7 +73,7 @@ export async function deleteOwnAccount(): Promise<ActionResult> {
       .from("tasks")
       .update({ assignee_id: null })
       .eq("workspace_id", membership.workspace_id)
-      .eq("assignee_id", user.id)
+      .eq("assignee_id", userId)
       .neq("status", "done");
   }
 
@@ -87,22 +84,30 @@ export async function deleteOwnAccount(): Promise<ActionResult> {
     anon key, which is the correct default and the reason this is a server
     action rather than a call from the browser.
   */
-  const { error } = await adminClient().auth.admin.deleteUser(user.id);
+  const { error } = await adminClient().auth.admin.deleteUser(userId);
   if (error) return { ok: false, error: copy.error.saveFailed };
 
   /*
-    The cookies now point at a user that does not exist, so this is only
-    housekeeping — and it is talking to an auth server about an account it just
-    deleted. A refusal here is expected and means nothing: the erasure already
-    happened, and throwing would tell the person it failed when it did not.
+    The cookies now point at a user that does not exist, so clearing them is
+    the whole of signing out here — and it is deliberately done by hand rather
+    than with `auth.signOut()`.
 
-    The middleware would bounce them to /login on the next request regardless;
-    clearing the cookies is what makes that immediate rather than confusing.
+    `signOut()` would need an auth client, and an auth client is the one thing
+    on the server that can spend the browser's refresh token (see
+    lib/request-auth.ts). It would also be asking the auth server to revoke
+    tokens belonging to a user row that no longer exists: the refresh tokens
+    went with it, so there is nothing left to revoke. The call could only fail,
+    and a failure would tell the person their erasure did not work when it did.
+
+    The chunk names are enumerated rather than guessed — @supabase/ssr splits a
+    large session across `name.0`, `name.1` — so a session that needed two
+    cookies does not leave one behind.
   */
-  try {
-    await supabase.auth.signOut();
-  } catch {
-    /* already gone */
+  const cookieStore = await cookies();
+  for (const { name } of cookieStore.getAll()) {
+    if (name.startsWith("sb-") && name.includes("auth-token")) {
+      cookieStore.delete(name);
+    }
   }
 
   revalidatePath("/", "layout");
