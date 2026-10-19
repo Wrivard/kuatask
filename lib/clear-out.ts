@@ -29,6 +29,18 @@ export function useClearedToday(day: string, holdingCount: number) {
     for (const task of tasks) {
       // a task that is both people's is on your day too
       if (!isAssignedTo(task, me.id)) continue;
+      /*
+        Parked work is not open work, and getting this wrong would have broken
+        § 8.5 rather than bent it. A task on hold keeps its due date, so one
+        parked with today's date — or any earlier one — counted here and the
+        day could never clear again: you would finish everything you meant to
+        do and the app would say nothing, every evening, because of a task you
+        had explicitly decided was not for today.
+
+        `done > 0` still guards the other direction, so parking your way to an
+        empty day earns nothing. You have to have actually finished something.
+      */
+      if (task.status === "on_hold") continue;
       if (task.status !== "done" && task.due_on !== null && task.due_on <= day) open += 1;
       if (task.status === "done" && isOnDay(task.completed_at, day)) done += 1;
     }

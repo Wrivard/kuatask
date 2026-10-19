@@ -169,7 +169,13 @@ function BoardCardImpl({
         </button>
       </div>
 
-      {(task.label || dateText || task.important || assignee || hasNotes || task.status === "doing") && (
+      {(task.label ||
+        dateText ||
+        task.important ||
+        assignee ||
+        hasNotes ||
+        task.status === "doing" ||
+        task.status === "on_hold") && (
         /*
           Indented past the checkbox so the metadata lines up under the
           title. Written as the arithmetic rather than its answer: 18px is
@@ -178,7 +184,9 @@ function BoardCardImpl({
           either of those moved.
         */
         <div className="flex items-center gap-1.5 pl-[calc(18px+0.5rem)]">
-          {task.status === "doing" && <StatusChip />}
+          {(task.status === "doing" || task.status === "on_hold") && (
+            <StatusChip status={task.status} />
+          )}
           {/*
             Clickable here too. The chip on a list row has narrowed the
             list to a tag since it was built; on a board card it was

@@ -416,8 +416,46 @@ eq(
 );
 
 const byStatus = grouping.buildColumns("status", board, others, me, accentOf);
-eq("workflow order, not enum order", byStatus.map((c) => c.key), ["todo", "doing", "done"]);
-eq("each card in its status column", byStatus.map((c) => c.tasks.map((t) => t.id)), [["a", "d"], ["b"], ["c"]]);
+eq("workflow order, then the way out of it", byStatus.map((c) => c.key),
+   ["todo", "doing", "done", "on_hold"]);
+eq("each card in its status column", byStatus.map((c) => c.tasks.map((t) => t.id)), [["a", "d"], ["b"], ["c"], []]);
+
+/*
+  « En attente » on the board, and the crash it replaced.
+
+  Until 0030 the status branch ended in `index.get(...)!`, so the first task to
+  arrive with a status the build did not know about — which is what a fourth
+  enum value looks like to a tab that was open across the deploy, or to the
+  other person's browser a minute before it reloads — was
+  `undefined.tasks.push(...)` and took the whole board down with it.
+*/
+const parked = [
+  { id: "h", assignee_id: "u1", status: "on_hold", due_on: "2020-01-01", position: 1 },
+];
+const withHold = grouping.buildColumns("status", parked, others, me, accentOf);
+eq("a parked task lands in En attente", withHold[3].tasks.map((t) => t.id), ["h"]);
+check("columnOf agrees for a parked task",
+      grouping.columnOf("status", parked[0]) === "on_hold");
+
+const unknown = [{ id: "u", assignee_id: null, status: "nonsense", due_on: null, position: 1 }];
+let survived = true;
+let landed = null;
+try {
+  const cols = grouping.buildColumns("status", unknown, others, me, accentOf);
+  landed = cols.find((c) => c.tasks.some((t) => t.id === "u"))?.key ?? null;
+} catch {
+  survived = false;
+}
+check("a status with no column does not take the board down", survived);
+eq("it lands in À faire instead", landed, "todo");
+
+/* A parked task is never late, whatever its date says. See lib/time.ts. */
+check("a parked task with a date two years gone is not overdue",
+      time.isOverdue("2020-01-01", "on_hold") === false);
+check("the same date on an open task still is",
+      time.isOverdue("2020-01-01", "todo") === true);
+check("and a finished one is still not",
+      time.isOverdue("2020-01-01", "done") === false);
 
 // § 8.1 — a card completed a moment ago stays in the column it came from
 const held = grouping.buildColumns("status", board, others, me, accentOf, new Map([["c", "todo"]]));

@@ -476,7 +476,7 @@ export type Database = {
     Enums: {
       billing_status: "pending" | "invoiced" | "paid"
       member_role: "admin" | "member"
-      task_status: "todo" | "doing" | "done"
+      task_status: "todo" | "doing" | "done" | "on_hold"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -606,7 +606,7 @@ export const Constants = {
     Enums: {
       billing_status: ["pending", "invoiced", "paid"],
       member_role: ["admin", "member"],
-      task_status: ["todo", "doing", "done"],
+      task_status: ["todo", "doing", "done", "on_hold"],
     },
   },
 } as const

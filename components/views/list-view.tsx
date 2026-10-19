@@ -72,6 +72,16 @@ export function ListView() {
   const [doneOpenRaw, setDoneOpen] = useLocalLens<"0" | "1" | "7" | "30">("kua-done-open", "0");
   const doneOpen = doneOpenRaw !== "0";
   /*
+    Shut by default, and remembered like the one above it.
+
+    Putting a task on hold is asking for it to stop being on screen, so a
+    section that opened itself would undo the gesture that filled it. The count
+    beside the heading is what keeps it from being a place things get lost —
+    « En attente 4 » says there are four without showing them.
+  */
+  const [holdOpenRaw, setHoldOpen] = useLocalLens<"0" | "1">("kua-hold-open", "0");
+  const holdOpen = holdOpenRaw === "1";
+  /*
     What is being searched comes from the URL, not from state here.
 
     The header's search box writes `?q=` and this reads it, so one place decides
@@ -166,13 +176,30 @@ export function ListView() {
     [day], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  const { sections, completedToday, completedWeek, completedRecently } = React.useMemo(() => {
+  const { sections, onHold, completedToday, completedWeek, completedRecently } = React.useMemo(() => {
     const byBucket = new Map<Bucket, Task[]>();
     const done: Task[] = [];
+    const parked: Task[] = [];
 
     for (const task of tasks) {
       // a just-completed row keeps its place for the hold — see § 8.1
       const stillInPlace = task.status !== "done" || holding.has(task.id);
+
+      /*
+        Parked work leaves the day buckets entirely, and that is the whole
+        feature. A task that cannot be done this week is not information about
+        this week; leaving it in « Cette semaine » is what made the list longer
+        than the work actually in front of you. It keeps its due date — the date
+        is why you will come back to it — it just stops being counted among the
+        things you were going to do today.
+
+        Checked before the done branch, because a task can be parked and the
+        completion hold does not apply to it: nothing was completed.
+      */
+      if (task.status === "on_hold") {
+        parked.push(task);
+        continue;
+      }
 
       if (stillInPlace) {
         const bucket = bucketOf(task.due_on, day);
@@ -211,8 +238,16 @@ export function ListView() {
     */
     done.sort((a, b) => (b.completed_at ?? "").localeCompare(a.completed_at ?? ""));
 
+    /*
+      Soonest first, undated last, which is the open list's order rather than
+      the finished list's. A parked task is still ahead of you, so the one you
+      will pick up first belongs at the top.
+    */
+    parked.sort((a, b) => (a.due_on ?? "9999").localeCompare(b.due_on ?? "9999"));
+
     return {
       sections: SECTIONS.map((s) => ({ ...s, tasks: byBucket.get(s.bucket) ?? [] })),
+      onHold: parked,
       completedToday: done.filter((t) => isOnDay(t.completed_at, day)),
       // the week, and everything the app holds — which is the month
       completedWeek: done.filter((t) => (t.completed_at ?? "") >= weekCutoff),
@@ -267,9 +302,18 @@ export function ListView() {
     Row focus is one flat sequence across all six sections — J and K cross
     section boundaries because the list reads as one list, not six.
   */
+  /*
+    The parked rows join the sequence only while the section is open. J and K
+    move a visible focus ring; stepping it onto a row inside a folded section
+    would scroll to nothing and leave the next keystroke operating on a task
+    the person cannot see.
+  */
   const order = React.useMemo(
-    () => sections.flatMap((s) => s.tasks.map((t) => t.id)),
-    [sections],
+    () => [
+      ...sections.flatMap((s) => s.tasks.map((t) => t.id)),
+      ...(holdOpen ? onHold.map((t) => t.id) : []),
+    ],
+    [sections, onHold, holdOpen],
   );
 
   const setFilter = useStore((s) => s.setAssigneeFilter);
@@ -354,8 +398,21 @@ export function ListView() {
     s: onFocused((id) => {
       const task = allTasks.find((t) => t.id === id);
       if (!task) return;
+      /*
+        The ring is the three workflow statuses and does not include « En
+        attente ». Parking a task is a decision — it is made in the modal,
+        beside the date and the notes that explain why — and a ring you walk
+        with one key is the wrong instrument for it: you would land on it by
+        accident on the way from Terminé back to À faire.
+
+        A parked task is not in the ring, so `at` is -1 and the next step is
+        the first entry: S on one of them resumes it into À faire. That is the
+        one direction worth having on a key, and it is written out rather than
+        left to `(-1 + 1) % 3` happening to be 0.
+      */
       const ring = ["todo", "doing", "done"] as const;
-      setStatus(id, ring[(ring.indexOf(task.status) + 1) % ring.length]);
+      const at = ring.indexOf(task.status as (typeof ring)[number]);
+      setStatus(id, at === -1 ? ring[0] : ring[(at + 1) % ring.length]);
     }),
     d: onFocused((id) => {
       const task = allTasks.find((t) => t.id === id);
@@ -431,6 +488,27 @@ export function ListView() {
             }
           />
         ))
+      )}
+
+      {/*
+        Between the day sections and « Terminé », which is the order the three
+        kinds of row are in: what you are doing, what you have set aside, what
+        you have finished. Hidden while searching, like the done section — a
+        search is a flat list of everything that matches, parked work included.
+      */}
+      {!results && (
+        <ListSection
+          id="section-on-hold"
+          title={copy.board.onHold}
+          tasks={onHold}
+          onOpen={modal.open}
+          focusedId={focusedId}
+          onFocus={setFocusedId}
+          onSelectLabel={searchLabel}
+          onSelectAssignee={setFilter}
+          open={holdOpen}
+          onToggle={() => setHoldOpen(holdOpen ? "0" : "1")}
+        />
       )}
 
       {cleared && !results ? (

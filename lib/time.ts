@@ -200,8 +200,18 @@ export function daysFromToday(day: DayString): number {
   return differenceInCalendarDays(toDate(day), toDate(today()));
 }
 
+/**
+ * Is this task late?
+ *
+ * Two statuses are never late, for the same reason by two different routes.
+ * `done` is finished, so the date stopped mattering. `on_hold` was *deliberately*
+ * set aside, and calling that late turns a decision into a reproach — « en
+ * retard » is the app telling you that you failed at something you chose. That
+ * is the whole reason the status exists: a task that cannot be done yet used to
+ * have to either lose its date or wear a red count for missing it.
+ */
 export function isOverdue(day: DayString | null, status: string): boolean {
-  if (!day || status === 'done') return false;
+  if (!day || status === 'done' || status === 'on_hold') return false;
   return daysFromToday(day) < 0;
 }
 

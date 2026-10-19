@@ -68,7 +68,7 @@ export async function restoreTask(activityId: string): Promise<ActionResult> {
     title: snapshot.title as string,
     notes: (snapshot.notes as string | null) ?? null,
     label: (snapshot.label as string | null) ?? null,
-    status: (snapshot.status as "todo" | "doing" | "done") ?? "todo",
+    status: (snapshot.status as "todo" | "doing" | "done" | "on_hold") ?? "todo",
     important: (snapshot.important as boolean) ?? false,
     due_on: (snapshot.due_on as string | null) ?? null,
     due_time: (snapshot.due_time as string | null) ?? null,

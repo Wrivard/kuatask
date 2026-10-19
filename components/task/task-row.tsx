@@ -277,7 +277,9 @@ function TaskRowImpl({
           />
         )}
 
-        {task.status === "doing" && <StatusChip />}
+        {(task.status === "doing" || task.status === "on_hold") && (
+          <StatusChip status={task.status} />
+        )}
 
         {task.label && <LabelChip label={task.label} onSelect={onSelectLabel} />}
 

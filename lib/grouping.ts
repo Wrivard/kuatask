@@ -80,10 +80,20 @@ const DUE_ORDER: Bucket[] = ["today", "tomorrow", "week", "month", "later", "und
   Accent means finished everywhere in this app, so it should be *the* accent and
   follow the theme with it.
 */
-const STATUS_ACCENTS: Record<string, string> = {
+const STATUS_ACCENTS: Record<string, string | undefined> = {
   todo: "#4a9eff",
   doing: "#e0a244",
   done: "var(--color-accent)",
+  /*
+    No colour, and that is the point.
+
+    « Sans date » is the other column in this file that gets none — "no date is
+    not a date, so it gets no colour either" — and parked work is the same kind
+    of absence. Every other strip here says something is moving; a strip on this
+    one would make a column of things nobody is working on look as live as « En
+    cours ».
+  */
+  on_hold: undefined,
 };
 
 const DUE_ACCENTS: Record<Bucket, string | undefined> = {
@@ -154,15 +164,36 @@ export function buildColumns(
   }
 
   if (groupBy === "status") {
-    // workflow order, which is not the enum's declaration order
+    /*
+      Workflow order, which is not the enum's declaration order — and « En
+      attente » goes last, after Terminé, rather than into the middle of it.
+
+      À faire → En cours → Terminé is read left to right every day, and
+      inserting a fourth column inside that sequence changes a layout people
+      have learned in order to describe something that is not part of the flow.
+      Parked work sits beside the flow, so it sits beside the board. Dragging a
+      card there is now the one-gesture way to park it.
+    */
     const columns: Column[] = [
       { key: "todo", title: copy.board.todo, accent: STATUS_ACCENTS.todo, tasks: [] },
       { key: "doing", title: copy.board.doing, accent: STATUS_ACCENTS.doing, tasks: [] },
       { key: "done", title: copy.board.done, accent: STATUS_ACCENTS.done, tasks: [] },
+      { key: "on_hold", title: copy.board.onHold, accent: STATUS_ACCENTS.on_hold, tasks: [] },
     ];
     const index = new Map(columns.map((c) => [c.key, c]));
     for (const task of tasks) {
-      index.get(holding.get(task.id) ?? task.status)!.tasks.push(task);
+      /*
+        A status with no column lands in À faire rather than throwing.
+
+        This is not defensive decoration. Until 0030 the lookup ended in `!`,
+        so the first task to come back `on_hold` — from the other person's
+        browser, or from a tab open across the deploy — would have been
+        `undefined.tasks.push(...)` and taken the entire board down. A status
+        this app does not know about is still a task that has to be done, and
+        À faire is the honest place to show one.
+      */
+      const column = index.get(holding.get(task.id) ?? task.status) ?? columns[0];
+      column.tasks.push(task);
     }
     return columns.map(sortByPosition);
   }

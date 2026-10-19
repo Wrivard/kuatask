@@ -1,0 +1,41 @@
+-- A fourth status for work that is real but parked: À faire · En cours · En
+-- attente · Terminé.
+--
+-- The need is the one case the three existing statuses could not say. A task
+-- that has to be done but cannot be done yet had only two homes: « Sans date »,
+-- where it sat among everything nobody had scheduled, or a due date it was
+-- going to miss — and a missed date reads as « en retard », which is a reproach
+-- for something that was deliberately set aside. Both made the daily list
+-- longer and less true.
+--
+-- Additive, like 0002. Every existing row stays what it is.
+--
+-- Two things inherited from 0002 and still worth repeating:
+--
+--   The enum's declaration order is now todo, done, doing, on_hold, because
+--   both of the last two were appended. Sort order has never matched workflow
+--   order and nothing may rely on it: the board orders its columns explicitly
+--   and the modal lists its chips explicitly.
+--
+--   An enum value cannot be dropped in Postgres without rewriting the type, so
+--   this is a one-way door. It is the right shape anyway — "on hold" is a state
+--   a task is *in*, not a flag it carries alongside another state, and the one
+--   place it is set is the status control in the task modal.
+alter type task_status add value if not exists 'on_hold';
+
+-- No trigger change this time, and that is worth recording rather than
+-- inferring. 0002 had to touch `touch_updated_at` because the version from 0001
+-- fired on the exact pairs todo->done and done->todo, so a third value broke
+-- it. 0005 rewrote it to key off `'done'` itself:
+--
+--   if new.status = 'done' and old.status <> 'done' then ...
+--   elsif new.status <> 'done' and old.status = 'done' then ...
+--
+-- A fourth value therefore behaves correctly already: parking a finished task
+-- clears its completion stamp, finishing a parked one sets it. The activity
+-- trigger (0015) only logs transitions to and from 'done', so putting a task on
+-- hold is not an event in the feed — it is a decision about scheduling, and the
+-- feed is for work that happened.
+--
+-- `person_stats` (0018) and `completion_days` (0021) both count `status = 'done'`
+-- and are likewise unaffected.

@@ -270,6 +270,16 @@ export const copy = {
     doing: "En cours",
     done: "Terminé",
     /*
+      « En attente » rather than « En pause » or « Reporté ».
+
+      En pause says somebody stopped mid-task, which is what « En cours » plus
+      nothing already says. Reporté says a date moved, and the point of this
+      status is that there is no date to move it to. En attente is the one that
+      means "this is waiting on something", which is why a task gets parked
+      nine times out of ten — a client, an answer, a delivery.
+    */
+    onHold: "En attente",
+    /*
       « Personne » twice on one screen meant two different things: the chip
       that says the board is grouped by person, and the column holding what
       nobody owns. This one is the column, and it borrows the list's phrasing

@@ -49,11 +49,19 @@ import {
  */
 const TEXT_DEBOUNCE = 400;
 
-/** Workflow order, which is not the enum's declaration order. */
+/**
+ * Workflow order, which is not the enum's declaration order.
+ *
+ * « En attente » last, the same order the board's columns use: the first three
+ * are a sequence and the fourth is a way out of it. This control is where a
+ * task gets parked — there is no gesture for it in the list, on purpose, since
+ * parking something is a decision rather than a flick.
+ */
 const STATUSES: { value: Task["status"]; label: string }[] = [
   { value: "todo", label: copy.board.todo },
   { value: "doing", label: copy.board.doing },
   { value: "done", label: copy.board.done },
+  { value: "on_hold", label: copy.board.onHold },
 ];
 
 export function TaskModal({

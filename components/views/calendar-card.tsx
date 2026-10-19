@@ -49,6 +49,14 @@ export function CalendarCard({
 }) {
   const done = task.status === "done";
   const doing = task.status === "doing";
+  /*
+    A parked task keeps its date, so it keeps its place in the month — hiding it
+    would make the calendar lie about a date that is still written on the task.
+    It is dimmed instead, and less than a finished one is: 70% against 45%,
+    with no rule through the title. Nothing has been finished and nothing has been cancelled;
+    it is simply not what you are working on.
+  */
+  const onHold = task.status === "on_hold";
   const time = formatTime(task.due_time);
   /*
     Two colours, two jobs, two elements.
@@ -92,6 +100,7 @@ export function CalendarCard({
         "hover:border-control hover:brightness-125",
         compact ? "px-1 py-px" : "px-1.5 py-1",
         done && "opacity-45",
+        onHold && !done && "opacity-70",
       )}
       /*
         The left rule carries the colour, and a wash of the same colour carries
